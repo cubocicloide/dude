@@ -1,0 +1,7 @@
+{
+  "name": "react-fastapi",
+  "version": "0.1.0",
+  "minDudeVersion": "0.1.0",
+  "entry": "dist/index.js",
+  "tags": ["frontend:react", "backend:fastapi", "lang:typescript", "lang:python"]
+}

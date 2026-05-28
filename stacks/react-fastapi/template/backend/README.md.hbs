@@ -1,0 +1,17 @@
+# Backend
+
+FastAPI service for `{{projectName}}`.
+
+## Requirements
+
+- Python {{pythonVersion}}+
+- [uv](https://docs.astral.sh/uv/) (recommended)
+
+## Run
+
+```bash
+uv sync
+uv run uvicorn app.main:app --reload --port 8000
+```
+
+Then open <http://localhost:8000/api/health>.

@@ -1,0 +1,23 @@
+# {{projectName}}
+
+Scaffolded with [`dude`](https://github.com/cubocicloide/dude) using the
+`react-fastapi` stack.
+
+## Layout
+
+- `frontend/` — React + Vite + TypeScript app
+- `backend/` — FastAPI service (Python {{pythonVersion}})
+
+## Quick start
+
+```bash
+# Frontend
+cd frontend
+pnpm install
+pnpm dev
+
+# Backend (in another shell)
+cd backend
+uv sync
+uv run uvicorn app.main:app --reload
+```

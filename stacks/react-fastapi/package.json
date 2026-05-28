@@ -1,0 +1,34 @@
+{
+  "name": "@cubocicloide/stack-react-fastapi",
+  "version": "0.1.0",
+  "description": "React (Vite) + FastAPI stack plugin for the dude CLI.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "template", "dude.stack.json", "README.md"],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"(no tests yet)\"",
+    "lint": "echo \"(lint placeholder)\"",
+    "clean": "rm -rf dist .turbo"
+  },
+  "peerDependencies": {
+    "@cubocicloide/dude": "workspace:^"
+  },
+  "devDependencies": {
+    "@cubocicloide/dude": "workspace:*",
+    "@types/node": "^22.7.5",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
