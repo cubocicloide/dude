@@ -47,8 +47,16 @@ export const lintCommand = defineCommand({
 
     const visible = args.quiet ? diagnostics.filter((d) => d.severity === 'error') : diagnostics
 
+    const isTTY = process.stdout.isTTY
+    const colorize = (s: string, severity: string) =>
+      isTTY
+        ? severity === 'error'
+          ? `\x1b[31m${s}\x1b[0m`
+          : `\x1b[33m${s}\x1b[0m`
+        : s
+
     for (const d of visible) {
-      process.stdout.write(formatDiagnostic(d) + '\n')
+      process.stdout.write(colorize(formatDiagnostic(d), d.severity) + '\n')
     }
 
     if (errorCount === 0 && warningCount === 0) {

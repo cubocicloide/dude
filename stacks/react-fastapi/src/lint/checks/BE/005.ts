@@ -78,7 +78,7 @@ export default function check(root: string): RawDiagnostic[] {
         file: mainRel,
         line: 1,
         col: 1,
-        severity: 'error',
+        severity: 'warning',
         message: `routers/${stem}.py exists but is not imported in main.py`,
       })
     if (!included.has(stem))
@@ -86,7 +86,7 @@ export default function check(root: string): RawDiagnostic[] {
         file: mainRel,
         line: 1,
         col: 1,
-        severity: 'error',
+        severity: 'warning',
         message: `routers/${stem}.router is not registered via include_router() in main.py`,
       })
   }
