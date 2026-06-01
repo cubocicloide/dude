@@ -5,19 +5,35 @@ Scaffolded with [`dude`](https://github.com/cubocicloide/dude) using the
 
 ## Layout
 
-- `frontend/` — React + Vite + TypeScript app
-- `backend/` — FastAPI service (Python {{pythonVersion}})
+```
+{{projectName}}/
+├── frontend/        # React + Vite + TypeScript
+├── backend/         # FastAPI (Python {{pythonVersion}})
+└── docker-compose.yml
+```
 
-## Quick start
+## Quick start — Docker (recommended)
 
 ```bash
-# Frontend
+docker compose up --build
+```
+
+| Service    | URL                                   |
+|------------|---------------------------------------|
+| Frontend   | http://localhost                      |
+| API        | http://localhost:8000                 |
+| Health     | http://localhost:8000/api/health      |
+
+## Quick start — local (no Docker)
+
+```bash
+# Frontend (terminal 1)
 cd frontend
 pnpm install
-pnpm dev
+pnpm dev          # http://localhost:5173
 
-# Backend (in another shell)
+# Backend (terminal 2)
 cd backend
 uv sync
-uv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload   # http://localhost:8000
 ```
