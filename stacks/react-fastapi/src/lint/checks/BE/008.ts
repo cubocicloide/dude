@@ -48,7 +48,9 @@ export default function check(root: string): RawDiagnostic[] {
       if (!testStems.has(stem)) {
         diagnostics.push({
           file: path.join('backend', 'app', group, `${stem}.py`),
-          line: 1, col: 1, severity: 'warning',
+          line: 1,
+          col: 1,
+          severity: 'warning',
           message: `tests/${group}/test_${stem}.py is missing — no tests for \`${group}/${stem}.py\``,
         })
       }
@@ -59,7 +61,9 @@ export default function check(root: string): RawDiagnostic[] {
       if (!srcStems.has(stem)) {
         diagnostics.push({
           file: path.join('backend', 'app', 'tests', group, `test_${stem}.py`),
-          line: 1, col: 1, severity: 'error',
+          line: 1,
+          col: 1,
+          severity: 'error',
           message: `\`test_${stem}.py\` has no corresponding \`${group}/${stem}.py\` — remove this test or create the source file`,
         })
       }

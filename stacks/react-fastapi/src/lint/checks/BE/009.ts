@@ -29,7 +29,10 @@ function extractSettingsFields(content: string): string[] {
     const stripped = raw.trimStart()
     const indent = raw.length - stripped.length
     // Stop descending into nested classes (e.g. class Config:)
-    if (/^class\s+/.test(stripped)) { classIndent = indent; continue }
+    if (/^class\s+/.test(stripped)) {
+      classIndent = indent
+      continue
+    }
     // Skip lines that belong to a nested class body
     if (classIndent > 0 && indent > classIndent) continue
     classIndent = 0
@@ -78,7 +81,9 @@ export default function check(root: string): RawDiagnostic[] {
   if (!existsSync(configPath)) {
     diagnostics.push({
       file: path.join(appRel, 'core'),
-      line: 1, col: 1, severity: 'warning',
+      line: 1,
+      col: 1,
+      severity: 'warning',
       message:
         'backend/app/core/config.py is missing — create a Pydantic BaseSettings class to centralise env vars',
     })
@@ -97,7 +102,9 @@ export default function check(root: string): RawDiagnostic[] {
         if (OS_ENV_RE.test(line) && !line.trimStart().startsWith('#')) {
           diagnostics.push({
             file: path.join(appRel, relPath),
-            line: idx + 1, col: 1, severity: 'error',
+            line: idx + 1,
+            col: 1,
+            severity: 'error',
             message: `\`os.environ\`/\`os.getenv\` must not be used here — read env vars from \`app.core.config\``,
           })
         }
@@ -120,7 +127,9 @@ export default function check(root: string): RawDiagnostic[] {
           : `\`${actual}\` should come after \`${fields[firstMismatch - 1]}\``
       diagnostics.push({
         file: path.join(appRel, 'core', 'config.py'),
-        line: 1, col: 1, severity: 'warning',
+        line: 1,
+        col: 1,
+        severity: 'warning',
         message: `Settings fields are not in alphabetical order — ${hint}`,
       })
     }

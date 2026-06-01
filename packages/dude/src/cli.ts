@@ -1,4 +1,5 @@
 import { defineCommand, runMain } from 'citty'
+import { apiCommand } from './commands/api/index.js'
 import { initCommand } from './commands/init.js'
 import { lintCommand } from './commands/lint.js'
 import { getCliVersion } from './utils/paths.js'
@@ -12,6 +13,7 @@ const main = defineCommand({
   subCommands: {
     init: initCommand,
     lint: lintCommand,
+    api: apiCommand,
   },
 })
 

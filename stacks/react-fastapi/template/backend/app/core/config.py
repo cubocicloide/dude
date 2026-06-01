@@ -1,4 +1,5 @@
 """Centralised settings — all environment variables are read here."""
+
 from pydantic_settings import BaseSettings
 
 
