@@ -163,6 +163,10 @@ export default defineConfig({
     dudeVersion: getCliVersion(),
   }
   await fs.writeFile(path.join(input.dest, 'dude.answers.yaml'), stringifyYaml(answersDoc), 'utf8')
+
+  // dude.json — machine-readable manifest consumed by `dude lint` and future commands
+  const dudeJson = JSON.stringify({ stack: input.stackPackageName }, null, 2) + '\n'
+  await fs.writeFile(path.join(input.dest, 'dude.json'), dudeJson, 'utf8')
 }
 
 function getStackPackageName(stackRoot: string): string {

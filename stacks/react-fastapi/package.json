@@ -27,6 +27,9 @@
   "peerDependencies": {
     "@cubocicloide/dude": "workspace:^"
   },
+  "dependencies": {
+    "pathe": "^1.1.2"
+  },
   "devDependencies": {
     "@cubocicloide/dude": "workspace:*",
     "@types/node": "^22.7.5",

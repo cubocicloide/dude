@@ -35,7 +35,9 @@ export default defineStack({
       ctx.logger.info('  Run locally (without Docker):')
       ctx.logger.info(`    cd ${name}`)
       ctx.logger.info('    pnpm --filter ./frontend install && pnpm --filter ./frontend dev')
-      ctx.logger.info('    uv sync --project backend && uv run --project backend uvicorn app.main:app --reload')
+      ctx.logger.info(
+        '    uv sync --project backend && uv run --project backend uvicorn app.main:app --reload',
+      )
     },
   },
 })

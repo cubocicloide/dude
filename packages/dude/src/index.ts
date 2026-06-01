@@ -16,3 +16,6 @@ export type {
 
 export { defineConfig } from './core/config.js'
 export type { DudeConfig } from './core/config.js'
+
+// Lint types — imported by stack check files
+export type { RawDiagnostic, CheckFn, Severity } from './core/lint/types.js'

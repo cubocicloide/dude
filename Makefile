@@ -5,7 +5,11 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 # Pass extra args to the local CLI: `make cli ARGS="init --stack react-fastapi"`
-ARGS ?=
+ARGS  ?=
+
+# Local scaffold test — override with: make dev-init STACK=react-fastapi OUT=test-local
+STACK ?= react-fastapi
+OUT   ?= test-local
 
 # ---------------------------------------------------------------------------
 # Help
@@ -46,6 +50,11 @@ dev: ## Run dev scripts in every package in parallel
 .PHONY: cli
 cli: ## Run the local CLI — usage: make cli ARGS="init --stack react-fastapi"
 	pnpm --filter @cubocicloide/dude exec dude $(ARGS)
+
+.PHONY: dev-init
+dev-init: ## Scaffold locally without publish — make dev-init [STACK=react-fastapi] [OUT=test-local]
+	pnpm --filter @cubocicloide/stack-$(STACK) build
+	node packages/dude/bin/dude.mjs init --stack ./stacks/$(STACK) private/examples/$(OUT)
 
 ##@ Quality
 

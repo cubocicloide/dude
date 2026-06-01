@@ -65,6 +65,10 @@ importers:
         version: 2.1.9(@types/node@22.19.19)
 
   stacks/react-fastapi:
+    dependencies:
+      pathe:
+        specifier: ^1.1.2
+        version: 1.1.2
     devDependencies:
       '@cubocicloide/dude':
         specifier: workspace:*
