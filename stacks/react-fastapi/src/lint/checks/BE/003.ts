@@ -33,14 +33,20 @@ export default function check(root: string): RawDiagnostic[] {
 
       if (!isSchema) {
         diagnostics.push({
-          file: relPath, line: 1, col: 1, severity: 'error',
+          file: relPath,
+          line: 1,
+          col: 1,
+          severity: 'error',
           message: `class \`${className}\` in ${entry.name} must extend BaseModel (or SQLModel) — only Pydantic schemas are allowed in schemas/`,
         })
       }
 
       if (!className.startsWith(expectedPrefix)) {
         diagnostics.push({
-          file: relPath, line: 1, col: 1, severity: 'error',
+          file: relPath,
+          line: 1,
+          col: 1,
+          severity: 'error',
           message: `schema class \`${className}\` in ${entry.name} must start with \`${expectedPrefix}\``,
         })
       }

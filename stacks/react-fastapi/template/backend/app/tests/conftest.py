@@ -1,4 +1,5 @@
 """Pytest configuration and shared fixtures."""
+
 import pytest
 from httpx import AsyncClient
 

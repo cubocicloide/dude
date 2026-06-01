@@ -32,7 +32,7 @@ interface RouteInfo {
 export function stemToExpectedPath(stem: string): string {
   const parts = stem.split('__')
   const base = '/' + (parts[0] ?? '').replace(/_/g, '/')
-  const params = parts.slice(1).map(p => `/{${p}}`)
+  const params = parts.slice(1).map((p) => `/{${p}}`)
   return base + params.join('')
 }
 
@@ -134,7 +134,10 @@ export default function check(root: string): RawDiagnostic[] {
       // Non-route function
       if (route.method === null) {
         diagnostics.push({
-          file: relPath, line: route.line, col: 1, severity: 'error',
+          file: relPath,
+          line: route.line,
+          col: 1,
+          severity: 'error',
           message: `\`${route.fnName}\` is not a route handler — only @router.METHOD-decorated functions are allowed in router files`,
         })
         continue
@@ -144,7 +147,10 @@ export default function check(root: string): RawDiagnostic[] {
       const expected = allowedHandlerName(route.method, stem)
       if (route.fnName !== expected) {
         diagnostics.push({
-          file: relPath, line: route.line, col: 1, severity: 'error',
+          file: relPath,
+          line: route.line,
+          col: 1,
+          severity: 'error',
           message: `route handler \`${route.fnName}\` should be named \`${expected}\``,
         })
       }
@@ -152,7 +158,10 @@ export default function check(root: string): RawDiagnostic[] {
       // Wrong path
       if (route.declaredPath !== null && route.declaredPath !== expectedPath) {
         diagnostics.push({
-          file: relPath, line: route.line, col: 1, severity: 'error',
+          file: relPath,
+          line: route.line,
+          col: 1,
+          severity: 'error',
           message: `route path \`${route.declaredPath}\` does not match expected \`${expectedPath}\` (derived from \`${entry.name}\`)`,
         })
       }

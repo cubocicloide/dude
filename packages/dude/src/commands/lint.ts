@@ -49,11 +49,7 @@ export const lintCommand = defineCommand({
 
     const isTTY = process.stdout.isTTY
     const colorize = (s: string, severity: string) =>
-      isTTY
-        ? severity === 'error'
-          ? `\x1b[31m${s}\x1b[0m`
-          : `\x1b[33m${s}\x1b[0m`
-        : s
+      isTTY ? (severity === 'error' ? `\x1b[31m${s}\x1b[0m` : `\x1b[33m${s}\x1b[0m`) : s
 
     for (const d of visible) {
       process.stdout.write(colorize(formatDiagnostic(d), d.severity) + '\n')
