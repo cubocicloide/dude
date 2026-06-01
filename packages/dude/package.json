@@ -29,7 +29,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "echo \"(lint placeholder — to be configured)\"",
     "clean": "rm -rf dist .turbo"
   },
