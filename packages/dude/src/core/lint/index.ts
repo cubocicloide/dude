@@ -16,7 +16,7 @@ export interface LintResult {
  * diagnostics with the code injected from the path.
  */
 export async function runLint(root: string, stackRoot: string): Promise<LintResult> {
-  const checksDir = path.join(stackRoot, 'dist', 'lint', 'checks')
+  const checksDir = path.join(stackRoot, 'dist', 'commands', 'lint', 'checks')
 
   if (!existsSync(checksDir)) {
     throw new Error(

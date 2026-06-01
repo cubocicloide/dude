@@ -1,8 +1,8 @@
 import { defineCommand } from 'citty'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
-import { loadStack } from '../core/stack-loader.js'
-import { runLint, formatDiagnostic } from '../core/lint/index.js'
+import { loadStack } from '../../core/stack-loader.js'
+import { runLint, formatDiagnostic } from '../../core/lint/index.js'
 
 export const lintCommand = defineCommand({
   meta: {

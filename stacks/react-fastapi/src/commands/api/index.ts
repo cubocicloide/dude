@@ -1,13 +1,12 @@
-import { defineCommand } from 'citty'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import path from 'pathe'
 import yaml from 'yaml'
 import openapiTS, { astToString } from 'openapi-typescript'
 import type { OpenAPI3 } from 'openapi-typescript'
-import { loadStack } from '../../core/stack-loader.js'
+import type { StackCommandDef } from '@cubocicloide/dude'
 
 // ---------------------------------------------------------------------------
-// Constants
+// Shared constants & helpers
 // ---------------------------------------------------------------------------
 
 const NO_OVERRIDE = '// openapi-no-override'
@@ -18,14 +17,9 @@ const banner = `\
 // To keep your edits, add \`// openapi-no-override\` as the very first line.
 `
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function shouldWrite(filePath: string): boolean {
   if (!existsSync(filePath)) return true
-  const first = readFileSync(filePath, 'utf8').split('\n')[0] ?? ''
-  return !first.startsWith(NO_OVERRIDE)
+  return !(readFileSync(filePath, 'utf8').split('\n')[0] ?? '').startsWith(NO_OVERRIDE)
 }
 
 function safeWrite(filePath: string, content: string): boolean {
@@ -35,22 +29,37 @@ function safeWrite(filePath: string, content: string): boolean {
   return true
 }
 
-/** `/api/todos/{id}/` → `['api', 'todos', '[id]']` */
 function routeToSegments(route: string): string[] {
-  return route.split('/').filter(Boolean).map((s) => s.replace(/{(.+?)}/g, '[$1]'))
+  return route
+    .split('/')
+    .filter(Boolean)
+    .map((s) => s.replace(/{(.+?)}/g, '[$1]'))
 }
 
 function cap(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-/** Relative import from a route folder at `depth` levels to the shared utils. */
 function toUtils(depth: number) {
   return '../'.repeat(depth) + 'utils/openapi.types'
 }
 
+function walkAll(dir: string): string[] {
+  const results: string[] = []
+  if (!existsSync(dir)) return results
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      results.push(full, ...walkAll(full))
+    } else {
+      results.push(full)
+    }
+  }
+  return results
+}
+
 // ---------------------------------------------------------------------------
-// Code generators
+// Code generators (sync)
 // ---------------------------------------------------------------------------
 
 type Methods = Record<string, any>
@@ -63,13 +72,11 @@ function generateTypesFile(route: string, methods: Methods, depth: number): stri
     const M = cap(method)
     body += `// ${method.toUpperCase()}\n`
 
-    // Query parameters
     if (details.parameters?.some((p: any) => p.in === 'query')) {
       imports.add('paths')
       body += `export type ${M}Parameters = paths['${route}']['${method}']['parameters']['query']\n`
     }
 
-    // Request body
     if (details.requestBody?.content) {
       const content = details.requestBody.content
       const schema =
@@ -85,7 +92,6 @@ function generateTypesFile(route: string, methods: Methods, depth: number): stri
       }
     }
 
-    // Response
     const firstCode = details.responses ? Object.keys(details.responses)[0] : undefined
     const responseContent = firstCode ? details.responses[firstCode]?.content : undefined
     if (responseContent) {
@@ -139,13 +145,11 @@ function generateIndexFile(route: string, methods: Methods): string {
     }
     importedTypes.add(`${M}Response`)
 
-    // URL expression — template literal when path params are present
     const urlExpr =
       pathParams.length > 0
         ? `\`${route.replace(/{(.+?)}/g, (_, p) => `\${${p}}`)}\``
         : `'${route}'`
 
-    // Fetch options
     const fetchOpts: string[] = []
     if (method !== 'get') fetchOpts.push(`method: '${method.toUpperCase()}'`)
     if (hasBody) {
@@ -153,9 +157,9 @@ function generateIndexFile(route: string, methods: Methods): string {
       fetchOpts.push(`body: JSON.stringify(body)`)
     }
     const optsStr = fetchOpts.length > 0 ? `, { ${fetchOpts.join(', ')} }` : ''
-
-    // URL string — append query string for GET with params
-    const urlStr = hasQuery ? `uri + '?' + new URLSearchParams(params as Record<string, string>)` : `uri`
+    const urlStr = hasQuery
+      ? `uri + '?' + new URLSearchParams(params as Record<string, string>)`
+      : `uri`
 
     body += `export const $${method} = (${args.join(', ')}): Promise<${M}Response> => {\n`
     body += `  const uri = ${urlExpr}\n`
@@ -171,40 +175,27 @@ function generateIndexFile(route: string, methods: Methods): string {
 }
 
 // ---------------------------------------------------------------------------
-// Command
+// sync command
 // ---------------------------------------------------------------------------
 
-export const apiSyncCommand = defineCommand({
-  meta: {
-    name: 'sync',
-    description: 'Fetch the FastAPI OpenAPI spec and generate a typed client in frontend/src/openapi/.',
-  },
+export const syncCommand: StackCommandDef = {
+  description:
+    'Fetch the FastAPI OpenAPI spec and generate a typed client in frontend/src/openapi/.',
   args: {
-    root: {
-      type: 'positional',
-      description: 'Project root (defaults to current directory).',
-      required: false,
-    },
-    url: {
-      type: 'string',
-      description: 'FastAPI base URL.',
-      default: 'http://localhost:8000',
-    },
+    url: { type: 'string', description: 'FastAPI base URL.', default: 'http://localhost:8000' },
     out: {
       type: 'string',
       description: 'Output directory relative to root.',
       default: 'frontend/src/openapi',
     },
   },
-  async run({ args }) {
-    const root = path.resolve(args.root ?? process.cwd())
-    const outDir = path.join(root, args.out)
+  async run({ projectRoot: root, args }) {
+    const url = (args.url as string | undefined) ?? 'http://localhost:8000'
+    const out = (args.out as string | undefined) ?? 'frontend/src/openapi'
+    const outDir = path.join(root, out)
     const utilsDir = path.join(outDir, 'utils')
-    const specUrl = `${args.url.replace(/\/$/, '')}/openapi.json`
+    const specUrl = `${url.replace(/\/$/, '')}/openapi.json`
 
-    // -----------------------------------------------------------------------
-    // 1. Fetch spec
-    // -----------------------------------------------------------------------
     process.stdout.write(`Fetching spec from ${specUrl}…\n`)
     let spec: OpenAPI3
     try {
@@ -213,21 +204,16 @@ export const apiSyncCommand = defineCommand({
       spec = (await res.json()) as OpenAPI3
     } catch (err) {
       process.stderr.write(`error: could not fetch OpenAPI spec — ${(err as Error).message}\n`)
-      process.stderr.write(`Make sure the FastAPI server is running at ${args.url}\n`)
+      process.stderr.write(`Make sure the FastAPI server is running at ${url}\n`)
       process.exit(1)
     }
 
-    // -----------------------------------------------------------------------
-    // 2. Save openapi.yaml
-    // -----------------------------------------------------------------------
     mkdirSync(utilsDir, { recursive: true })
+
     const yamlPath = path.join(utilsDir, 'openapi.yaml')
     writeFileSync(yamlPath, yaml.stringify(spec), 'utf8')
     process.stdout.write(`Saved  ${path.relative(root, yamlPath)}\n`)
 
-    // -----------------------------------------------------------------------
-    // 3. Generate openapi.types.ts (full type surface via openapi-typescript)
-    // -----------------------------------------------------------------------
     const typesPath = path.join(utilsDir, 'openapi.types.ts')
     if (shouldWrite(typesPath)) {
       const ast = await openapiTS(new URL(specUrl))
@@ -237,19 +223,15 @@ export const apiSyncCommand = defineCommand({
       process.stdout.write(`Skipped (no-override) ${path.relative(root, typesPath)}\n`)
     }
 
-    // -----------------------------------------------------------------------
-    // 4. Generate per-route types.ts + index.ts
-    // -----------------------------------------------------------------------
-    const paths_ = (spec as any).paths ?? {}
+    const specPaths = (spec as any).paths ?? {}
     let written = 0
     let skipped = 0
 
-    for (const [route, methods] of Object.entries(paths_) as [string, Methods][]) {
+    for (const [route, methods] of Object.entries(specPaths) as [string, Methods][]) {
       const segments = routeToSegments(route)
       const folderPath = path.join(outDir, ...segments)
       mkdirSync(folderPath, { recursive: true })
-
-      const depth = segments.length + 1 // +1 for utils/ sibling at root of outDir
+      const depth = segments.length + 1
 
       const typesFile = path.join(folderPath, 'types.ts')
       if (safeWrite(typesFile, generateTypesFile(route, methods, depth))) {
@@ -272,4 +254,105 @@ export const apiSyncCommand = defineCommand({
 
     process.stdout.write(`\n${written} file(s) written, ${skipped} skipped (no-override).\n`)
   },
-})
+}
+
+// ---------------------------------------------------------------------------
+// review command
+// ---------------------------------------------------------------------------
+
+export const reviewCommand: StackCommandDef = {
+  description: 'Validate the frontend/src/openapi/ tree against the saved OpenAPI spec.',
+  args: {
+    out: {
+      type: 'string',
+      description: 'Generated openapi directory relative to root.',
+      default: 'frontend/src/openapi',
+    },
+  },
+  async run({ projectRoot: root, args }) {
+    const out = (args.out as string | undefined) ?? 'frontend/src/openapi'
+    const outDir = path.join(root, out)
+    const yamlPath = path.join(outDir, 'utils', 'openapi.yaml')
+    const isTTY = process.stdout.isTTY
+
+    if (!existsSync(yamlPath)) {
+      process.stderr.write(
+        `error: ${path.relative(root, yamlPath)} not found.\n` +
+          `Run \`dude api sync\` first to fetch the spec.\n`,
+      )
+      process.exit(1)
+    }
+
+    const spec = yaml.parse(readFileSync(yamlPath, 'utf8')) as { paths?: Record<string, unknown> }
+    const specPaths = spec.paths ?? {}
+    const expectedFolders = new Set<string>()
+    const expectedFiles = new Set<string>()
+
+    for (const route of Object.keys(specPaths)) {
+      const segments = routeToSegments(route)
+      for (let i = 1; i <= segments.length; i++) {
+        expectedFolders.add(path.join(outDir, ...segments.slice(0, i)))
+      }
+      const leafDir = path.join(outDir, ...segments)
+      expectedFiles.add(path.join(leafDir, 'types.ts'))
+      expectedFiles.add(path.join(leafDir, 'index.ts'))
+    }
+
+    const utilsDir = path.join(outDir, 'utils')
+    expectedFolders.add(utilsDir)
+    expectedFiles.add(path.join(utilsDir, 'openapi.yaml'))
+    expectedFiles.add(path.join(utilsDir, 'openapi.types.ts'))
+
+    const actual = walkAll(outDir)
+    const issues: Array<{ kind: 'unexpected' | 'missing'; item: string }> = []
+
+    for (const item of actual) {
+      const isDir = statSync(item).isDirectory()
+      if (isDir) {
+        if (!expectedFolders.has(item) && item !== outDir) issues.push({ kind: 'unexpected', item })
+      } else {
+        if (!expectedFiles.has(item)) issues.push({ kind: 'unexpected', item })
+      }
+    }
+    for (const f of [...expectedFolders, ...expectedFiles]) {
+      if (!existsSync(f)) issues.push({ kind: 'missing', item: f })
+    }
+
+    if (issues.length === 0) {
+      process.stdout.write('No issues found.\n')
+      return
+    }
+
+    const colorize = (s: string, kind: 'unexpected' | 'missing') =>
+      isTTY ? (kind === 'unexpected' ? `\x1b[31m${s}\x1b[0m` : `\x1b[33m${s}\x1b[0m`) : s
+
+    let errors = 0
+    let warnings = 0
+    for (const { kind, item } of issues) {
+      const rel = path.relative(root, item)
+      if (kind === 'unexpected') {
+        process.stdout.write(
+          colorize(`${rel}: error: unexpected file/folder (not in OpenAPI spec)`, kind) + '\n',
+        )
+        errors++
+      } else {
+        process.stdout.write(
+          colorize(
+            `${rel}: warning: expected by spec but not found — run \`dude api sync\``,
+            kind,
+          ) + '\n',
+        )
+        warnings++
+      }
+    }
+
+    const summary = [
+      errors > 0 ? `${errors} error${errors > 1 ? 's' : ''}` : '',
+      warnings > 0 ? `${warnings} warning${warnings > 1 ? 's' : ''}` : '',
+    ]
+      .filter(Boolean)
+      .join(', ')
+    process.stderr.write(`\n${summary}\n`)
+    process.exit(errors > 0 ? 1 : 0)
+  },
+}

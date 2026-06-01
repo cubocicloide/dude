@@ -1,4 +1,8 @@
 import { defineStack } from '@cubocicloide/dude'
+import { syncCommand, reviewCommand as apiReviewCommand } from './commands/api/index.js'
+import { formatCommand } from './commands/format/index.js'
+import { lintCommand } from './commands/lint/index.js'
+import { reviewCommand } from './commands/review/index.js'
 
 export default defineStack({
   name: 'react-fastapi',
@@ -13,13 +17,6 @@ export default defineStack({
       prompt: 'Project name',
       pattern: '^[a-z][a-z0-9-]*$',
       default: 'my-app',
-    },
-    {
-      name: 'pythonVersion',
-      type: 'select',
-      prompt: 'Python version',
-      choices: ['3.11', '3.12', '3.13'],
-      default: '3.12',
     },
   ],
 
@@ -38,6 +35,18 @@ export default defineStack({
       ctx.logger.info(
         '    uv sync --project backend && uv run --project backend uvicorn app.main:app --reload',
       )
+    },
+  },
+  /** Custom rules; will be wired in by `dude rules check` later. */
+  rules: [],
+
+  commands: {
+    lint: lintCommand,
+    format: formatCommand,
+    review: reviewCommand,
+    api: {
+      sync: syncCommand,
+      review: apiReviewCommand,
     },
   },
 })

@@ -10,10 +10,10 @@ dude init my-app --stack react-fastapi
 
 ## Variables
 
-| Name            | Type   | Default  | Description                           |
-| --------------- | ------ | -------- | ------------------------------------- |
-| `projectName`   | string | `my-app` | Project slug (kebab-case)             |
-| `pythonVersion` | select | `3.12`   | Python version (`3.11`/`3.12`/`3.13`) |
+| Name          | Type   | Default  | Description               |
+| ------------- | ------ | -------- | ------------------------- |
+| `projectName` | string | `my-app` | Project slug (kebab-case) |
+| `projectName` | string | `my-app` | Kebab-case project name   |
 
 ## Layout produced
 

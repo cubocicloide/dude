@@ -10,7 +10,7 @@ import { join } from 'node:path'
  * Convention: src/lint/checks/FE/001.ts → dist/lint/checks/FE/001.js → code "FE001"
  */
 function lintCheckEntries(): Record<string, string> {
-  const checksDir = join(__dirname, 'src', 'lint', 'checks')
+  const checksDir = join(__dirname, 'src', 'commands', 'lint', 'checks')
   if (!existsSync(checksDir)) return {}
 
   const entries: Record<string, string> = {}
@@ -19,7 +19,7 @@ function lintCheckEntries(): Record<string, string> {
     for (const file of readdirSync(groupDir)) {
       if (!file.endsWith('.ts')) continue
       const id = file.replace(/\.ts$/, '')
-      entries[`lint/checks/${group}/${id}`] = `src/lint/checks/${group}/${file}`
+      entries[`commands/lint/checks/${group}/${id}`] = `src/commands/lint/checks/${group}/${file}`
     }
   }
   return entries
@@ -36,5 +36,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   splitting: false,
-  external: ['@cubocicloide/dude', 'pathe'],
+  external: ['@cubocicloide/dude', 'openapi-typescript', 'pathe', 'yaml'],
 })

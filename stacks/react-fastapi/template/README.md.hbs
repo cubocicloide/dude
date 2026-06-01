@@ -8,14 +8,18 @@ Scaffolded with [`dude`](https://github.com/cubocicloide/dude) using the
 ```
 {{projectName}}/
 ├── frontend/        # React + Vite + TypeScript
-├── backend/         # FastAPI (Python {{pythonVersion}})
+├── backend/         # FastAPI (Python 3.13)
 └── docker-compose.yml
 ```
 
 ## Quick start — Docker (recommended)
 
 ```bash
-docker compose up --build
+# First run (build images + start)
+dude up --build
+
+# Subsequent runs
+dude up
 ```
 
 | Service    | URL                                   |
@@ -23,6 +27,19 @@ docker compose up --build
 | Frontend   | http://localhost                      |
 | API        | http://localhost:8000                 |
 | Health     | http://localhost:8000/api/health      |
+
+### Common commands
+
+| Command                    | Description                                      |
+|----------------------------|--------------------------------------------------|
+| `dude up --build`          | Rebuild images and start all services            |
+| `dude up`                  | Start all services (detached)                    |
+| `dude down`                | Stop and remove containers                       |
+| `dude logs [service]`      | Follow logs (omit service to follow all)         |
+| `dude shell <service>`     | Open a shell inside a running container          |
+| `dude api sync`            | Fetch OpenAPI spec → generate typed client       |
+| `dude api review`          | Validate the generated client against the spec   |
+| `dude lint`                | Run all stack lint checks                        |
 
 ## Quick start — local (no Docker)
 

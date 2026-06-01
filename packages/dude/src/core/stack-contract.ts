@@ -77,6 +77,30 @@ export interface StackRule {
   check: (ctx: StackContext) => boolean | Promise<boolean>
 }
 
+// ---------- Stack commands ----------
+
+export interface StackCommandArg {
+  type: 'string' | 'boolean'
+  description?: string
+  default?: string | boolean
+  required?: boolean
+}
+
+export interface StackCommandContext {
+  /** Absolute path of the user's project (cwd at invocation). */
+  projectRoot: string
+  /** Absolute path of the stack package installation root. */
+  stackRoot: string
+  /** Parsed CLI flags. */
+  args: Record<string, unknown>
+}
+
+export interface StackCommandDef {
+  description: string
+  args?: Record<string, StackCommandArg>
+  run: (ctx: StackCommandContext) => Promise<void>
+}
+
 // ---------- Stack definition ----------
 
 export interface StackDefinition {
@@ -103,6 +127,16 @@ export interface StackDefinition {
   }
   /** Custom rules; will be wired in by `dude rules check` later. */
   rules?: StackRule[]
+  /**
+   * Stack-provided commands. Two shapes are supported:
+   *
+   *   commands.lint         = StackCommandDef                  → `dude lint`
+   *   commands.api          = { sync, review: StackCommandDef } → `dude api sync`
+   *
+   * A flat entry overrides a core CLI command with the same name.
+   * A grouped entry adds a new `dude <group> <sub>` namespace.
+   */
+  commands?: Record<string, StackCommandDef | Record<string, StackCommandDef>>
 }
 
 /**

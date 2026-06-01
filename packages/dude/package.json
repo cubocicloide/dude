@@ -39,7 +39,6 @@
     "consola": "^3.2.3",
     "fs-extra": "^11.2.0",
     "handlebars": "^4.7.8",
-    "openapi-typescript": "^7.13.0",
     "pathe": "^1.1.2",
     "yaml": "^2.6.0",
     "zod": "^3.23.8"

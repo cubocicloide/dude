@@ -5,13 +5,13 @@ import { promises as fs } from 'node:fs'
 import path from 'pathe'
 import { stringify as stringifyYaml } from 'yaml'
 
-import { logger } from '../core/logger.js'
-import { loadRegistry, resolveStackSpec } from '../core/registry.js'
-import { loadStack } from '../core/stack-loader.js'
-import { promptVariables } from '../core/prompts.js'
-import { renderTemplateTree } from '../core/template-runner.js'
-import { getPackageRoot, getCliVersion } from '../utils/paths.js'
-import type { StackContext } from '../core/stack-contract.js'
+import { logger } from '../../core/logger.js'
+import { loadRegistry, resolveStackSpec } from '../../core/registry.js'
+import { loadStack } from '../../core/stack-loader.js'
+import { promptVariables } from '../../core/prompts.js'
+import { renderTemplateTree } from '../../core/template-runner.js'
+import { getPackageRoot, getCliVersion } from '../../utils/paths.js'
+import type { StackContext } from '../../core/stack-contract.js'
 
 export const initCommand = defineCommand({
   meta: {

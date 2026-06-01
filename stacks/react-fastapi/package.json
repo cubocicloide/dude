@@ -28,7 +28,9 @@
     "@cubocicloide/dude": "workspace:^"
   },
   "dependencies": {
-    "pathe": "^1.1.2"
+    "openapi-typescript": "^7.13.0",
+    "pathe": "^1.1.2",
+    "yaml": "^2.6.0"
   },
   "devDependencies": {
     "@cubocicloide/dude": "workspace:*",
