@@ -29,5 +29,5 @@ shell: ## Open a shell in a service (usage: make shell service=backend)
 
 ##@ Quality
 
-lint: ## Check code structure conventions (stdlib only, no venv needed)
-	python3 -m tools.lint
+lint: ## Check project structure conventions (FE001-FE007, BE001-BE004)
+	dude lint .

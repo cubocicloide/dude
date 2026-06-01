@@ -1,5 +1,6 @@
 import { defineCommand, runMain } from 'citty'
 import { initCommand } from './commands/init.js'
+import { lintCommand } from './commands/lint.js'
 import { getCliVersion } from './utils/paths.js'
 
 const main = defineCommand({
@@ -10,6 +11,7 @@ const main = defineCommand({
   },
   subCommands: {
     init: initCommand,
+    lint: lintCommand,
   },
 })
 
