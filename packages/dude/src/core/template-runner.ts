@@ -40,9 +40,7 @@ async function walk(
   const entries = await fs.readdir(src, { withFileTypes: true })
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name)
-    let targetName = entry.name.endsWith(suffix)
-      ? entry.name.slice(0, -suffix.length)
-      : entry.name
+    let targetName = entry.name.endsWith(suffix) ? entry.name.slice(0, -suffix.length) : entry.name
     // Files prefixed with a single `_` followed by a non-`_` char are
     // renamed to `.` so that dotfiles can be shipped inside the template/
     // directory without confusing npm or git. Python `__init__.py` is left

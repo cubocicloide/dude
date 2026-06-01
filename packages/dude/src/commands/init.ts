@@ -21,8 +21,7 @@ export const initCommand = defineCommand({
   args: {
     stack: {
       type: 'string',
-      description:
-        'Stack identifier (registry name, npm spec, or local path).',
+      description: 'Stack identifier (registry name, npm spec, or local path).',
       required: false,
     },
     dir: {
@@ -163,11 +162,7 @@ export default defineConfig({
     generatedAt: new Date().toISOString(),
     dudeVersion: getCliVersion(),
   }
-  await fs.writeFile(
-    path.join(input.dest, 'dude.answers.yaml'),
-    stringifyYaml(answersDoc),
-    'utf8',
-  )
+  await fs.writeFile(path.join(input.dest, 'dude.answers.yaml'), stringifyYaml(answersDoc), 'utf8')
 }
 
 function getStackPackageName(stackRoot: string): string {

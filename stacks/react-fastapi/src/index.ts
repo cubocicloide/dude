@@ -25,10 +25,17 @@ export default defineStack({
 
   hooks: {
     async postInit(ctx) {
+      const name = ctx.answers.projectName ?? 'your-project'
       ctx.logger.info('Project scaffolded. Next steps:')
-      ctx.logger.info(`  cd ${ctx.answers.projectName ?? 'your-project'}`)
-      ctx.logger.info('  pnpm --filter ./frontend install')
-      ctx.logger.info('  uv sync --project backend')
+      ctx.logger.info('')
+      ctx.logger.info('  Run with Docker (recommended):')
+      ctx.logger.info(`    cd ${name}`)
+      ctx.logger.info('    docker compose up --build')
+      ctx.logger.info('')
+      ctx.logger.info('  Run locally (without Docker):')
+      ctx.logger.info(`    cd ${name}`)
+      ctx.logger.info('    pnpm --filter ./frontend install && pnpm --filter ./frontend dev')
+      ctx.logger.info('    uv sync --project backend && uv run --project backend uvicorn app.main:app --reload')
     },
   },
 })

@@ -37,3 +37,6 @@ coverage/
 # Cache
 .cache/
 .eslintcache
+
+# Local testing — not tracked by git
+private/

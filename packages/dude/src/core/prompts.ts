@@ -23,9 +23,7 @@ export async function promptVariables(
 
     if (options.yes) {
       if (v.default === undefined) {
-        throw new Error(
-          `Variable "${v.name}" has no default; cannot run with --yes.`,
-        )
+        throw new Error(`Variable "${v.name}" has no default; cannot run with --yes.`)
       }
       answers[v.name] = v.default
       continue

@@ -77,8 +77,7 @@ async function resolveStackRoot(spec: string, cwd: string): Promise<string> {
   // Dev fallback: walk up from `cwd` or from this module's own location
   // looking for a pnpm workspace, then scan its declared globs for a
   // package.json whose `name` matches `spec`.
-  const workspaceMatch =
-    findInPnpmWorkspace(cwd, spec) ?? findInPnpmWorkspace(selfDir, spec)
+  const workspaceMatch = findInPnpmWorkspace(cwd, spec) ?? findInPnpmWorkspace(selfDir, spec)
   if (workspaceMatch) return workspaceMatch
 
   throw new Error(

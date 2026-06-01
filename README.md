@@ -73,19 +73,19 @@ so changes in `packages/dude` or `stacks/*` are picked up immediately.
 All day-to-day operations are wrapped in the [Makefile](./Makefile). Run
 `make help` for a self-documenting list.
 
-| Command            | Description                                              |
-| ------------------ | -------------------------------------------------------- |
-| `make install`     | Install all workspace dependencies                       |
-| `make build`       | Build every package via turbo                            |
-| `make test`        | Run all tests                                            |
-| `make lint`        | Lint every package                                       |
-| `make typecheck`   | TypeScript type-check across the workspace               |
-| `make format`      | Format the entire workspace with Prettier                |
-| `make dev`         | Run all package dev scripts in parallel                  |
-| `make cli ARGS=…`  | Run the local CLI (e.g. `make cli ARGS="init --stack X"`)|
-| `make changeset`   | Record a changeset for the next release                  |
-| `make release`     | Publish updated packages to GitHub Packages              |
-| `make clean`       | Remove build artifacts and `node_modules`                |
+| Command           | Description                                               |
+| ----------------- | --------------------------------------------------------- |
+| `make install`    | Install all workspace dependencies                        |
+| `make build`      | Build every package via turbo                             |
+| `make test`       | Run all tests                                             |
+| `make lint`       | Lint every package                                        |
+| `make typecheck`  | TypeScript type-check across the workspace                |
+| `make format`     | Format the entire workspace with Prettier                 |
+| `make dev`        | Run all package dev scripts in parallel                   |
+| `make cli ARGS=…` | Run the local CLI (e.g. `make cli ARGS="init --stack X"`) |
+| `make changeset`  | Record a changeset for the next release                   |
+| `make release`    | Publish updated packages to GitHub Packages               |
+| `make clean`      | Remove build artifacts and `node_modules`                 |
 
 ---
 

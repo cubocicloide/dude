@@ -15,7 +15,12 @@
   "bin": {
     "dude": "./bin/dude.mjs"
   },
-  "files": ["dist", "bin", "registry.json", "README.md"],
+  "files": [
+    "dist",
+    "bin",
+    "registry.json",
+    "README.md"
+  ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",
     "access": "restricted"

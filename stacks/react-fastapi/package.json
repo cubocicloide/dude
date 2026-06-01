@@ -6,7 +6,12 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "template", "dude.stack.json", "README.md"],
+  "files": [
+    "dist",
+    "template",
+    "dude.stack.json",
+    "README.md"
+  ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",
     "access": "restricted"

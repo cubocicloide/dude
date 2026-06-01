@@ -1,0 +1,15 @@
+FROM python:{{pythonVersion}}-slim
+WORKDIR /app
+
+# Install uv (fast Python package manager)
+RUN pip install --no-cache-dir uv
+
+# Install dependencies (production only)
+COPY pyproject.toml .
+RUN uv sync --no-dev --no-cache
+
+# Copy application source
+COPY app/ app/
+
+EXPOSE 8000
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
