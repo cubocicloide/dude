@@ -12,7 +12,9 @@ export default function check(root: string): RawDiagnostic[] {
   const diagnostics: RawDiagnostic[] = []
   for (const entry of readdirSync(componentsDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue
-    for (const child of readdirSync(path.join(componentsDir, entry.name), { withFileTypes: true })) {
+    for (const child of readdirSync(path.join(componentsDir, entry.name), {
+      withFileTypes: true,
+    })) {
       if (!ALLOWED.has(child.name)) {
         diagnostics.push({
           file: path.join('frontend', 'src', 'components', entry.name, child.name),

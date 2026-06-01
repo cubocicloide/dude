@@ -7,7 +7,7 @@ import { runLint, formatDiagnostic } from '../core/lint/index.js'
 export const lintCommand = defineCommand({
   meta: {
     name: 'lint',
-    description: 'Check project structure conventions using the stack\'s own rules.',
+    description: "Check project structure conventions using the stack's own rules.",
   },
   args: {
     root: {

@@ -1,7 +1,11 @@
 """FastAPI entrypoint."""
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.routers import (
+    health,
+)
 
 app = FastAPI(title="{{projectName}} backend")
 
@@ -13,8 +17,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+api_router = APIRouter(prefix="/api")
 
-@app.get("/api/health")
-async def health() -> dict[str, str]:
-    """Health-check endpoint."""
-    return {"status": "ok"}
+api_router.include_router(health.router)
+
+app.include_router(api_router)

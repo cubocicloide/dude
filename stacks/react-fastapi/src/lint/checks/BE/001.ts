@@ -11,18 +11,38 @@ export default function check(root: string): RawDiagnostic[] {
   const appRel = path.join('backend', 'app')
 
   if (!existsSync(appDir)) {
-    return [{ file: appRel, line: 1, col: 1, severity: 'error', message: 'backend/app/ directory is missing' }]
+    return [
+      {
+        file: appRel,
+        line: 1,
+        col: 1,
+        severity: 'error',
+        message: 'backend/app/ directory is missing',
+      },
+    ]
   }
 
   const diagnostics: RawDiagnostic[] = []
   for (const dir of REQUIRED_DIRS) {
     if (!existsSync(path.join(appDir, dir))) {
-      diagnostics.push({ file: appRel, line: 1, col: 1, severity: 'error', message: `backend/app/${dir}/ is missing` })
+      diagnostics.push({
+        file: appRel,
+        line: 1,
+        col: 1,
+        severity: 'error',
+        message: `backend/app/${dir}/ is missing`,
+      })
     }
   }
   for (const file of REQUIRED_FILES) {
     if (!existsSync(path.join(appDir, file))) {
-      diagnostics.push({ file: appRel, line: 1, col: 1, severity: 'error', message: `backend/app/${file} is missing` })
+      diagnostics.push({
+        file: appRel,
+        line: 1,
+        col: 1,
+        severity: 'error',
+        message: `backend/app/${file} is missing`,
+      })
     }
   }
   return diagnostics

@@ -51,6 +51,10 @@ dev: ## Run dev scripts in every package in parallel
 cli: ## Run the local CLI — usage: make cli ARGS="init --stack react-fastapi"
 	pnpm --filter @cubocicloide/dude exec dude $(ARGS)
 
+.PHONY: link
+link: ## Link the dude binary globally (first-time dev setup) via npm link
+	cd packages/dude && npm link
+
 .PHONY: dev-init
 dev-init: ## Scaffold locally without publish — make dev-init [STACK=react-fastapi] [OUT=test-local]
 	pnpm --filter @cubocicloide/stack-$(STACK) build
