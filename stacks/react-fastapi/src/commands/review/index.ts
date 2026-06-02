@@ -24,12 +24,13 @@ export const reviewCommand: StackCommandDef = {
   description: 'Run all checks: custom lint, ESLint, and API contract review.',
   async run({ projectRoot, stackRoot }) {
     const frontendDir = path.join(projectRoot, 'frontend')
+    const e2eDir = path.join(projectRoot, 'e2e')
     const isTTY = process.stdout.isTTY
     let ok = true
 
     // ── Preflight ─────────────────────────────────────────────────────────────
     const missing: string[] = []
-    if (existsSync(frontendDir) && !isAvailable('pnpm'))
+    if ((existsSync(frontendDir) || existsSync(e2eDir)) && !isAvailable('pnpm'))
       missing.push('pnpm  →  https://pnpm.io/installation')
     if (missing.length > 0) {
       process.stderr.write('error: required tools not found on your PATH:\n\n')
@@ -53,13 +54,19 @@ export const reviewCommand: StackCommandDef = {
     }
     ok = errorCount === 0 && ok
 
-    // ── 2. ESLint ─────────────────────────────────────────────────────────────
+    // ── 2. ESLint (frontend) ──────────────────────────────────────────────────
     if (existsSync(frontendDir)) {
       section('eslint')
       ok = exec('pnpm', ['exec', 'eslint', 'src/'], frontendDir) && ok
     }
 
-    // ── 3. API contract review ────────────────────────────────────────────────
+    // ── 3. ESLint (e2e) ───────────────────────────────────────────────────────
+    if (existsSync(e2eDir)) {
+      section('eslint (e2e)')
+      ok = exec('pnpm', ['exec', 'eslint', '.'], e2eDir) && ok
+    }
+
+    // ── 4. API contract review ────────────────────────────────────────────────
     section('api review')
     ok = exec('dude', ['api', 'review'], projectRoot) && ok
 

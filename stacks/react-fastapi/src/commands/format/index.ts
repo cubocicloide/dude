@@ -26,13 +26,18 @@ export const formatCommand: StackCommandDef = {
     const check = Boolean(args.check)
     const backendDir = path.join(projectRoot, 'backend')
     const frontendDir = path.join(projectRoot, 'frontend')
+    const e2eDir = path.join(projectRoot, 'e2e')
 
     // ── Preflight ─────────────────────────────────────────────────────────────
     const missing: string[] = []
-    if (existsSync(backendDir) && !isAvailable('uv')) missing.push('uv  →  https://docs.astral.sh/uv/getting-started/installation/')
-    if (existsSync(frontendDir) && !isAvailable('pnpm')) missing.push('pnpm  →  https://pnpm.io/installation')
+    if (existsSync(backendDir) && !isAvailable('uv'))
+      missing.push('uv  →  https://docs.astral.sh/uv/getting-started/installation/')
+    if ((existsSync(frontendDir) || existsSync(e2eDir)) && !isAvailable('pnpm'))
+      missing.push('pnpm  →  https://pnpm.io/installation')
     if (missing.length > 0) {
-      process.stderr.write('error: the following tools are required but were not found on your PATH:\n\n')
+      process.stderr.write(
+        'error: the following tools are required but were not found on your PATH:\n\n',
+      )
       for (const m of missing) process.stderr.write(`  • ${m}\n`)
       process.stderr.write('\n')
       process.exit(1)
@@ -45,17 +50,51 @@ export const formatCommand: StackCommandDef = {
       process.stdout.write(check ? 'Checking backend formatting…\n' : 'Formatting backend…\n')
 
       // ruff format: black-compatible formatter
-      ok = exec('uv', ['run', 'ruff', 'format', ...(check ? ['--check'] : []), 'backend/'], projectRoot) && ok
+      ok =
+        exec(
+          'uv',
+          ['run', 'ruff', 'format', ...(check ? ['--check'] : []), 'backend/'],
+          projectRoot,
+        ) && ok
 
       // ruff check --select I: isort-compatible import sorting
-      ok = exec('uv', ['run', 'ruff', 'check', '--select', 'I', ...(check ? [] : ['--fix']), 'backend/'], projectRoot) && ok
+      ok =
+        exec(
+          'uv',
+          ['run', 'ruff', 'check', '--select', 'I', ...(check ? [] : ['--fix']), 'backend/'],
+          projectRoot,
+        ) && ok
     }
 
     // ── Frontend ──────────────────────────────────────────────────────────────
     if (existsSync(frontendDir)) {
       process.stdout.write(check ? 'Checking frontend formatting…\n' : 'Formatting frontend…\n')
 
-      ok = exec('pnpm', ['exec', 'prettier', ...(check ? ['--check'] : ['--write']), 'src/'], frontendDir) && ok
+      ok =
+        exec(
+          'pnpm',
+          ['exec', 'prettier', ...(check ? ['--check'] : ['--write']), 'src/'],
+          frontendDir,
+        ) && ok
+    }
+
+    // ── E2E ───────────────────────────────────────────────────────────────────
+    if (existsSync(e2eDir)) {
+      process.stdout.write(check ? 'Checking e2e formatting…\n' : 'Formatting e2e…\n')
+
+      ok =
+        exec(
+          'pnpm',
+          [
+            'exec',
+            'prettier',
+            ...(check ? ['--check'] : ['--write']),
+            '**/*.{ts,json}',
+            '--ignore-path',
+            '.prettierignore',
+          ],
+          e2eDir,
+        ) && ok
     }
 
     if (!ok) process.exit(1)

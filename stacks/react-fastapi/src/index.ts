@@ -3,6 +3,7 @@ import { syncCommand, reviewCommand as apiReviewCommand } from './commands/api/i
 import { formatCommand } from './commands/format/index.js'
 import { lintCommand } from './commands/lint/index.js'
 import { reviewCommand } from './commands/review/index.js'
+import { testCommand } from './commands/test/index.js'
 
 export default defineStack({
   name: 'react-fastapi',
@@ -44,6 +45,7 @@ export default defineStack({
     lint: lintCommand,
     format: formatCommand,
     review: reviewCommand,
+    test: testCommand,
     api: {
       sync: syncCommand,
       review: apiReviewCommand,
