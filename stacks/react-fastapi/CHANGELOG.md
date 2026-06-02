@@ -1,5 +1,16 @@
 # @cubocicloide/stack-react-fastapi
 
+## 2.0.0
+
+### Minor Changes
+
+- 7305179: feat: generated project includes pinned package.json + .npmrc — `dude init` now writes a root `package.json` with `@cubocicloide/dude` pinned to the exact version used at init time, and a `.npmrc` ready for GitHub Packages auth
+
+### Patch Changes
+
+- Updated dependencies [7305179]
+  - @cubocicloide/dude@0.3.0
+
 ## 1.0.0
 
 ### Minor Changes
