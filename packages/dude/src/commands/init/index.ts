@@ -153,7 +153,11 @@ async function writeProjectMetadata(input: MetadataInput): Promise<void> {
     generatedAt: new Date().toISOString(),
     dudeVersion: getCliVersion(),
   }
-  await fs.writeFile(path.join(input.dest, 'dude.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8')
+  await fs.writeFile(
+    path.join(input.dest, 'dude.json'),
+    JSON.stringify(manifest, null, 2) + '\n',
+    'utf8',
+  )
 }
 
 function getStackPackageName(stackRoot: string): string {

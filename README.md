@@ -3,75 +3,117 @@
 > Cubocicloide's internal project scaffolding & code quality CLI.
 > Multi-stack, plugin-based, distributed via GitHub Packages.
 
-`dude` is a private command-line tool that bootstraps new projects, enforces
-linting and conventions, generates code, and assists with code review across
-all stacks Cubocicloide works with.
+`dude` bootstraps new projects, enforces conventions, and assists with code
+review across all stacks Cubocicloide works with. Each stack ships its own
+templates, lint rules, generators, and lifecycle hooks — the CLI is
+completely stack-agnostic.
 
-The CLI itself is **stack-agnostic**: every supported stack (React+FastAPI,
-React+Django, …) lives in a dedicated plugin package that ships its own
-templates, lint configuration, rules, generators and lifecycle hooks. Adding
-or evolving a stack does not require a new CLI release.
+---
 
-For the full design rationale see [`ANALYSIS.md`](./ANALYSIS.md).
+## Installation (end users)
+
+> **Prerequisite — GitHub token**
+> `dude` and its stack plugins are published on GitHub Packages (private
+> registry). You need a GitHub Personal Access Token with **`read:packages`**
+> scope.
+>
+> Generate one at: <https://github.com/settings/tokens>
+
+### 1. Configure the registry
+
+Add the following to `~/.npmrc` (create it if it does not exist):
+
+```ini
+@cubocicloide:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```
+
+Replace `YOUR_GITHUB_TOKEN` with your actual token, or keep the placeholder
+and always export the variable before running npm/pnpm:
+
+```bash
+export GITHUB_TOKEN=ghp_xxx
+```
+
+### 2. Install globally
+
+```bash
+npm install -g @cubocicloide/dude
+```
+
+### 3. Scaffold a new project
+
+```bash
+# Interactive — picks the stack from a menu
+dude init
+
+# Or specify the stack directly and skip all prompts
+dude init --stack react-fastapi --yes
+```
+
+---
+
+## Core commands
+
+Once inside a scaffolded project you have access to the full `dude` command
+set. Run `dude help` for the complete list.
+
+| Command                | Description                                        |
+| ---------------------- | -------------------------------------------------- |
+| `dude init`            | Scaffold a new project from a stack template       |
+| `dude up [--build]`    | Start services (`--build` to rebuild images first) |
+| `dude down`            | Stop and remove containers                         |
+| `dude logs [service]`  | Stream logs (omit service to follow all)           |
+| `dude shell <service>` | Open a shell inside a running container            |
+| `dude lint`            | Run all stack convention checks                    |
+| `dude api sync`        | Fetch OpenAPI spec → generate typed client         |
+| `dude api review`      | Validate the generated client against the spec     |
+| `dude docs`            | Serve the project docs at http://localhost:8001    |
+| `dude help`            | Show all available commands for the current stack  |
+
+### Service URLs (react-fastapi stack, after `dude up`)
+
+| Service  | URL                              |
+| -------- | -------------------------------- |
+| Frontend | http://localhost:5173            |
+| API      | http://localhost:8000            |
+| Health   | http://localhost:8000/api/health |
+| Docs     | http://localhost:8001            |
 
 ---
 
 ## Repository layout
 
-This repository is a **pnpm + turbo + changesets monorepo** that hosts the
-CLI runtime and the official stack plugins.
-
 ```
 dude/
 ├── packages/
-│   └── dude/                       # @cubocicloide/dude — CLI runtime
+│   └── dude/            # @cubocicloide/dude — CLI runtime
 └── stacks/
-    └── react-fastapi/              # @cubocicloide/stack-react-fastapi
+    └── react-fastapi/   # @cubocicloide/stack-react-fastapi
 ```
 
-Third-party or experimental stack plugins live in separate repositories and
-plug into the CLI via the same contract.
-
 ---
 
-## Prerequisites
-
-- **Node.js** ≥ 20
-- **pnpm** ≥ 9 (`corepack enable` is the recommended way to install it)
-- **Make** (preinstalled on macOS / Linux)
-- A GitHub Personal Access Token with `read:packages` scope, exported as
-  `GITHUB_TOKEN`, to install/publish packages on GitHub Packages.
-
----
-
-## Getting started (contributor)
+## Contributing (monorepo setup)
 
 ```bash
 # 1. Clone
 git clone git@github.com:cubocicloide/dude.git
 cd dude
 
-# 2. Authenticate to GitHub Packages
+# 2. Authenticate
 export GITHUB_TOKEN=ghp_xxx
 
-# 3. Install dependencies and build all packages
+# 3. Install & build
 make install
 make build
 
-# 4. Run the CLI locally
+# 4. Run the CLI from sources
 make cli ARGS="--help"
 make cli ARGS="init --stack react-fastapi"
 ```
 
-The CLI invoked through `make cli` runs from sources via `pnpm` workspaces,
-so changes in `packages/dude` or `stacks/*` are picked up immediately.
-
----
-
-## Common tasks
-
-All day-to-day operations are wrapped in the [Makefile](./Makefile). Run
-`make help` for a self-documenting list.
+### Common Makefile targets
 
 | Command           | Description                                               |
 | ----------------- | --------------------------------------------------------- |
@@ -89,54 +131,13 @@ All day-to-day operations are wrapped in the [Makefile](./Makefile). Run
 
 ---
 
-## End-user setup (consuming `dude` in another project)
-
-Once published on GitHub Packages, install the CLI with:
-
-```bash
-# In ~/.npmrc or in the project's .npmrc
-@cubocicloide:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-
-# Then
-export GITHUB_TOKEN=ghp_xxx
-npm i -g @cubocicloide/dude
-
-dude init --stack react-fastapi
-```
-
-The CLI will fetch the requested stack plugin from the private registry on
-demand and cache it locally under `~/.dude/stacks/`.
-
----
-
 ## Releasing
 
-We use [changesets](https://github.com/changesets/changesets) for
-independently versioning the CLI and each stack package.
-
 ```bash
-# After making changes
-make changeset          # interactively select packages + bump type
-
-# On merge to main, CI opens a "Version Packages" PR.
-# Merging that PR triggers the actual publish to GitHub Packages.
+make changeset   # interactively record a version bump
+# → on merge to main, CI opens a "Version Packages" PR
+# → merging that PR publishes to GitHub Packages automatically
 ```
-
----
-
-## Project status
-
-🚧 **Early bootstrap.** The current iteration ships:
-
-- The monorepo skeleton (workspaces, turbo, changesets)
-- A minimal `@cubocicloide/dude` CLI runtime with `defineStack` /
-  `defineConfig` helpers and an `init` command that scaffolds from a local
-  stack plugin
-- A minimal `@cubocicloide/stack-react-fastapi` template covering a Vite +
-  React frontend and a FastAPI backend
-
-See [`ANALYSIS.md`](./ANALYSIS.md) §12 for the full implementation roadmap.
 
 ---
 
