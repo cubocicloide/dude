@@ -21,7 +21,7 @@ function parseAdapters(only: string | undefined): string[] {
   if (!only) return [...DEFAULT_ADAPTERS]
   return only
     .split(',')
-    .map(s => s.trim())
+    .map((s) => s.trim())
     .filter(Boolean)
 }
 
@@ -108,7 +108,7 @@ function writeMarkdownSummary(
 
   // ── New findings detail ──────────────────────────────────────────────────────
   const actionable = newFindings
-    .filter(f => f.severity >= minSeverity)
+    .filter((f) => f.severity >= minSeverity)
     .sort(
       (a, b) =>
         b.severity - a.severity ||
@@ -131,9 +131,7 @@ function writeMarkdownSummary(
     for (const f of actionable) {
       const loc = f.file && f.line ? `${f.file}:${f.line}` : f.file || '—'
       lines.push(`### [${SEV_LABEL[f.severity]}] ${f.title}`)
-      lines.push(
-        `- **Tool**: ${f.tool}  **Rule**: \`${f.ruleId}\`  **Component**: ${f.component}`,
-      )
+      lines.push(`- **Tool**: ${f.tool}  **Rule**: \`${f.ruleId}\`  **Component**: ${f.component}`)
       lines.push(`- **Location**: ${loc}`)
       if (f.message) lines.push(`- **Message**: ${truncate(f.message)}`)
       for (const k of CTX_KEYS) {
@@ -268,8 +266,16 @@ function runScan(config: RunConfig): RunResult {
     baseline.save(config.baselinePath)
   }
 
-  const blockingCount = newFindings.filter(f => f.severity >= config.failOn).length
-  return { findings, newFindings, knownFindings, resolved, runDir, latestDir, exitCode: blockingCount > 0 ? 1 : 0 }
+  const blockingCount = newFindings.filter((f) => f.severity >= config.failOn).length
+  return {
+    findings,
+    newFindings,
+    knownFindings,
+    resolved,
+    runDir,
+    latestDir,
+    exitCode: blockingCount > 0 ? 1 : 0,
+  }
 }
 
 // ── Commands ───────────────────────────────────────────────────────────────────
@@ -363,9 +369,7 @@ export const securityAcceptCommand: StackCommandDef = {
     process.stderr.write(
       `[security] done. Baseline updated with ${result.findings.length} finding(s).\n`,
     )
-    process.stdout.write(
-      `Baseline saved to ${baselinePath}.\nReview and commit the change.\n`,
-    )
+    process.stdout.write(`Baseline saved to ${baselinePath}.\nReview and commit the change.\n`)
   },
 }
 
@@ -387,8 +391,7 @@ export const securityVerifyCommand: StackCommandDef = {
     },
     'remove-resolved': {
       type: 'boolean',
-      description:
-        'Remove resolved findings from the baseline file after confirming the fix.',
+      description: 'Remove resolved findings from the baseline file after confirming the fix.',
       default: false,
     },
   },
@@ -416,7 +419,7 @@ export const securityVerifyCommand: StackCommandDef = {
     const ruleIds = ruleIdArg
       ? ruleIdArg
           .split(',')
-          .map(s => s.trim())
+          .map((s) => s.trim())
           .filter(Boolean)
       : []
 
@@ -434,10 +437,10 @@ export const securityVerifyCommand: StackCommandDef = {
       allFixed = resolved.length > 0 && knownFindings.length === 0
     } else {
       for (const ruleId of ruleIds) {
-        const ruleResolved = resolved.filter(
-          fp => matches(baseline.entries.get(fp)?.ruleId ?? '', ruleId),
+        const ruleResolved = resolved.filter((fp) =>
+          matches(baseline.entries.get(fp)?.ruleId ?? '', ruleId),
         )
-        const ruleStillPresent = knownFindings.filter(f => matches(f.ruleId, ruleId))
+        const ruleStillPresent = knownFindings.filter((f) => matches(f.ruleId, ruleId))
         const isFixed = ruleResolved.length > 0 && ruleStillPresent.length === 0
         allFixed = allFixed && isFixed
 
@@ -469,8 +472,8 @@ export const securityVerifyCommand: StackCommandDef = {
       const toRemove =
         ruleIds.length === 0
           ? resolved
-          : resolved.filter(fp =>
-              ruleIds.some(rid => matches(baseline.entries.get(fp)?.ruleId ?? '', rid)),
+          : resolved.filter((fp) =>
+              ruleIds.some((rid) => matches(baseline.entries.get(fp)?.ruleId ?? '', rid)),
             )
 
       if (toRemove.length > 0) {

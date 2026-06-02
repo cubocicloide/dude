@@ -143,9 +143,7 @@ function renderArgLine(arg: ArgInfo): string {
   const desc = arg.description
   // Only append default if it's not already mentioned in the description.
   const needsDefault =
-    arg.default !== undefined &&
-    arg.default !== false &&
-    !desc.toLowerCase().includes('default:')
+    arg.default !== undefined && arg.default !== false && !desc.toLowerCase().includes('default:')
   const suffix = needsDefault ? ` Default: ${String(arg.default)}.` : ''
   const required = arg.required ? ' Required.' : ''
 
@@ -246,7 +244,7 @@ export const helpCommand = defineCommand({
 
     // ── Route to overview or specific command ──────────────────────────────────
     // `process.argv` after 'help': everything the user typed after the word 'help'.
-    const afterHelp = process.argv.slice(3).filter(t => !t.startsWith('-'))
+    const afterHelp = process.argv.slice(3).filter((t) => !t.startsWith('-'))
 
     if (afterHelp.length === 0) {
       renderOverview(catalog, stackName)
@@ -272,7 +270,7 @@ export const helpCommand = defineCommand({
     } else {
       // `dude help <group> <sub>`
       const group = catalog.groups.get(first ?? '')
-      const sub = group?.subs.find(s => s.name === second)
+      const sub = group?.subs.find((s) => s.name === second)
       if (sub) {
         renderCmd(sub, first)
         return

@@ -94,7 +94,7 @@ Skipped: <list>
 
 ## Rules
 
-- Never delete `main`, `develop`, `sandbox`, or the currently checked-out branch
+- Never delete `main`, `develop`, `dev`, `test`, `staging`, or the currently checked-out branch
 - Never force-delete (`-D`) without explicit user confirmation per branch
 - Always confirm before any remote deletion — remote deletions are not reversible locally
 - If no candidates are found, report "No stale or merged branches found" and stop

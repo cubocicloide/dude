@@ -44,12 +44,19 @@ export const banditAdapter: Adapter = {
       `bandit -r backend -f json -o ${report} ` +
       "--exclude 'backend/tests'"
     return [
-      'docker', 'run', '--rm',
-      '-v', `${projectRoot}:/src`,
-      '-v', `${opts.cachePrefix}-pip-cache:/root/.cache/pip`,
-      '-w', '/src',
+      'docker',
+      'run',
+      '--rm',
+      '-v',
+      `${projectRoot}:/src`,
+      '-v',
+      `${opts.cachePrefix}-pip-cache:/root/.cache/pip`,
+      '-w',
+      '/src',
       'python:3.12-slim',
-      'sh', '-c', banditCmd,
+      'sh',
+      '-c',
+      banditCmd,
     ]
   },
   parse(data) {
@@ -116,19 +123,32 @@ export const semgrepAdapter: Adapter = {
   buildCommand(projectRoot, runDir, _opts) {
     const report = reportInContainer(projectRoot, runDir, 'semgrep')
     const cmd = [
-      'docker', 'run', '--rm',
-      '-v', `${projectRoot}:/src`,
-      '-w', '/src',
+      'docker',
+      'run',
+      '--rm',
+      '-v',
+      `${projectRoot}:/src`,
+      '-w',
+      '/src',
       SEMGREP_IMAGE,
-      'semgrep', 'scan',
-      '--json', '--output', report,
+      'semgrep',
+      'scan',
+      '--json',
+      '--output',
+      report,
       '--error',
-      '--exclude', 'node_modules',
-      '--exclude', 'staticfiles',
-      '--exclude', 'private',
-      '--exclude', 'e2e/reports',
-      '--exclude', '.venv',
-      '--exclude', 'migrations',
+      '--exclude',
+      'node_modules',
+      '--exclude',
+      'staticfiles',
+      '--exclude',
+      'private',
+      '--exclude',
+      'e2e/reports',
+      '--exclude',
+      '.venv',
+      '--exclude',
+      'migrations',
     ]
     for (const cfg of SEMGREP_CONFIGS) {
       cmd.push('--config', cfg)
@@ -200,16 +220,25 @@ export const trivyFsAdapter: Adapter = {
   buildCommand(projectRoot, runDir, opts) {
     const report = reportInContainer(projectRoot, runDir, 'trivy-fs')
     return [
-      'docker', 'run', '--rm',
-      '-v', `${projectRoot}:/src`,
-      '-v', `${opts.cachePrefix}-trivy-cache:/root/.cache/`,
-      '-w', '/src',
+      'docker',
+      'run',
+      '--rm',
+      '-v',
+      `${projectRoot}:/src`,
+      '-v',
+      `${opts.cachePrefix}-trivy-cache:/root/.cache/`,
+      '-w',
+      '/src',
       TRIVY_IMAGE,
       'fs',
-      '--scanners', 'vuln,misconfig,secret',
-      '--format', 'json',
-      '--output', report,
-      '--skip-dirs', 'node_modules,private,staticfiles,e2e/reports,.venv',
+      '--scanners',
+      'vuln,misconfig,secret',
+      '--format',
+      'json',
+      '--output',
+      report,
+      '--skip-dirs',
+      'node_modules,private,staticfiles,e2e/reports,.venv',
       '.',
     ]
   },
@@ -224,7 +253,7 @@ export const trivyFsAdapter: Adapter = {
       const r = item as Record<string, unknown>
       const target = String(r['Target'] ?? '')
 
-      for (const v of (Array.isArray(r['Vulnerabilities']) ? r['Vulnerabilities'] : [])) {
+      for (const v of Array.isArray(r['Vulnerabilities']) ? r['Vulnerabilities'] : []) {
         if (typeof v !== 'object' || v === null) continue
         const vr = v as Record<string, unknown>
         const ruleId = String(vr['VulnerabilityID'] ?? 'CVE-UNKNOWN')
@@ -248,7 +277,7 @@ export const trivyFsAdapter: Adapter = {
         })
       }
 
-      for (const m of (Array.isArray(r['Misconfigurations']) ? r['Misconfigurations'] : [])) {
+      for (const m of Array.isArray(r['Misconfigurations']) ? r['Misconfigurations'] : []) {
         if (typeof m !== 'object' || m === null) continue
         const mr = m as Record<string, unknown>
         const cause = (mr['CauseMetadata'] as Record<string, unknown>) ?? {}
@@ -270,7 +299,7 @@ export const trivyFsAdapter: Adapter = {
         })
       }
 
-      for (const s of (Array.isArray(r['Secrets']) ? r['Secrets'] : [])) {
+      for (const s of Array.isArray(r['Secrets']) ? r['Secrets'] : []) {
         if (typeof s !== 'object' || s === null) continue
         const sr = s as Record<string, unknown>
         const ruleId = String(sr['RuleID'] ?? 'SECRET')
@@ -300,15 +329,23 @@ export const trivyImageAdapter: Adapter = {
     const targetImage =
       opts.targetImage ?? process.env['TRIVY_TARGET_IMAGE'] ?? `${opts.cachePrefix}-web:latest`
     return [
-      'docker', 'run', '--rm',
-      '-v', '/var/run/docker.sock:/var/run/docker.sock',
-      '-v', `${projectRoot}:/src`,
-      '-v', `${opts.cachePrefix}-trivy-cache:/root/.cache/`,
+      'docker',
+      'run',
+      '--rm',
+      '-v',
+      '/var/run/docker.sock:/var/run/docker.sock',
+      '-v',
+      `${projectRoot}:/src`,
+      '-v',
+      `${opts.cachePrefix}-trivy-cache:/root/.cache/`,
       TRIVY_IMAGE,
       'image',
-      '--format', 'json',
-      '--output', report,
-      '--severity', 'MEDIUM,HIGH,CRITICAL',
+      '--format',
+      'json',
+      '--output',
+      report,
+      '--severity',
+      'MEDIUM,HIGH,CRITICAL',
       targetImage,
     ]
   },
@@ -321,7 +358,7 @@ export const trivyImageAdapter: Adapter = {
       if (typeof item !== 'object' || item === null) continue
       const r = item as Record<string, unknown>
       const target = String(r['Target'] ?? '')
-      for (const v of (Array.isArray(r['Vulnerabilities']) ? r['Vulnerabilities'] : [])) {
+      for (const v of Array.isArray(r['Vulnerabilities']) ? r['Vulnerabilities'] : []) {
         if (typeof v !== 'object' || v === null) continue
         const vr = v as Record<string, unknown>
         const ruleId = String(vr['VulnerabilityID'] ?? 'CVE-UNKNOWN')

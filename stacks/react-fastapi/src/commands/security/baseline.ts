@@ -83,9 +83,9 @@ export class Baseline {
     resolved: string[]
   } {
     const currentFps = new Set(findings.map(fingerprint))
-    const newFindings = findings.filter(f => !this.entries.has(fingerprint(f)))
-    const knownFindings = findings.filter(f => this.entries.has(fingerprint(f)))
-    const resolved = [...this.entries.keys()].filter(fp => !currentFps.has(fp)).sort()
+    const newFindings = findings.filter((f) => !this.entries.has(fingerprint(f)))
+    const knownFindings = findings.filter((f) => this.entries.has(fingerprint(f)))
+    const resolved = [...this.entries.keys()].filter((fp) => !currentFps.has(fp)).sort()
     return { newFindings, knownFindings, resolved }
   }
 }
