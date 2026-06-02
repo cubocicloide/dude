@@ -3,7 +3,6 @@ import * as p from '@clack/prompts'
 import { existsSync, readFileSync } from 'node:fs'
 import { promises as fs } from 'node:fs'
 import path from 'pathe'
-import { stringify as stringifyYaml } from 'yaml'
 
 import { logger } from '../../core/logger.js'
 import { loadRegistry, resolveStackSpec } from '../../core/registry.js'
@@ -122,7 +121,7 @@ export const initCommand = defineCommand({
     }
     spinner.stop('Files generated')
 
-    // 6. Write dude.config.ts + dude.answers.yaml
+    // 6. Write dude.json
     await writeProjectMetadata({
       dest,
       stackPackageName: getStackPackageName(stackRoot),
@@ -147,26 +146,14 @@ interface MetadataInput {
 }
 
 async function writeProjectMetadata(input: MetadataInput): Promise<void> {
-  const configTs = `import { defineConfig } from '@cubocicloide/dude'
-
-export default defineConfig({
-  stack: '${input.stackPackageName}@${input.stackVersion}',
-})
-`
-  await fs.writeFile(path.join(input.dest, 'dude.config.ts'), configTs, 'utf8')
-
-  const answersDoc = {
+  const manifest = {
     stack: input.stackPackageName,
     stackVersion: input.stackVersion,
     answers: input.answers,
     generatedAt: new Date().toISOString(),
     dudeVersion: getCliVersion(),
   }
-  await fs.writeFile(path.join(input.dest, 'dude.answers.yaml'), stringifyYaml(answersDoc), 'utf8')
-
-  // dude.json — machine-readable manifest consumed by `dude lint` and future commands
-  const dudeJson = JSON.stringify({ stack: input.stackPackageName }, null, 2) + '\n'
-  await fs.writeFile(path.join(input.dest, 'dude.json'), dudeJson, 'utf8')
+  await fs.writeFile(path.join(input.dest, 'dude.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8')
 }
 
 function getStackPackageName(stackRoot: string): string {
