@@ -14,6 +14,8 @@ interface LoadedStack {
   definition: StackDefinition
   /** Absolute path of the stack package root (containing `package.json`). */
   root: string
+  /** Resolved version of the stack (read from its package.json). */
+  version: string
 }
 
 /**
@@ -35,10 +37,12 @@ export async function loadStack(spec: string, cwd: string, version?: string): Pr
   }
 
   const pkgJson = JSON.parse(await readFile(pkgJsonPath, 'utf8')) as {
+    version?: string
     main?: string
     module?: string
     exports?: unknown
   }
+  const resolvedVersion = pkgJson.version ?? 'unknown'
   const entry = pkgJson.module ?? pkgJson.main ?? 'dist/index.js'
   const entryPath = resolvePath(root, entry)
 
@@ -59,7 +63,7 @@ export async function loadStack(spec: string, cwd: string, version?: string): Pr
     )
   }
 
-  return { definition: mod.default, root }
+  return { definition: mod.default, root, version: resolvedVersion }
 }
 
 async function resolveStackRoot(spec: string, cwd: string, version?: string): Promise<string> {
@@ -83,14 +87,7 @@ async function resolveStackRoot(spec: string, cwd: string, version?: string): Pr
   if (workspaceMatch) return workspaceMatch
 
   // Last resort: install from the registry into the dude cache dir.
-  if (version) {
-    return installStack(spec, version)
-  }
-
-  throw new Error(
-    `Could not resolve stack "${spec}". Pass a workspace path (e.g. ` +
-      `../stacks/react-fastapi) or install the stack package first.`,
-  )
+  return installStack(spec, version)
 }
 
 /**
@@ -98,21 +95,22 @@ async function resolveStackRoot(spec: string, cwd: string, version?: string): Pr
  * path to the installed package root. Subsequent calls with the same
  * name + version are no-ops (the cached copy is reused).
  *
- * npm is used deliberately (not pnpm) so this works outside pnpm workspaces.
- * Auth is handled via the user's `~/.npmrc`.
+ * When no version is provided, the latest version is resolved from the npm
+ * registry first. Auth is handled via the user's `~/.npmrc`.
  */
-function installStack(packageName: string, version: string): string {
+function installStack(packageName: string, version?: string): string {
+  const resolvedVersion = version ?? resolveLatestVersion(packageName)
   const safeName = packageName.replace(/\//g, '__').replace(/@/g, '')
-  const cacheDir = resolvePath(homedir(), '.dude', 'cache', 'stacks', `${safeName}@${version}`)
+  const cacheDir = resolvePath(homedir(), '.dude', 'cache', 'stacks', `${safeName}@${resolvedVersion}`)
   const installedPkgPath = resolvePath(cacheDir, 'node_modules', packageName, 'package.json')
 
   if (!existsSync(installedPkgPath)) {
-    process.stderr.write(`\n  ℹ  Stack not found locally — installing ${packageName}@${version}...\n`)
+    process.stderr.write(`\n  ℹ  Stack not found locally — installing ${packageName}@${resolvedVersion}...\n`)
     mkdirSync(cacheDir, { recursive: true })
     writeFileSync(
       resolvePath(cacheDir, 'package.json'),
       JSON.stringify(
-        { name: 'dude-stack-cache', private: true, dependencies: { [packageName]: version } },
+        { name: 'dude-stack-cache', private: true, dependencies: { [packageName]: resolvedVersion } },
         null,
         2,
       ),
@@ -125,12 +123,37 @@ function installStack(packageName: string, version: string): string {
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(`Failed to install ${packageName}@${version}: ${msg}`)
+      throw new Error(`Failed to install ${packageName}@${resolvedVersion}: ${msg}`)
     }
-    process.stderr.write(`  ✓  Installed ${packageName}@${version}\n\n`)
+    process.stderr.write(`  ✓  Installed ${packageName}@${resolvedVersion}\n\n`)
   }
 
   return resolvePath(cacheDir, 'node_modules', packageName)
+}
+
+/**
+ * Query the npm registry for the latest version of a package.
+ * Uses the user's ~/.npmrc for authentication (scope → registry mapping).
+ */
+function resolveLatestVersion(packageName: string): string {
+  try {
+    const output = execFileSync(
+      'npm',
+      ['view', packageName, 'version', '--json'],
+      { env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+    const parsed: unknown = JSON.parse(output.toString().trim())
+    // npm may return a string or an array (dist-tags case); take the last item.
+    if (typeof parsed === 'string') return parsed
+    if (Array.isArray(parsed) && parsed.length > 0) return String(parsed[parsed.length - 1])
+    throw new Error('Unexpected npm view output')
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(
+      `Could not resolve latest version of "${packageName}" from the registry.\n` +
+        `Make sure your ~/.npmrc is configured with a valid token.\n${msg}`,
+    )
+  }
 }
 
 function findInPnpmWorkspace(startDir: string, pkgName: string): string | null {

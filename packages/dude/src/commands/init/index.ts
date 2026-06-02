@@ -44,9 +44,9 @@ export const initCommand = defineCommand({
     let stackSpec = args.stack
     if (!stackSpec) {
       const registry = await loadRegistry(packageRoot)
-      const choices = Object.entries(registry.stacks).map(([name, e]) => ({
+      const choices = Object.entries(registry.stacks).map(([name]) => ({
         value: name,
-        label: `${name}  ${e.stable}`,
+        label: name,
       }))
       const chosen = await p.select({
         message: 'Pick a stack',
@@ -60,9 +60,9 @@ export const initCommand = defineCommand({
     }
 
     const registry = await loadRegistry(packageRoot)
-    const { spec: resolvedSpec, version: stackVersion } = resolveStackSpec(registry, stackSpec)
+    const { spec: resolvedSpec } = resolveStackSpec(registry, stackSpec)
     logger.info(`Loading stack: ${resolvedSpec}`)
-    const { definition: stack, root: stackRoot } = await loadStack(resolvedSpec, cwd, stackVersion)
+    const { definition: stack, root: stackRoot, version: stackVersion } = await loadStack(resolvedSpec, cwd)
 
     // 2. Collect answers
     const answers = await promptVariables(stack.variables ?? [], {
@@ -120,7 +120,7 @@ export const initCommand = defineCommand({
       await stack.scaffold(ctx)
     } else {
       const templateDir = path.join(stackRoot, 'template')
-      await renderTemplateTree({ src: templateDir, dest, data: { ...answers, dudeVersion } })
+      await renderTemplateTree({ src: templateDir, dest, data: { ...answers, dudeVersion, stackVersion } })
     }
     spinner.stop('Files generated')
 
@@ -128,7 +128,7 @@ export const initCommand = defineCommand({
     await writeProjectMetadata({
       dest,
       stackPackageName: getStackPackageName(stackRoot),
-      stackVersion: stack.version,
+      stackVersion,
       answers,
       dudeVersion,
     })

@@ -4,7 +4,6 @@ import type { StackVariable } from './stack-contract.js'
 
 export interface RegistryEntry {
   package: string
-  stable: string
   minimumSupported: string
 }
 
@@ -48,7 +47,7 @@ export function resolveStackSpec(registry: Registry, stack: string): ResolvedSta
     const known = Object.keys(registry.stacks).join(', ') || '(none)'
     throw new Error(`Unknown stack "${stack}". Known stacks: ${known}`)
   }
-  return { spec: entry.package, version: entry.stable }
+  return { spec: entry.package, version: undefined }
 }
 
 export type { StackVariable }
