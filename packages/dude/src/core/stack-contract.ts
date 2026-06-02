@@ -58,6 +58,8 @@ export interface StackContext {
   readonly dest: string
   /** Absolute path of the stack plugin root (where `template/` lives). */
   readonly stackRoot: string
+  /** Version of the dude CLI that is running the init. */
+  readonly dudeVersion: string
   /** Tagged logger. */
   readonly logger: {
     info: (msg: string) => void

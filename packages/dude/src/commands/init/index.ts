@@ -93,10 +93,13 @@ export const initCommand = defineCommand({
       await fs.mkdir(dest, { recursive: true })
     }
 
+    const dudeVersion = getCliVersion()
+
     const ctx: StackContext = {
       answers,
       dest,
       stackRoot,
+      dudeVersion,
       logger: {
         info: (m) => logger.info(m),
         warn: (m) => logger.warn(m),
@@ -117,7 +120,7 @@ export const initCommand = defineCommand({
       await stack.scaffold(ctx)
     } else {
       const templateDir = path.join(stackRoot, 'template')
-      await renderTemplateTree({ src: templateDir, dest, data: answers })
+      await renderTemplateTree({ src: templateDir, dest, data: { ...answers, dudeVersion } })
     }
     spinner.stop('Files generated')
 
@@ -127,6 +130,7 @@ export const initCommand = defineCommand({
       stackPackageName: getStackPackageName(stackRoot),
       stackVersion: stack.version,
       answers,
+      dudeVersion,
     })
 
     // 7. Lifecycle: postInit
@@ -143,6 +147,7 @@ interface MetadataInput {
   stackPackageName: string
   stackVersion: string
   answers: Record<string, unknown>
+  dudeVersion: string
 }
 
 async function writeProjectMetadata(input: MetadataInput): Promise<void> {
@@ -151,7 +156,7 @@ async function writeProjectMetadata(input: MetadataInput): Promise<void> {
     stackVersion: input.stackVersion,
     answers: input.answers,
     generatedAt: new Date().toISOString(),
-    dudeVersion: getCliVersion(),
+    dudeVersion: input.dudeVersion,
   }
   await fs.writeFile(
     path.join(input.dest, 'dude.json'),
