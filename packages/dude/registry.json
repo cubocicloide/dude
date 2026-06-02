@@ -2,7 +2,7 @@
   "stacks": {
     "react-fastapi": {
       "package": "@cubocicloide/stack-react-fastapi",
-      "stable": "0.1.0",
+      "stable": "1.0.0",
       "minimumSupported": "0.1.0"
     }
   }

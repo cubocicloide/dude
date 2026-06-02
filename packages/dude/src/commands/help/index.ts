@@ -231,10 +231,10 @@ export const helpCommand = defineCommand({
 
     if (existsSync(dudeJsonPath)) {
       try {
-        const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as { stack?: string }
+        const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as { stack?: string; stackVersion?: string }
         if (dudeJson.stack) {
           stackName = dudeJson.stack
-          const { definition } = await loadStack(dudeJson.stack, cwd)
+          const { definition } = await loadStack(dudeJson.stack, cwd, dudeJson.stackVersion)
           if (definition.commands) mergeStackInto(catalog, definition.commands)
         }
       } catch {

@@ -76,10 +76,10 @@ async function tryStackDispatch(): Promise<boolean> {
   const dudeJsonPath = path.join(cwd, 'dude.json')
   if (!existsSync(dudeJsonPath)) return false
 
-  const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as { stack?: string }
+  const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as { stack?: string; stackVersion?: string }
   if (!dudeJson.stack) return false
 
-  const { definition, root: stackRoot } = await loadStack(dudeJson.stack, cwd)
+  const { definition, root: stackRoot } = await loadStack(dudeJson.stack, cwd, dudeJson.stackVersion)
   const entry = definition.commands?.[first]
   if (!entry) return false
 

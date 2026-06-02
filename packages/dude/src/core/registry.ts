@@ -27,17 +27,28 @@ export async function loadRegistry(packageRoot: string): Promise<Registry> {
   return cached
 }
 
-export function resolveStackSpec(registry: Registry, stack: string): string {
-  // Already an npm-like spec? leave it.
-  if (stack.startsWith('@') || stack.startsWith('.') || stack.startsWith('/')) {
-    return stack
+export interface ResolvedStack {
+  /** npm package name or local path, ready to pass to loadStack. */
+  spec: string
+  /** Stable version from the registry (undefined for path specs). */
+  version: string | undefined
+}
+
+export function resolveStackSpec(registry: Registry, stack: string): ResolvedStack {
+  // Already a path spec? leave it, no registry version available.
+  if (stack.startsWith('.') || stack.startsWith('/')) {
+    return { spec: stack, version: undefined }
+  }
+  // Already a bare package name (starts with @)?
+  if (stack.startsWith('@')) {
+    return { spec: stack, version: undefined }
   }
   const entry = registry.stacks[stack]
   if (!entry) {
     const known = Object.keys(registry.stacks).join(', ') || '(none)'
     throw new Error(`Unknown stack "${stack}". Known stacks: ${known}`)
   }
-  return entry.package
+  return { spec: entry.package, version: entry.stable }
 }
 
 export type { StackVariable }

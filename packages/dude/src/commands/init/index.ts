@@ -60,9 +60,9 @@ export const initCommand = defineCommand({
     }
 
     const registry = await loadRegistry(packageRoot)
-    const resolvedSpec = resolveStackSpec(registry, stackSpec)
+    const { spec: resolvedSpec, version: stackVersion } = resolveStackSpec(registry, stackSpec)
     logger.info(`Loading stack: ${resolvedSpec}`)
-    const { definition: stack, root: stackRoot } = await loadStack(resolvedSpec, cwd)
+    const { definition: stack, root: stackRoot } = await loadStack(resolvedSpec, cwd, stackVersion)
 
     // 2. Collect answers
     const answers = await promptVariables(stack.variables ?? [], {

@@ -34,14 +34,14 @@ export const lintCommand = defineCommand({
       process.exit(1)
     }
 
-    const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as { stack?: string }
+    const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as { stack?: string; stackVersion?: string }
     if (!dudeJson.stack) {
       process.stderr.write(`error: dude.json is missing the "stack" field.\n`)
       process.exit(1)
     }
 
     // Load the stack to resolve its root directory
-    const { root: stackRoot } = await loadStack(dudeJson.stack, root)
+    const { root: stackRoot } = await loadStack(dudeJson.stack, root, dudeJson.stackVersion)
 
     const { diagnostics, errorCount, warningCount } = await runLint(root, stackRoot)
 
