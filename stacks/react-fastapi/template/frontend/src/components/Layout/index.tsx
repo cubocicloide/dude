@@ -4,7 +4,6 @@ import { HomeOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 
 const { Sider, Header, Content } = AntLayout
-const { Text } = Typography
 
 const APP_TITLE = import.meta.env.VITE_APP_TITLE
 
@@ -19,27 +18,11 @@ export default function Layout() {
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
       <Sider collapsible collapsed={collapsed} trigger={null} width={220}>
-        <div
-          style={{
-            height: 48,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            padding: '0 12px',
-          }}
-        >
-          {!collapsed && (
-            <Text strong style={{ color: 'white', fontSize: 15, whiteSpace: 'nowrap' }}>
-              {APP_TITLE}
-            </Text>
-          )}
-        </div>
-
         <Menu
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
+          style={{ paddingTop: 12, borderRight: 0 }}
           items={[
             {
               key: 'home',
@@ -58,7 +41,7 @@ export default function Layout() {
             padding: '0 16px',
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
+            gap: 16,
             borderBottom: '1px solid #f0f0f0',
           }}
         >
@@ -73,10 +56,12 @@ export default function Layout() {
               onClick={() => setCollapsed(true)}
             />
           )}
-          <Text style={{ fontSize: 15, fontWeight: 500 }}>{APP_TITLE}</Text>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            {APP_TITLE}
+          </Typography.Title>
         </Header>
 
-        <Content style={{ margin: 24 }}>
+        <Content style={{ margin: 0, padding: 24 }}>
           <Outlet />
         </Content>
       </AntLayout>

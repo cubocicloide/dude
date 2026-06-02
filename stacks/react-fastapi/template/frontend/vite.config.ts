@@ -4,6 +4,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [react()],
+  envDir: '..', // read .env from project root (also used by docker-compose)
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

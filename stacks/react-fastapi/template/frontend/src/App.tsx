@@ -24,7 +24,7 @@ export function App() {
               </Route>
             </Routes>
           </BrowserRouter>
-          {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+          {import.meta.env.VITE_REACT_QUERY_DEVTOOLS === 'true' && <ReactQueryDevtools initialIsOpen={false} />}
         </QueryClientProvider>
       </AntApp>
     </ConfigProvider>

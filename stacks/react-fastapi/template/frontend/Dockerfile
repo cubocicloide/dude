@@ -7,6 +7,11 @@ RUN npm install -g pnpm@9
 COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install
 
+ARG VITE_APP_TITLE
+ARG VITE_REACT_QUERY_DEVTOOLS
+ENV VITE_APP_TITLE=$VITE_APP_TITLE
+ENV VITE_REACT_QUERY_DEVTOOLS=$VITE_REACT_QUERY_DEVTOOLS
+
 COPY . .
 RUN pnpm build
 
