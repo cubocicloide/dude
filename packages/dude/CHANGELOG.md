@@ -1,5 +1,11 @@
 # @cubocicloide/dude
 
+## 0.5.0
+
+### Minor Changes
+
+- c86b0d0: feat: resolve stack version from npm registry at runtime — `registry.json` no longer pins a `stable` version; `dude init` queries npm for `latest`, installs that exact version, and pins it in `dude.json`/`package.json`
+
 ## 0.4.0
 
 ### Minor Changes
