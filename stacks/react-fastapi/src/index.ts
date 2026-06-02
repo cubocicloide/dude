@@ -1,5 +1,6 @@
 import { defineStack } from '@cubocicloide/dude'
 import { syncCommand, reviewCommand as apiReviewCommand } from './commands/api/index.js'
+import { docsCommand } from './commands/docs/index.js'
 import { formatCommand } from './commands/format/index.js'
 import { lintCommand } from './commands/lint/index.js'
 import { reviewCommand } from './commands/review/index.js'
@@ -51,6 +52,7 @@ export default defineStack({
     format: formatCommand,
     review: reviewCommand,
     test: testCommand,
+    docs: docsCommand,
     security: {
       scan: securityScanCommand,
       accept: securityAcceptCommand,

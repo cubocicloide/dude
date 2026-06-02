@@ -43,6 +43,12 @@ using the `react-fastapi` stack:
 │   └── baseline.json       # Accepted security findings (versioned, commit this)
 ├── private/                # Gitignored — ephemeral files (reports, scratch)
 │   └── sast-reports/       # Security scan output (auto-generated)
+├── docs/                   # MkDocs project (served via `dude docs`)
+│   ├── mkdocs.yml          # MkDocs configuration
+│   └── docs/               # Markdown source pages
+│       ├── index.md
+│       ├── dude.md
+│       └── mkdocs.md
 ├── dude.json               # dude project config (stack identifier)
 ├── docker-compose.yml
 └── CLAUDE.md               ← you are here
@@ -122,6 +128,15 @@ New findings cause a non-zero exit; known/accepted findings (baseline) do not.
 4. `git add security/baseline.json && git commit` — commit the baseline update
 5. Subsequent scans only flag *new* issues not in the baseline
 
+### Documentation
+
+| Command                  | What it does                                                        |
+|--------------------------|---------------------------------------------------------------------|
+| `dude docs`              | Serve `docs/` via MkDocs Material in dev mode at http://localhost:8001 |
+| `dude docs --port 9000`  | Same, on a custom port                                              |
+
+Docs are live-reload: edit any `.md` file under `docs/docs/` and the browser refreshes automatically.
+
 ---
 
 ## Development workflows
@@ -195,6 +210,46 @@ in `main.py`, rather than putting everything in a single file.
 
 ---
 
+## Claude AI assistance
+
+This project ships a set of Claude skills and agents inside `.claude/`.
+Invoke skills from the Claude chat panel with `/skill-name`.
+
+### Skills (slash commands)
+
+| Skill | What it does |
+|-------|--------------|
+| `/security-scan` | Full SAST scan → parallel fix agents per finding → PR + Jira issues |
+| `/verify-security-fixes` | Re-scan, confirm resolved findings, close Jira issues, update baseline |
+| `/fix-issues` | Fetch open Jira issues → route to `issue-fixer` or `security-fixer` agents → PR |
+| `/create-jira-issue` | Guided Jira issue creation with type/priority/labels |
+| `/clean-branches` | Prune merged and stale local/remote branches |
+| `/draft-email` | Draft a professional email from a brief |
+
+### Agents (autonomous workers)
+
+| Agent | What it does |
+|-------|--------------|
+| `issue-fixer` | Implements a single Jira issue in its own git worktree; opens PR; transitions issue to Done |
+| `security-fixer` | Fixes a single SAST finding in its own worktree; handles suppressions and CVE updates |
+
+Agents run in isolated git worktrees (one branch per task) and can operate in
+parallel when orchestrated by `/fix-issues` or `/security-scan`.
+
+### Saved config (autodiscovery)
+
+Skills read Atlassian/Bitbucket connection details from `.claude/config.json`
+(gitignored). Create it on first use:
+
+```json
+{
+  "jira": { "projectKey": "PROJ" },
+  "bitbucket": { "workspace": "my-org", "repo": "{{projectName}}" }
+}
+```
+
+---
+
 ## What Claude should NOT do
 
 - Edit anything under `frontend/src/openapi/` — it is auto-generated. Run `dude api sync` instead.
@@ -215,4 +270,6 @@ in `main.py`, rather than putting everything in a single file.
 | `backend/pyproject.toml` | Python project metadata, deps, ruff/mypy config |
 | `frontend/package.json` | JS/TS project metadata and dev scripts |
 | `frontend/src/openapi/` | Auto-generated API client — do not edit |
+| `docs/mkdocs.yml` | MkDocs configuration; edit nav here to add new pages |
+| `docs/docs/` | Markdown source for the documentation site |
 | `CLAUDE.md` | This file — project context for Claude |
