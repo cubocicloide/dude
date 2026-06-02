@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 import { upCommand, downCommand, logsCommand, shellCommand } from './commands/docker/index.js'
 import { initCommand } from './commands/init/index.js'
+import { helpCommand } from './commands/help/index.js'
 import { loadStack } from './core/stack-loader.js'
 import type { StackCommandDef } from './core/stack-contract.js'
 import { getCliVersion } from './utils/paths.js'
@@ -19,6 +20,7 @@ const main = defineCommand({
     description: "Cubocicloide's project scaffolding & code quality CLI.",
   },
   subCommands: {
+    help: helpCommand,
     init: initCommand,
     up: upCommand,
     down: downCommand,
