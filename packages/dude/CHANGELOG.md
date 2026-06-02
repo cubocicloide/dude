@@ -1,5 +1,11 @@
 # @cubocicloide/dude
 
+## 0.4.0
+
+### Minor Changes
+
+- 3d0a4d1: feat: auto-install stack on demand — when a stack package is not installed locally, dude installs it into `~/.dude/cache/stacks/` using npm and the user's `~/.npmrc` auth; cached by name+version so subsequent runs are instant
+
 ## 0.3.0
 
 ### Minor Changes
