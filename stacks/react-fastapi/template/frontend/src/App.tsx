@@ -1,21 +1,32 @@
-import { useEffect, useState } from 'react'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { App as AntApp, ConfigProvider } from 'antd'
+
+import Layout from '@/components/Layout'
+import HomePage from '@/pages'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: false, refetchOnWindowFocus: false },
+  },
+})
 
 export function App() {
-  const [message, setMessage] = useState<string>('loading…')
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((r) => r.json())
-      .then((data) => setMessage(data.status))
-      .catch(() => setMessage('backend unreachable'))
-  }, [])
-
   return (
-    <main style={{ fontFamily: 'system-ui', padding: '2rem' }}>
-      <h1>Hello from your new project</h1>
-      <p>
-        Backend health: <strong>{message}</strong>
-      </p>
-    </main>
+    <ConfigProvider>
+      <AntApp>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<HomePage />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+          {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+        </QueryClientProvider>
+      </AntApp>
+    </ConfigProvider>
   )
 }

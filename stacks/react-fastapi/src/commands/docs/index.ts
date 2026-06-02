@@ -45,8 +45,18 @@ export const docsCommand: StackCommandDef = {
 
     const child = spawn(
       'docker',
-      ['run', '--rm', '-i', '-p', `${port}:8000`, '-v', `${docsDir}:/docs`,
-       'squidfunk/mkdocs-material', 'serve', '--dev-addr=0.0.0.0:8000'],
+      [
+        'run',
+        '--rm',
+        '-i',
+        '-p',
+        `${port}:8000`,
+        '-v',
+        `${docsDir}:/docs`,
+        'squidfunk/mkdocs-material',
+        'serve',
+        '--dev-addr=0.0.0.0:8000',
+      ],
       { stdio: ['inherit', 'pipe', 'pipe'] },
     )
 
@@ -65,8 +75,14 @@ export const docsCommand: StackCommandDef = {
       }
     }
 
-    child.stdout?.on('data', (chunk: Buffer) => { process.stdout.write(chunk); watchChunk(chunk) })
-    child.stderr?.on('data', (chunk: Buffer) => { process.stderr.write(chunk); watchChunk(chunk) })
+    child.stdout?.on('data', (chunk: Buffer) => {
+      process.stdout.write(chunk)
+      watchChunk(chunk)
+    })
+    child.stderr?.on('data', (chunk: Buffer) => {
+      process.stderr.write(chunk)
+      watchChunk(chunk)
+    })
 
     await new Promise<void>((resolve) => child.on('close', resolve))
   },
