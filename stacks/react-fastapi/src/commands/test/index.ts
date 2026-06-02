@@ -81,7 +81,9 @@ export const testCommand: StackCommandDef = {
 
     // Warn when a requested suite has no matching directory.
     if (runBackend && !hasBackend)
-      process.stderr.write('warn: --backend requested but backend/ directory not found, skipping.\n')
+      process.stderr.write(
+        'warn: --backend requested but backend/ directory not found, skipping.\n',
+      )
     if (runE2e && !hasE2e)
       process.stderr.write('warn: --e2e requested but e2e/ directory not found, skipping.\n')
 

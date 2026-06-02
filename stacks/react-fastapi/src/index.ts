@@ -4,6 +4,11 @@ import { formatCommand } from './commands/format/index.js'
 import { lintCommand } from './commands/lint/index.js'
 import { reviewCommand } from './commands/review/index.js'
 import { testCommand } from './commands/test/index.js'
+import {
+  securityScanCommand,
+  securityAcceptCommand,
+  securityVerifyCommand,
+} from './commands/security/index.js'
 
 export default defineStack({
   name: 'react-fastapi',
@@ -46,6 +51,11 @@ export default defineStack({
     format: formatCommand,
     review: reviewCommand,
     test: testCommand,
+    security: {
+      scan: securityScanCommand,
+      accept: securityAcceptCommand,
+      verify: securityVerifyCommand,
+    },
     api: {
       sync: syncCommand,
       review: apiReviewCommand,
