@@ -15,9 +15,12 @@ This is the documentation for **{{projectName}}** — a full-stack web applicati
 
 | Resource | URL |
 |----------|-----|
-| Frontend (dev) | <http://localhost> |
+| Frontend (dev) | <http://localhost:5173> |
 | Backend API | <http://localhost:8000> |
 | API health | <http://localhost:8000/api/health> |
+{{#if withCelery}}
+| Flower | <http://localhost:5555> |
+{{/if}}
 | This docs site | <http://localhost:8001> |
 
 ---
@@ -26,9 +29,15 @@ This is the documentation for **{{projectName}}** — a full-stack web applicati
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19, Vite, TypeScript (strict) |
-| Backend | FastAPI, Python ≥ 3.13, uv |
-| Infra | Docker Compose |
+| Frontend | React 19, Vite, TypeScript (strict), Ant Design, TanStack Query |
+| Backend | FastAPI, SQLModel, Pydantic v2, Python ≥ 3.13, uv |
+{{#if withPostgres}}
+| Database | PostgreSQL, Alembic |
+{{/if}}
+{{#if withCelery}}
+| Async jobs | Celery, Redis, Flower |
+{{/if}}
+| Infra | Docker Compose, Dockerfiles for frontend and backend |
 | Testing | pytest · Playwright + Cucumber |
 | Security | Bandit · Semgrep · Trivy |
 | Docs | MkDocs Material |
