@@ -1,5 +1,13 @@
 # @cubocicloide/stack-react-fastapi
 
+## 6.0.0
+
+### Patch Changes
+
+- afdb915: Add `dude upgrade` to update pinned CLI and stack versions in existing projects, and document the upgrade and rollback workflow in the stack and project docs.
+- Updated dependencies [afdb915]
+  - @cubocicloide/dude@0.7.0
+
 ## 5.0.6
 
 ### Patch Changes
