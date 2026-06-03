@@ -148,6 +148,24 @@ dude lint
 | `make release`    | Publish to GitHub Packages                               |
 | `make clean`      | Remove `dist/` and `node_modules/`                       |
 
+## Project version pinning
+
+Scaffolded projects record two independent version pins:
+
+- `package.json` → `@cubocicloide/dude`
+- `dude.json` → `stack` + `stackVersion`
+
+Use `dude upgrade` inside a generated project to update either or both pins:
+
+```bash
+dude upgrade
+dude upgrade --cli --cli-version 0.6.1
+dude upgrade --stack --stack-version 5.0.5
+```
+
+The command does not migrate scaffolded files. Rollback is done by pinning the
+previous version again.
+
 ---
 
 ## Release workflow

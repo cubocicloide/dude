@@ -61,6 +61,7 @@ set. Run `dude help` for the complete list.
 | Command                 | Description                                        |
 | ----------------------- | -------------------------------------------------- |
 | `dude init`             | Scaffold a new project from a stack template       |
+| `dude upgrade`          | Update the CLI pin and/or active stack pin         |
 | `dude up [--build]`     | Start services (`--build` to rebuild images first) |
 | `dude down`             | Stop and remove containers                         |
 | `dude logs [service]`   | Stream logs (omit service to follow all)           |
@@ -77,6 +78,25 @@ set. Run `dude help` for the complete list.
 | `dude docs`             | Serve the project docs at http://localhost:8001    |
 | `dude security scan`    | Run SAST scanners (bandit, semgrep, trivy)         |
 | `dude help`             | Show all available commands for the current stack  |
+
+### Upgrading a project
+
+Generated projects pin the `dude` CLI in `package.json` and the active stack in
+`dude.json`. Use `dude upgrade` to move either pin forward or backward:
+
+```bash
+dude upgrade
+dude upgrade --cli --cli-version 0.6.1
+dude upgrade --stack --stack-version 5.0.5
+
+# rollback example
+dude upgrade --cli --cli-version 0.6.0
+dude upgrade --stack --stack-version 5.0.4
+pnpm install
+```
+
+`dude upgrade` updates version pins only. It does not migrate existing project
+files.
 
 ### First run (react-fastapi stack)
 

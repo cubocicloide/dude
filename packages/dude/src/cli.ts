@@ -4,6 +4,7 @@ import path from 'pathe'
 import { upCommand, downCommand, logsCommand, shellCommand } from './commands/docker/index.js'
 import { initCommand } from './commands/init/index.js'
 import { helpCommand } from './commands/help/index.js'
+import { upgradeCommand } from './commands/upgrade/index.js'
 import { versionCommand } from './commands/version/index.js'
 import { loadStack } from './core/stack-loader.js'
 import type { StackCommandDef } from './core/stack-contract.js'
@@ -24,6 +25,7 @@ const main = defineCommand({
     version: versionCommand,
     help: helpCommand,
     init: initCommand,
+    upgrade: upgradeCommand,
     up: upCommand,
     down: downCommand,
     logs: logsCommand,

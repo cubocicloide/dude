@@ -83,7 +83,29 @@ defines every service.
 |---------|-------------|
 | `dude lint` | Run all structural lint checks (naming, layout conventions) |
 | `dude format` | Format code — `ruff` (backend) + `prettier` (frontend) |
+| `dude upgrade` | Update the pinned `dude` CLI and stack versions for this project |
 | `dude review` | Run lint + ESLint + API contract review in one pass |
+
+### Upgrading pinned versions
+
+`dude upgrade` updates version pins only. It does **not** migrate existing
+project files.
+
+| Command | Description |
+|---------|-------------|
+| `dude upgrade` | Upgrade both the CLI pin in `package.json` and the stack pin in `dude.json` |
+| `dude upgrade --cli` | Upgrade only `@cubocicloide/dude` |
+| `dude upgrade --stack` | Upgrade only the active stack version |
+| `dude upgrade --cli --cli-version 0.6.1` | Pin the CLI to an explicit version |
+| `dude upgrade --stack --stack-version 5.0.5` | Pin the stack to an explicit version |
+
+If a newer version causes issues, roll back by pinning the previous one again:
+
+```bash
+dude upgrade --cli --cli-version 0.6.0
+dude upgrade --stack --stack-version 5.0.4
+pnpm install
+```
 
 ---
 
