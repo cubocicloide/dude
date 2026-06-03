@@ -1,5 +1,6 @@
 ---
-applyTo: "**"
+paths:
+  - "**"
 ---
 
 # Monorepo layout and naming conventions

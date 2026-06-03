@@ -1,5 +1,6 @@
 ---
-applyTo: "stacks/**"
+paths:
+  - "stacks/**"
 ---
 
 # Lint checks and .claude rule parity

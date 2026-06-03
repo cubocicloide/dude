@@ -1,5 +1,6 @@
 ---
-applyTo: "**"
+paths:
+  - "**"
 ---
 
 # Build and scaffold-test workflow

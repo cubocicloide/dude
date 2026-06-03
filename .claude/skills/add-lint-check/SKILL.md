@@ -1,3 +1,9 @@
+---
+name: add-lint-check
+description: Add a new lint check module to a stack with a matching Claude rule file in the generated project template
+allowed-tools: "Bash(ls *), Bash(cat *)"
+---
+
 # Skill: add-lint-check
 
 Use this skill when asked to add a new lint check to a stack.

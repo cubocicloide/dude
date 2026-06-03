@@ -1,3 +1,9 @@
+---
+name: release
+description: Record a Changesets changeset and trigger the CI release flow for one or more monorepo packages
+allowed-tools: "Bash(git *), Bash(make *), Bash(pnpm *)"
+---
+
 # Skill: release
 
 Use this skill when asked to publish a new version of one or more packages in

@@ -1,3 +1,9 @@
+---
+name: clean-branches
+description: Prune merged and stale branches from both the local clone and origin
+allowed-tools: "Bash(git *)"
+---
+
 # Skill: clean-branches
 
 Use this skill to prune merged and stale branches from both the local clone and

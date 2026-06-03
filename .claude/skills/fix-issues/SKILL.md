@@ -1,3 +1,8 @@
+---
+name: fix-issues
+description: Fetch open GitHub issues and spawn an issue-fixer agent for each in an isolated git worktree
+---
+
 # Skill: fix-issues
 
 Use this skill when asked to implement one or more open GitHub issues.
