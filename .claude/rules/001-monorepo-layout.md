@@ -1,10 +1,14 @@
+---
+applyTo: "**"
+---
+
 # Monorepo layout and naming conventions
 
 ## Package names
 
-| Directory | npm name | Role |
-|-----------|----------|------|
-| `packages/dude/` | `@cubocicloide/dude` | CLI runtime |
+| Directory               | npm name                            | Role         |
+| ----------------------- | ----------------------------------- | ------------ |
+| `packages/dude/`        | `@cubocicloide/dude`                | CLI runtime  |
 | `stacks/react-fastapi/` | `@cubocicloide/stack-react-fastapi` | Stack plugin |
 
 ## Adding a new stack

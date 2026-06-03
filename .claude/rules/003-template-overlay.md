@@ -1,3 +1,7 @@
+---
+applyTo: "stacks/**/template*/**"
+---
+
 # Template overlay system
 
 ## Overlays
@@ -13,13 +17,13 @@ Files are copied in this order; later overlays win on conflict:
 
 Every `.hbs` file has access to:
 
-| Variable | Type | Description |
-|----------|------|-------------|
-| `projectName` | string | The name passed to `dude init` |
-| `withPostgres` | boolean | `true` when `--database postgres` |
-| `withCelery` | boolean | `true` when `--celery` or `--celerybeat` |
-| `withCeleryBeat` | boolean | `true` when `--celerybeat` |
-| `withRedis` | boolean | `true` when Celery or CeleryBeat is enabled |
+| Variable         | Type    | Description                                 |
+| ---------------- | ------- | ------------------------------------------- |
+| `projectName`    | string  | The name passed to `dude init`              |
+| `withPostgres`   | boolean | `true` when `--database postgres`           |
+| `withCelery`     | boolean | `true` when `--celery` or `--celerybeat`    |
+| `withCeleryBeat` | boolean | `true` when `--celerybeat`                  |
+| `withRedis`      | boolean | `true` when Celery or CeleryBeat is enabled |
 
 Use `{{#if withPostgres}}…{{/if}}` to guard conditional blocks.
 

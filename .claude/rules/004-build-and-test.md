@@ -1,3 +1,7 @@
+---
+applyTo: "**"
+---
+
 # Build and scaffold-test workflow
 
 ## After any source change
@@ -37,6 +41,7 @@ dude lint
 
 All of the above is what CI runs. If `dude lint` passes locally it should pass
 in CI. If it fails only in CI, check:
+
 - The stack was rebuilt before scaffolding (`make build` in CI).
 - Node version matches (`.nvmrc` or `engines` field in `package.json`).
 - GitHub token is set for private package installs.

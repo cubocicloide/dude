@@ -1,3 +1,7 @@
+---
+applyTo: "stacks/**"
+---
+
 # Lint checks and .claude rule parity
 
 Every lint check module must have a matching prose description file in the
@@ -6,10 +10,10 @@ fix violations.
 
 ## Mapping
 
-| Lint module (source) | Claude rule (template) |
-|----------------------|------------------------|
-| `src/commands/lint/checks/BE/NNN.ts` | `template/.claude/rules/BE/NNN.md` |
-| `src/commands/lint/checks/FE/NNN.ts` | `template/.claude/rules/FE/NNN.md` |
+| Lint module (source)                  | Claude rule (template)              |
+| ------------------------------------- | ----------------------------------- |
+| `src/commands/lint/checks/BE/NNN.ts`  | `template/.claude/rules/BE/NNN.md`  |
+| `src/commands/lint/checks/FE/NNN.ts`  | `template/.claude/rules/FE/NNN.md`  |
 | `src/commands/lint/checks/E2E/NNN.ts` | `template/.claude/rules/E2E/NNN.md` |
 
 ## Invariant
