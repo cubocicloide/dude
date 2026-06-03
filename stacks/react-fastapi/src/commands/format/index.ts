@@ -13,11 +13,22 @@ function exec(cmd: string, args: string[], cwd: string): boolean {
   return result.status === 0 && result.error == null
 }
 
-function ensureNodeModules(dir: string): boolean {
-  const nodeModulesDir = path.join(dir, 'node_modules')
-  if (existsSync(nodeModulesDir)) return true
+function hasLocalExecutable(dir: string, executable: string): boolean {
+  const localBin = path.join(dir, 'node_modules', '.bin', executable)
+  return existsSync(localBin)
+}
 
-  process.stdout.write('node_modules not found — running pnpm install…\n')
+function ensureNodeModules(dir: string, executable?: string): boolean {
+  const nodeModulesDir = path.join(dir, 'node_modules')
+  const hasDeps = existsSync(nodeModulesDir)
+  const hasExecutable = executable == null || hasLocalExecutable(dir, executable)
+  if (hasDeps && hasExecutable) return true
+
+  process.stdout.write(
+    hasDeps
+      ? `${executable ?? 'required dependency'} not found — running pnpm install…\n`
+      : 'node_modules not found — running pnpm install…\n',
+  )
   return exec('pnpm', ['install'], dir)
 }
 
@@ -78,7 +89,7 @@ export const formatCommand: StackCommandDef = {
     if (existsSync(frontendDir)) {
       process.stdout.write(check ? 'Checking frontend formatting…\n' : 'Formatting frontend…\n')
 
-      const ready = ensureNodeModules(frontendDir)
+      const ready = ensureNodeModules(frontendDir, 'prettier')
       if (!ready) {
         process.stderr.write('error: pnpm install failed in frontend/\n')
         ok = false
@@ -97,7 +108,7 @@ export const formatCommand: StackCommandDef = {
     if (existsSync(e2eDir)) {
       process.stdout.write(check ? 'Checking e2e formatting…\n' : 'Formatting e2e…\n')
 
-      const ready = ensureNodeModules(e2eDir)
+      const ready = ensureNodeModules(e2eDir, 'prettier')
       if (!ready) {
         process.stderr.write('error: pnpm install failed in e2e/\n')
         ok = false
