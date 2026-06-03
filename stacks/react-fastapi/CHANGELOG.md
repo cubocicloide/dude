@@ -1,5 +1,11 @@
 # @cubocicloide/stack-react-fastapi
 
+## 6.0.2
+
+### Patch Changes
+
+- 3dc82b2: Fix the docs landing page quick links and refresh the tech stack summary in the generated project documentation.
+
 ## 6.0.1
 
 ### Patch Changes
