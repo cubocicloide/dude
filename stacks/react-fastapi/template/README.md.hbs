@@ -3,7 +3,55 @@
 Scaffolded with [`dude`](https://github.com/cubocicloide/dude) using the
 `react-fastapi` stack.
 
-## Layout
+## Quick start
+
+> **Prerequisites** — Docker Desktop running and `dude` installed (`npm install -g @cubocicloide/dude`).
+
+```bash
+# 1. First run — build images and start all services
+dude up --build
+
+# 2. From the second run onward
+dude up
+```
+
+That's it. Once the containers are up, open the URLs below.
+
+### Services
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| **Frontend** | http://localhost:5173 | React + Vite — HMR active |
+| **API** | http://localhost:8000 | FastAPI |
+| **Swagger UI** | http://localhost:8000/docs | Interactive API explorer |
+| **ReDoc** | http://localhost:8000/redoc | API reference docs |
+| **Health** | http://localhost:8000/api/health | JSON health check |
+{{#if withCelery}}
+| **Flower** | http://localhost:5555 | Celery task monitor |
+{{/if}}
+
+### Hot reload
+
+- **Frontend** — Vite HMR is on by default. Edit any file under `frontend/src/`
+  and the browser updates instantly without a full page reload.
+- **Backend** — Uvicorn runs with `--reload`. Edit any Python file under
+  `backend/app/` and the API restarts automatically within a second.
+
+### Common commands
+
+| Command | Description |
+|---------|-------------|
+| `dude up --build` | Rebuild images and start all services |
+| `dude up` | Start all services (detached) |
+| `dude down` | Stop and remove containers |
+| `dude logs [service]` | Follow logs (omit service to follow all) |
+| `dude shell <service>` | Open a shell inside a running container |
+| `dude api sync` | Fetch OpenAPI spec → regenerate typed client |
+| `dude api review` | Validate generated client against the spec |
+| `dude lint` | Run all stack lint checks |
+| `dude docs` | Start documentation dev server (http://localhost:8001) |
+
+## Project layout
 
 ```
 {{projectName}}/
@@ -21,36 +69,6 @@ Scaffolded with [`dude`](https://github.com/cubocicloide/dude) using the
 ├── docs/            # MkDocs documentation site
 └── docker-compose.yml
 ```
-
-## Quick start — Docker (recommended)
-
-```bash
-# First run (build images + start)
-dude up --build
-
-# Subsequent runs
-dude up
-```
-
-| Service    | URL                                   |
-|------------|---------------------------------------|
-| Frontend   | http://localhost:5173                 |
-| API        | http://localhost:8000                 |
-| Health     | http://localhost:8000/api/health      |
-
-### Common commands
-
-| Command                    | Description                                      |
-|----------------------------|--------------------------------------------------|
-| `dude up --build`          | Rebuild images and start all services            |
-| `dude up`                  | Start all services (detached)                    |
-| `dude down`                | Stop and remove containers                       |
-| `dude logs [service]`      | Follow logs (omit service to follow all)         |
-| `dude shell <service>`     | Open a shell inside a running container          |
-| `dude api sync`            | Fetch OpenAPI spec → generate typed client       |
-| `dude api review`          | Validate the generated client against the spec   |
-| `dude lint`                | Run all stack lint checks                        |
-| `dude docs`                | Start documentation dev server (http://localhost:8001) |
 
 ## Quick start — local (no Docker)
 

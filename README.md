@@ -78,14 +78,32 @@ set. Run `dude help` for the complete list.
 | `dude security scan`    | Run SAST scanners (bandit, semgrep, trivy)         |
 | `dude help`             | Show all available commands for the current stack  |
 
+### First run (react-fastapi stack)
+
+```bash
+# Build images and start all services — required the first time,
+# and after any Dockerfile / pyproject.toml change
+dude up --build
+
+# From the second run onward
+dude up
+```
+
 ### Service URLs (react-fastapi stack, after `dude up`)
 
-| Service  | URL                              |
-| -------- | -------------------------------- |
-| Frontend | http://localhost:5173            |
-| API      | http://localhost:8000            |
-| Health   | http://localhost:8000/api/health |
-| Docs     | http://localhost:8001            |
+| Service    | URL                              | Notes                               |
+| ---------- | -------------------------------- | ----------------------------------- |
+| Frontend   | http://localhost:5173            | React + Vite — HMR active           |
+| API        | http://localhost:8000            | FastAPI                             |
+| Swagger UI | http://localhost:8000/docs       | Interactive API explorer            |
+| ReDoc      | http://localhost:8000/redoc      | API reference docs                  |
+| Health     | http://localhost:8000/api/health | JSON health check                   |
+| Flower     | http://localhost:5555            | Celery task monitor (--celery only) |
+| Docs       | http://localhost:8001            | MkDocs dev server (`dude docs`)     |
+
+> **Hot reload** — Vite HMR is active on the frontend (edit `frontend/src/` and
+> the browser updates instantly). Uvicorn runs with `--reload` on the backend
+> (edit `backend/app/` and the API restarts within ~1 second).
 
 ---
 

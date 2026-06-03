@@ -1,7 +1,7 @@
 ---
 name: release
 description: Record a Changesets changeset and trigger the CI release flow for one or more monorepo packages
-allowed-tools: "Bash(git *), Bash(make *), Bash(pnpm *)"
+allowed-tools: 'Bash(git *), Bash(make *), Bash(pnpm *)'
 ---
 
 # Skill: release
@@ -33,6 +33,7 @@ make changeset
 ```
 
 The interactive prompt asks:
+
 1. **Which packages** have changed? (select with space, confirm with enter)
 2. **Bump type** for each package:
    - `patch` — bug fix, no new public API
@@ -53,6 +54,7 @@ git push origin master
 
 After pushing, the **Release** GitHub Actions workflow detects the new changeset
 and opens (or updates) a PR titled **"Version Packages"**. That PR:
+
 - Bumps `version` fields in the affected `package.json` files
 - Updates `CHANGELOG.md` entries from the collected changesets
 - Removes the consumed `.changeset/*.md` files

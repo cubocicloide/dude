@@ -1,3 +1,6 @@
 {
-  "snyk.advanced.autoSelectOrganization": true
+  "snyk.advanced.autoSelectOrganization": true,
+  "[handlebars]": {
+    "editor.formatOnSave": false
+  }
 }

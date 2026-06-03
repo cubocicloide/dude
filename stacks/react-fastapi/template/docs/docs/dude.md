@@ -21,10 +21,50 @@ dude --version
 
 ---
 
+## Getting started
+
+### First run
+
+```bash
+# Build images and start all services — required the very first time
+dude up --build
+```
+
+From the second run onward:
+
+```bash
+dude up
+```
+
+Also re-run `dude up --build` whenever you change a `Dockerfile` or
+`pyproject.toml`.
+
+### Services
+
+Once the stack is up, open these URLs:
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| **Frontend** | http://localhost:5173 | React + Vite — HMR active |
+| **API** | http://localhost:8000 | FastAPI |
+| **Swagger UI** | http://localhost:8000/docs | Interactive API explorer |
+| **ReDoc** | http://localhost:8000/redoc | API reference docs |
+| **Health** | http://localhost:8000/api/health | JSON health check |
+| **Flower** | http://localhost:5555 | Celery task monitor |
+
+### Hot reload
+
+- **Frontend** — Vite HMR is active. Edit any file under `frontend/src/` and
+  the browser updates instantly without a full page reload.
+- **Backend** — Uvicorn runs with `--reload`. Edit any Python file under
+  `backend/app/` and the API restarts automatically within ~1 second.
+
+---
+
 ## Infrastructure
 
-All services run in Docker. The `docker-compose.yml` at the project root defines
-`frontend` and `backend` services.
+All services run in Docker. The `docker-compose.yml` at the project root
+defines every service.
 
 | Command | Description |
 |---------|-------------|
@@ -34,10 +74,6 @@ All services run in Docker. The `docker-compose.yml` at the project root defines
 | `dude logs` | Follow logs for all services |
 | `dude logs backend` | Follow logs for a specific service |
 | `dude shell backend` | Open an interactive shell inside a running container |
-
-!!! tip "First run"
-    Always use `dude up --build` the first time, or after changing a `Dockerfile`
-    or `pyproject.toml`.
 
 ---
 
