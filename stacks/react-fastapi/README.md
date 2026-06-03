@@ -8,6 +8,17 @@ React (Vite + TypeScript) frontend with a FastAPI backend, scaffolded by [`dude`
 dude init my-app --stack react-fastapi
 ```
 
+Scaffolded projects pin both the CLI version and the stack version so customers
+can upgrade or roll back deliberately:
+
+```bash
+dude upgrade
+dude upgrade --cli --cli-version 0.6.1
+dude upgrade --stack --stack-version 5.0.5
+```
+
+The command updates version pins only. It does not migrate existing files.
+
 ## Variables
 
 | Name          | Type    | Default  | Description                                          |

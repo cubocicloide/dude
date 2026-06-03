@@ -49,7 +49,28 @@ That's it. Once the containers are up, open the URLs below.
 | `dude api sync` | Fetch OpenAPI spec → regenerate typed client |
 | `dude api review` | Validate generated client against the spec |
 | `dude lint` | Run all stack lint checks |
+| `dude upgrade` | Update pinned CLI and stack versions for this project |
 | `dude docs` | Start documentation dev server (http://localhost:8001) |
+
+### Upgrading pinned versions
+
+Use `dude upgrade` to update the versions pinned in `package.json` and
+`dude.json`.
+
+```bash
+dude upgrade
+dude upgrade --cli --cli-version 0.6.1
+dude upgrade --stack --stack-version 5.0.5
+```
+
+This updates version pins only; it does not migrate existing files. If you need
+to roll back, pin the previous version again and reinstall dependencies:
+
+```bash
+dude upgrade --cli --cli-version 0.6.0
+dude upgrade --stack --stack-version 5.0.4
+pnpm install
+```
 
 ## Project layout
 
