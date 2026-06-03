@@ -1,5 +1,34 @@
 # @cubocicloide/stack-react-fastapi
 
+## 5.0.0
+
+### Minor Changes
+
+- 77a06b3: Add YAML frontmatter to .claude agents and skills; migrate rules from applyTo to paths key
+- cdff3ea: feat: optional PostgreSQL (SQLModel + Alembic), Celery worker and Celery Beat support
+
+  `dude init` now asks three extra questions:
+  - **Database** — `none` (default) or `postgres`
+  - **Add Celery worker?** — boolean
+  - **Add Celery Beat?** — boolean (auto-enables Celery)
+
+  Selecting postgres scaffolds: `alembic.ini`, `alembic/env.py`, `start.sh` (waits for Postgres, runs migrations), `app/core/database.py`, `User` model + `UserQueries` class + `GET /api/users/` router, and conditional `docker-compose.yml` services (`postgres` with healthcheck, `alembic` volume mounts).
+
+  Selecting Celery adds: `app/worker.py`, `app/tasks/example.py`, Flower monitor in compose.
+
+  Selecting Celery Beat adds: `app/tasks/scheduled.py` with a periodic `heartbeat` task.
+
+  New `dude db` commands: `makemigration`, `migrate`, `rollback` — run Alembic inside the backend container.
+
+- 77a06b3: Add non-interactive `make changeset-add` target and update release skill docs
+
+### Patch Changes
+
+- Updated dependencies [77a06b3]
+- Updated dependencies [cdff3ea]
+- Updated dependencies [77a06b3]
+  - @cubocicloide/dude@0.6.0
+
 ## Unreleased
 
 ### Minor Changes
