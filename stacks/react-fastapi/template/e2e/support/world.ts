@@ -17,7 +17,7 @@ export class CustomWorld extends World implements ICustomWorld {
   constructor(options: IWorldOptions) {
     super(options)
     // Override with BASE_URL env var in CI or against non-local environments.
-    this.baseUrl = process.env.BASE_URL ?? 'http://localhost'
+    this.baseUrl = process.env.BASE_URL ?? 'http://localhost:5173'
   }
 }
 
