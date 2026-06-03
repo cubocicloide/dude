@@ -13,6 +13,14 @@ function exec(cmd: string, args: string[], cwd: string): boolean {
   return result.status === 0 && result.error == null
 }
 
+function ensureNodeModules(dir: string): boolean {
+  const nodeModulesDir = path.join(dir, 'node_modules')
+  if (existsSync(nodeModulesDir)) return true
+
+  process.stdout.write('node_modules not found — running pnpm install…\n')
+  return exec('pnpm', ['install'], dir)
+}
+
 export const formatCommand: StackCommandDef = {
   description: 'Format backend (ruff) and frontend (prettier) source files.',
   args: {
@@ -70,31 +78,45 @@ export const formatCommand: StackCommandDef = {
     if (existsSync(frontendDir)) {
       process.stdout.write(check ? 'Checking frontend formatting…\n' : 'Formatting frontend…\n')
 
-      ok =
-        exec(
-          'pnpm',
-          ['exec', 'prettier', ...(check ? ['--check'] : ['--write']), 'src/'],
-          frontendDir,
-        ) && ok
+      const ready = ensureNodeModules(frontendDir)
+      if (!ready) {
+        process.stderr.write('error: pnpm install failed in frontend/\n')
+        ok = false
+      }
+      if (ready) {
+        ok =
+          exec(
+            'pnpm',
+            ['exec', 'prettier', ...(check ? ['--check'] : ['--write']), 'src/'],
+            frontendDir,
+          ) && ok
+      }
     }
 
     // ── E2E ───────────────────────────────────────────────────────────────────
     if (existsSync(e2eDir)) {
       process.stdout.write(check ? 'Checking e2e formatting…\n' : 'Formatting e2e…\n')
 
-      ok =
-        exec(
-          'pnpm',
-          [
-            'exec',
-            'prettier',
-            ...(check ? ['--check'] : ['--write']),
-            '**/*.{ts,json}',
-            '--ignore-path',
-            '.prettierignore',
-          ],
-          e2eDir,
-        ) && ok
+      const ready = ensureNodeModules(e2eDir)
+      if (!ready) {
+        process.stderr.write('error: pnpm install failed in e2e/\n')
+        ok = false
+      }
+      if (ready) {
+        ok =
+          exec(
+            'pnpm',
+            [
+              'exec',
+              'prettier',
+              ...(check ? ['--check'] : ['--write']),
+              '**/*.{ts,json}',
+              '--ignore-path',
+              '.prettierignore',
+            ],
+            e2eDir,
+          ) && ok
+      }
     }
 
     if (!ok) process.exit(1)
