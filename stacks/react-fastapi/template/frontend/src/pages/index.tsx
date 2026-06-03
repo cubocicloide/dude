@@ -127,7 +127,7 @@ export default function HomePage() {
           </li>
           <li>
             <Text strong>Open the app</Text> —{' '}
-            <Link href="http://localhost" target="_blank">http://localhost</Link> (frontend) ·{' '}
+            <Link href="http://localhost:5173" target="_blank">http://localhost:5173</Link> (frontend) ·{' '}
             <Link href="http://localhost:8000/docs" target="_blank">http://localhost:8000/docs</Link>{' '}
             (API)
           </li>

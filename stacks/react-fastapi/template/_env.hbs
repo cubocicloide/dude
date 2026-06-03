@@ -6,3 +6,20 @@ DEBUG=true
 VITE_APP_TITLE={{projectName}}
 # Set to "true" to enable React Query DevTools in the browser
 VITE_REACT_QUERY_DEVTOOLS=true
+{{#if withPostgres}}
+
+# ── Database ──────────────────────────────────────────────────────────────────
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/app
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=app
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+{{/if}}
+{{#if withRedis}}
+
+# ── Redis / Celery ────────────────────────────────────────────────────────────
+REDIS_URL=redis://redis:6379/0
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+{{/if}}

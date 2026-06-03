@@ -1,0 +1,128 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      APP_TITLE: ${APP_TITLE:-{{projectName}}}
+      DEBUG: ${DEBUG:-false}
+{{#if withPostgres}}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/app}
+{{/if}}
+{{#if withRedis}}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+{{/if}}
+{{#if withPostgres}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+{{/if}}
+    volumes:
+      - ./backend/app:/app/app
+{{#if withPostgres}}
+      - ./backend/alembic:/app/alembic
+      - ./backend/alembic.ini:/app/alembic.ini
+{{/if}}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    environment:
+      VITE_APP_TITLE: ${VITE_APP_TITLE:-{{projectName}}}
+      VITE_REACT_QUERY_DEVTOOLS: ${VITE_REACT_QUERY_DEVTOOLS:-false}
+      BACKEND_URL: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+{{#if withPostgres}}
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+{{/if}}
+{{#if withRedis}}
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+{{/if}}
+{{#if withCelery}}
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: uv run celery -A app.worker.celery_app worker --loglevel=info
+    restart: unless-stopped
+    environment:
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+{{#if withPostgres}}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/app}
+{{/if}}
+    depends_on:
+      - redis
+{{#if withPostgres}}
+      - backend
+{{/if}}
+    volumes:
+      - ./backend/app:/app/app
+
+  flower:
+    image: mher/flower:2.0
+    restart: unless-stopped
+    environment:
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - celery_worker
+{{/if}}
+{{#if withCeleryBeat}}
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: uv run celery -A app.worker.celery_app beat --loglevel=info
+    restart: unless-stopped
+    environment:
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+    depends_on:
+      - redis
+      - celery_worker
+    volumes:
+      - ./backend/app:/app/app
+{{/if}}
+{{#if withPostgres}}
+
+volumes:
+  postgres_data:
+{{/if}}

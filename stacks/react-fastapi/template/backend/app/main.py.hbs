@@ -5,6 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import (
     health,
+{{#if withPostgres}}
+    users,
+{{/if}}
 )
 
 app = FastAPI(title="{{projectName}} backend")
@@ -20,5 +23,8 @@ app.add_middleware(
 api_router = APIRouter(prefix="/api")
 
 api_router.include_router(health.router)
+{{#if withPostgres}}
+api_router.include_router(users.router)
+{{/if}}
 
 app.include_router(api_router)

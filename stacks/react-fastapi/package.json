@@ -9,6 +9,9 @@
   "files": [
     "dist",
     "template",
+    "template-postgres",
+    "template-celery",
+    "template-celerybeat",
     "dude.stack.json",
     "README.md"
   ],

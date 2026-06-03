@@ -7,6 +7,16 @@ RUN pip install --no-cache-dir uv
 # Install all dependencies (including dev: pytest, ruff, mypy …)
 COPY pyproject.toml .
 RUN uv sync --no-cache
+{{#if withPostgres}}
+
+# Copy start script (waits for Postgres, runs migrations, starts uvicorn)
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
 EXPOSE 8000
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/start.sh"]
+{{else}}
+
+EXPOSE 8000
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+{{/if}}

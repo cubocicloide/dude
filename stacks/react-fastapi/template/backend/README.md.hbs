@@ -6,8 +6,37 @@ FastAPI service for `{{projectName}}`.
 
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/) (recommended)
+- Docker (recommended for full-stack dev)
+{{#if withPostgres}}
+- PostgreSQL 17
+{{/if}}
+{{#if withCelery}}
+- Redis 7
+{{/if}}
 
-## Run
+## Run with Docker
+
+```bash
+docker compose up --build
+```
+{{#if withPostgres}}
+
+Migrations run automatically on container start via `start.sh`.
+
+To create a new migration after changing models:
+
+```bash
+dude db makemigration --message "describe change"
+dude db migrate
+```
+{{/if}}
+{{#if withCelery}}
+
+Celery worker and{{#if withCeleryBeat}} beat scheduler and{{/if}} Flower monitor are started automatically by docker compose.
+Flower UI: <http://localhost:5555>
+{{/if}}
+
+## Run locally (without Docker)
 
 ```bash
 uv sync
@@ -15,3 +44,4 @@ uv run uvicorn app.main:app --reload --port 8000
 ```
 
 Then open <http://localhost:8000/api/health>.
+
