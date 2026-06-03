@@ -1,5 +1,11 @@
 # @cubocicloide/dude
 
+## 0.6.1
+
+### Patch Changes
+
+- a1c9b91: Update README and template docs with first-run guide, full service URL table (Swagger UI, ReDoc, Flower), and hot reload instructions
+
 ## 0.6.0
 
 ### Minor Changes
