@@ -1,5 +1,13 @@
 # @cubocicloide/stack-react-fastapi
 
+## 5.0.1
+
+### Patch Changes
+
+- a1c9b91: Update README and template docs with first-run guide, full service URL table (Swagger UI, ReDoc, Flower), and hot reload instructions
+- Updated dependencies [a1c9b91]
+  - @cubocicloide/dude@0.6.1
+
 ## 5.0.0
 
 ### Minor Changes
