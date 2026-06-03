@@ -1,5 +1,11 @@
 # @cubocicloide/stack-react-fastapi
 
+## 5.0.5
+
+### Patch Changes
+
+- 3637c3b: `e2e`: default to `http://localhost:5173` and show a friendly error when the app is not reachable
+
 ## 5.0.4
 
 ### Patch Changes
