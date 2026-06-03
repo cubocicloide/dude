@@ -96,5 +96,5 @@ version: ## Apply pending changesets to package.json and CHANGELOGs
 	pnpm run version-packages
 
 .PHONY: release
-release: ## Build and publish updated packages to GitHub Packages
+release: ## Build and publish updated packages to GitHub Packages (emergency/manual only — CI handles normal releases)
 	pnpm run release

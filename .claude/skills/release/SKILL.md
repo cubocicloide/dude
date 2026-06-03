@@ -39,8 +39,7 @@ The interactive prompt asks:
    - `minor` — new backwards-compatible feature
    - `major` — breaking change
 
-A `.changeset/<random-slug>.md` file is created. Review and edit it if the
-auto-generated summary needs more detail.
+A `.changeset/<random-slug>.md` file is created. The random filename is intentional — it avoids merge conflicts. Edit the **summary line** inside the file if the auto-generated text needs more detail; the summary is what appears in `CHANGELOG.md`.
 
 ```bash
 git add .changeset/
