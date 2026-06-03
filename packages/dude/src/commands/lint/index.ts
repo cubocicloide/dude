@@ -34,7 +34,10 @@ export const lintCommand = defineCommand({
       process.exit(1)
     }
 
-    const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as { stack?: string; stackVersion?: string }
+    const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as {
+      stack?: string
+      stackVersion?: string
+    }
     if (!dudeJson.stack) {
       process.stderr.write(`error: dude.json is missing the "stack" field.\n`)
       process.exit(1)

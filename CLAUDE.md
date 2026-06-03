@@ -9,9 +9,9 @@ monorepo. Read it fully before making changes.
 
 **dude** is a monorepo that ships two things:
 
-| Package | npm name | Purpose |
-|---------|----------|---------|
-| `packages/dude/` | `@cubocicloide/dude` | The CLI runtime — `dude init`, `dude lint`, `dude up`, … |
+| Package                 | npm name                            | Purpose                                                                               |
+| ----------------------- | ----------------------------------- | ------------------------------------------------------------------------------------- |
+| `packages/dude/`        | `@cubocicloide/dude`                | The CLI runtime — `dude init`, `dude lint`, `dude up`, …                              |
 | `stacks/react-fastapi/` | `@cubocicloide/stack-react-fastapi` | A stack plugin that teaches `dude` how to scaffold and lint a React + FastAPI project |
 
 Everything is TypeScript + ESM. Toolchain: **pnpm workspaces**, **Turbo**, **tsup**.
@@ -133,20 +133,20 @@ dude lint
 
 ## Common Makefile targets
 
-| Target | Description |
-|--------|-------------|
-| `make install` | `pnpm install` for the whole workspace |
-| `make build` | `turbo build` — build every package |
-| `make dev` | `turbo dev` — watch mode for all packages |
-| `make test` | Run all test suites |
-| `make lint` | Lint all TypeScript sources |
-| `make typecheck` | `tsc --noEmit` across the workspace |
-| `make format` | Prettier the workspace |
-| `make cli ARGS=…` | Run the local CLI, e.g. `make cli ARGS="lint"` |
-| `make dev-init` | Scaffold `private/examples/test-local/` from local stack |
-| `make changeset` | Record a changeset for the next release |
-| `make release` | Publish to GitHub Packages |
-| `make clean` | Remove `dist/` and `node_modules/` |
+| Target            | Description                                              |
+| ----------------- | -------------------------------------------------------- |
+| `make install`    | `pnpm install` for the whole workspace                   |
+| `make build`      | `turbo build` — build every package                      |
+| `make dev`        | `turbo dev` — watch mode for all packages                |
+| `make test`       | Run all test suites                                      |
+| `make lint`       | Lint all TypeScript sources                              |
+| `make typecheck`  | `tsc --noEmit` across the workspace                      |
+| `make format`     | Prettier the workspace                                   |
+| `make cli ARGS=…` | Run the local CLI, e.g. `make cli ARGS="lint"`           |
+| `make dev-init`   | Scaffold `private/examples/test-local/` from local stack |
+| `make changeset`  | Record a changeset for the next release                  |
+| `make release`    | Publish to GitHub Packages                               |
+| `make clean`      | Remove `dist/` and `node_modules/`                       |
 
 ---
 

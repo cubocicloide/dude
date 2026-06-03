@@ -58,25 +58,25 @@ dude init --stack react-fastapi --yes
 Once inside a scaffolded project you have access to the full `dude` command
 set. Run `dude help` for the complete list.
 
-| Command                | Description                                        |
-| ---------------------- | -------------------------------------------------- |
-| `dude init`            | Scaffold a new project from a stack template       |
-| `dude up [--build]`    | Start services (`--build` to rebuild images first) |
-| `dude down`            | Stop and remove containers                         |
-| `dude logs [service]`  | Stream logs (omit service to follow all)           |
-| `dude shell <service>` | Open a shell inside a running container            |
-| `dude lint`            | Run all stack convention checks                    |
-| `dude format`          | Format backend (ruff) + frontend (prettier)        |
-| `dude review`          | lint + ESLint + API contract review in one pass    |
-| `dude test`            | Run all test suites (backend + e2e)                |
-| `dude api sync`        | Fetch OpenAPI spec → generate typed client         |
-| `dude api review`      | Validate the generated client against the spec     |
-| `dude db makemigration`| Generate a new Alembic migration (postgres stack)  |
-| `dude db migrate`      | Apply pending migrations                           |
-| `dude db rollback`     | Revert the last migration                          |
-| `dude docs`            | Serve the project docs at http://localhost:8001    |
-| `dude security scan`   | Run SAST scanners (bandit, semgrep, trivy)         |
-| `dude help`            | Show all available commands for the current stack  |
+| Command                 | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| `dude init`             | Scaffold a new project from a stack template       |
+| `dude up [--build]`     | Start services (`--build` to rebuild images first) |
+| `dude down`             | Stop and remove containers                         |
+| `dude logs [service]`   | Stream logs (omit service to follow all)           |
+| `dude shell <service>`  | Open a shell inside a running container            |
+| `dude lint`             | Run all stack convention checks                    |
+| `dude format`           | Format backend (ruff) + frontend (prettier)        |
+| `dude review`           | lint + ESLint + API contract review in one pass    |
+| `dude test`             | Run all test suites (backend + e2e)                |
+| `dude api sync`         | Fetch OpenAPI spec → generate typed client         |
+| `dude api review`       | Validate the generated client against the spec     |
+| `dude db makemigration` | Generate a new Alembic migration (postgres stack)  |
+| `dude db migrate`       | Apply pending migrations                           |
+| `dude db rollback`      | Revert the last migration                          |
+| `dude docs`             | Serve the project docs at http://localhost:8001    |
+| `dude security scan`    | Run SAST scanners (bandit, semgrep, trivy)         |
+| `dude help`             | Show all available commands for the current stack  |
 
 ### Service URLs (react-fastapi stack, after `dude up`)
 

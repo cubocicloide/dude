@@ -101,16 +101,28 @@ async function resolveStackRoot(spec: string, cwd: string, version?: string): Pr
 function installStack(packageName: string, version?: string): string {
   const resolvedVersion = version ?? resolveLatestVersion(packageName)
   const safeName = packageName.replace(/\//g, '__').replace(/@/g, '')
-  const cacheDir = resolvePath(homedir(), '.dude', 'cache', 'stacks', `${safeName}@${resolvedVersion}`)
+  const cacheDir = resolvePath(
+    homedir(),
+    '.dude',
+    'cache',
+    'stacks',
+    `${safeName}@${resolvedVersion}`,
+  )
   const installedPkgPath = resolvePath(cacheDir, 'node_modules', packageName, 'package.json')
 
   if (!existsSync(installedPkgPath)) {
-    process.stderr.write(`\n  ℹ  Stack not found locally — installing ${packageName}@${resolvedVersion}...\n`)
+    process.stderr.write(
+      `\n  ℹ  Stack not found locally — installing ${packageName}@${resolvedVersion}...\n`,
+    )
     mkdirSync(cacheDir, { recursive: true })
     writeFileSync(
       resolvePath(cacheDir, 'package.json'),
       JSON.stringify(
-        { name: 'dude-stack-cache', private: true, dependencies: { [packageName]: resolvedVersion } },
+        {
+          name: 'dude-stack-cache',
+          private: true,
+          dependencies: { [packageName]: resolvedVersion },
+        },
         null,
         2,
       ),
@@ -137,11 +149,10 @@ function installStack(packageName: string, version?: string): string {
  */
 function resolveLatestVersion(packageName: string): string {
   try {
-    const output = execFileSync(
-      'npm',
-      ['view', packageName, 'version', '--json'],
-      { env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] },
-    )
+    const output = execFileSync('npm', ['view', packageName, 'version', '--json'], {
+      env: { ...process.env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     const parsed: unknown = JSON.parse(output.toString().trim())
     // npm may return a string or an array (dist-tags case); take the last item.
     if (typeof parsed === 'string') return parsed
