@@ -107,6 +107,14 @@ export const testCommand: StackCommandDef = {
           process.stderr.write('error: pnpm install failed in e2e/\n')
           ok = false
         }
+        if (ok) {
+          process.stdout.write('Installing Playwright browsers…\n')
+          const browsersInstalled = exec('pnpm', ['exec', 'playwright', 'install'], e2eDir)
+          if (!browsersInstalled) {
+            process.stderr.write('error: playwright install failed in e2e/\n')
+            ok = false
+          }
+        }
       }
       if (ok) {
         ok = exec('pnpm', ['run', script], e2eDir, headed ? { HEADED: 'true' } : undefined) && ok
