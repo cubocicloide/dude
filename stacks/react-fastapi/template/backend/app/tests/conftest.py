@@ -1,12 +1,13 @@
 """Pytest configuration and shared fixtures."""
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
 
 @pytest.fixture
-def client():
+async def client():
     """Async HTTP client pointed at the FastAPI app."""
-    return AsyncClient(app=app, base_url="http://test")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        yield c

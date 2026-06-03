@@ -1,9 +1,11 @@
 """Centralised settings — all environment variables are read here."""
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+
     APP_TITLE: str = "{{projectName}}"
 {{#if withRedis}}
     CELERY_BROKER_URL: str = "redis://redis:6379/0"
@@ -16,10 +18,6 @@ class Settings(BaseSettings):
 {{#if withRedis}}
     REDIS_URL: str = "redis://redis:6379/0"
 {{/if}}
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
 
 settings = Settings()

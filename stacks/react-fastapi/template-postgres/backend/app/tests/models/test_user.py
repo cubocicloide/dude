@@ -6,7 +6,7 @@ from app.models.user import User
 
 
 def test_user_model_fields():
-    user = User(id=1, name="Alice", email="alice@example.com")
+    user = User(id=1, full_name="Alice", email="alice@example.com")
     assert user.id == 1
-    assert user.name == "Alice"
+    assert user.full_name == "Alice"
     assert user.email == "alice@example.com"

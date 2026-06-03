@@ -1,6 +1,6 @@
 """User model."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -11,5 +11,5 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     full_name: Optional[str] = None
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
