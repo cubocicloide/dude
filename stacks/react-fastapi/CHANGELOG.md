@@ -1,5 +1,11 @@
 # @cubocicloide/stack-react-fastapi
 
+## 5.0.6
+
+### Patch Changes
+
+- 0fd5a7f: `dude format`: auto-install frontend and e2e dependencies before running Prettier
+
 ## 5.0.5
 
 ### Patch Changes
