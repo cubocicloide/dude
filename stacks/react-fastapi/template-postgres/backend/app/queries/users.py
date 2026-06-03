@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from app.models.user import User
 
 
-class UserQueries:
+class UsersQueries:
     def get_all(self, db: Session) -> Sequence[User]:
         return db.exec(select(User)).all()
 

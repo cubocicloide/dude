@@ -1,5 +1,5 @@
 """Queries package."""
 
-from app.queries.users import UserQueries
+from app.queries.users import UsersQueries
 
-__all__ = ["UserQueries"]
+__all__ = ["UsersQueries"]

@@ -107,7 +107,9 @@ export default defineStack({
         ctx.logger.info('')
       }
       if (withCelery) {
-        ctx.logger.info(`  ${withPostgres ? '4' : '3'}. Celery workers are started automatically by docker compose.`)
+        ctx.logger.info(
+          `  ${withPostgres ? '4' : '3'}. Celery workers are started automatically by docker compose.`,
+        )
         ctx.logger.info('     To monitor tasks, open http://localhost:5555 (Flower).')
         ctx.logger.info('')
       }
@@ -144,4 +146,3 @@ export default defineStack({
     },
   },
 })
-

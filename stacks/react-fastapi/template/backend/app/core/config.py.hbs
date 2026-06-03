@@ -5,18 +5,16 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     APP_TITLE: str = "{{projectName}}"
-    DEBUG: bool = False
-{{#if withPostgres}}
-
-    # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@postgres:5432/app"
-{{/if}}
 {{#if withRedis}}
-
-    # Redis / Celery
-    REDIS_URL: str = "redis://redis:6379/0"
     CELERY_BROKER_URL: str = "redis://redis:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://redis:6379/0"
+{{/if}}
+{{#if withPostgres}}
+    DATABASE_URL: str = "postgresql://postgres:postgres@postgres:5432/app"
+{{/if}}
+    DEBUG: bool = False
+{{#if withRedis}}
+    REDIS_URL: str = "redis://redis:6379/0"
 {{/if}}
 
     class Config:
