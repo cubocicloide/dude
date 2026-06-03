@@ -1,5 +1,12 @@
 # @cubocicloide/dude
 
+## 0.6.0
+
+### Minor Changes
+
+- cdff3ea: feat: export `renderTemplateTree` and `RenderOptions` for use in stack scaffold functions
+- ba8469f: Add YAML frontmatter to .claude agents and skills; migrate rules from applyTo to paths key
+
 ## 0.5.0
 
 ### Minor Changes
