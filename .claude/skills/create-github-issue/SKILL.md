@@ -1,3 +1,8 @@
+---
+name: create-github-issue
+description: Open a GitHub issue on the dude repository with appropriate labels and acceptance criteria
+---
+
 # Skill: create-github-issue
 
 Use this skill when asked to open a GitHub issue on the `dude` repository.

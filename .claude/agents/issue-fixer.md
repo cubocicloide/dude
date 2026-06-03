@@ -1,3 +1,10 @@
+---
+name: issue-fixer
+description: Implement a single GitHub issue in an isolated git worktree, then open a pull request
+tools: Bash, Read, Write, Edit, Grep, Glob, mcp__gitkraken__issues_get_detail, mcp__gitkraken__pull_request_create, mcp__gitkraken__git_worktree, mcp__gitkraken__git_add_or_commit, mcp__gitkraken__git_push, mcp__gitkraken__git_fetch
+model: sonnet
+---
+
 # Agent: issue-fixer
 
 Autonomous agent that implements a single GitHub issue in an isolated git

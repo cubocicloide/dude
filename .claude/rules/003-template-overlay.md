@@ -1,5 +1,6 @@
 ---
-applyTo: "stacks/**/template*/**"
+paths:
+  - "stacks/**/template*/**"
 ---
 
 # Template overlay system

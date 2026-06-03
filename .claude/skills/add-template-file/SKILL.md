@@ -1,3 +1,8 @@
+---
+name: add-template-file
+description: Add a new file or conditional content block to the react-fastapi scaffold overlays
+---
+
 # Skill: add-template-file
 
 Use this skill when asked to add a new file (or conditional content) to the
