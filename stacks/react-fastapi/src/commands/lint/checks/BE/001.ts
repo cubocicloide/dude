@@ -10,13 +10,14 @@ const REQUIRED_DIRS = [
   'queries',
   'routers',
   'schemas',
+  'tasks',
   'tests',
   'utils',
 ]
 const REQUIRED_FILES = ['main.py', '__init__.py']
 
 /** Required layout inside tests/: subdirs and files that must exist. */
-const REQUIRED_TESTS_DIRS = ['models', 'queries', 'routers', 'utils']
+const REQUIRED_TESTS_DIRS = ['models', 'queries', 'routers', 'tasks', 'utils']
 const REQUIRED_TESTS_FILES = ['__init__.py', 'conftest.py']
 
 /** BE001 — backend/app/ must contain the required directories, files, and tests/ sub-structure */

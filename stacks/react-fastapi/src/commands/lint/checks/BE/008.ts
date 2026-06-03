@@ -3,10 +3,10 @@ import path from 'pathe'
 import type { RawDiagnostic } from '@cubocicloide/dude'
 
 /** Groups that must have 1-to-1 source ↔ test file coverage. */
-const GROUPS = ['models', 'queries', 'routers', 'utils'] as const
+const GROUPS = ['models', 'queries', 'routers', 'tasks', 'utils'] as const
 
 /**
- * BE008 — every source file in models/queries/routers/utils must have a
+ * BE008 — every source file in models/queries/routers/tasks/utils must have a
  * corresponding test file in tests/{group}/test_{stem}.py, and vice-versa.
  *
  * Warning: source file exists but test is missing → add the test.
