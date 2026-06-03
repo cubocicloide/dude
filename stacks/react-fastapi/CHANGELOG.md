@@ -1,5 +1,11 @@
 # @cubocicloide/stack-react-fastapi
 
+## 6.0.1
+
+### Patch Changes
+
+- 22fd223: `dude format`: reinstall frontend or e2e dependencies when `node_modules` exists but the required `prettier` binary is missing
+
 ## 6.0.0
 
 ### Patch Changes
