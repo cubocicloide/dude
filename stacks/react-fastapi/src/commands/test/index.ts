@@ -99,7 +99,18 @@ export const testCommand: StackCommandDef = {
     if (runE2e && hasE2e) {
       const script = report ? 'test:report' : 'test'
       section(`cucumber${headed ? ' (headed)' : ''}${report ? ' + report' : ''}`)
-      ok = exec('pnpm', ['run', script], e2eDir, headed ? { HEADED: 'true' } : undefined) && ok
+      const nmDir = path.join(e2eDir, 'node_modules')
+      if (!existsSync(nmDir)) {
+        process.stdout.write('node_modules not found — running pnpm install…\n')
+        const installed = exec('pnpm', ['install'], e2eDir)
+        if (!installed) {
+          process.stderr.write('error: pnpm install failed in e2e/\n')
+          ok = false
+        }
+      }
+      if (ok) {
+        ok = exec('pnpm', ['run', script], e2eDir, headed ? { HEADED: 'true' } : undefined) && ok
+      }
     }
 
     // ── Summary ───────────────────────────────────────────────────────────────
