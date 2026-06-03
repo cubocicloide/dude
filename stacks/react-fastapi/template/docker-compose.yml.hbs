@@ -7,7 +7,7 @@ services:
       - "8000:8000"
     restart: unless-stopped
     environment:
-      APP_TITLE: ${APP_TITLE:-{{projectName}}}
+      APP_TITLE: ${APP_TITLE:-app}
       DEBUG: ${DEBUG:-false}
 {{#if withPostgres}}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/app}
@@ -38,7 +38,7 @@ services:
       - backend
     restart: unless-stopped
     environment:
-      VITE_APP_TITLE: ${VITE_APP_TITLE:-{{projectName}}}
+      VITE_APP_TITLE: ${VITE_APP_TITLE:-app}
       VITE_REACT_QUERY_DEVTOOLS: ${VITE_REACT_QUERY_DEVTOOLS:-false}
       BACKEND_URL: http://backend:8000
     volumes:
