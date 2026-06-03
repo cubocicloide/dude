@@ -9,6 +9,15 @@ Scaffolded with [`dude`](https://github.com/cubocicloide/dude) using the
 {{projectName}}/
 ├── frontend/        # React + Vite + TypeScript
 ├── backend/         # FastAPI (Python 3.13)
+│   └── app/
+│       ├── core/       # settings, database session, shared utilities
+│       ├── models/     # SQLAlchemy ORM models
+│       ├── queries/    # database query functions
+│       ├── routers/    # APIRouter modules (one file per resource)
+│       ├── schemas/    # Pydantic request/response schemas
+│       ├── tasks/      # Celery task definitions
+│       ├── tests/      # pytest test suite
+│       └── utils/      # pure helper functions
 ├── docs/            # MkDocs documentation site
 └── docker-compose.yml
 ```

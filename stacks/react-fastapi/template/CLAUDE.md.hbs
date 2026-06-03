@@ -33,6 +33,19 @@ using the `react-fastapi` stack:
 │   └── vite.config.ts
 ├── backend/                # FastAPI application
 │   ├── app/
+│   │   ├── core/           # settings, database session, shared utilities
+│   │   ├── models/         # SQLAlchemy ORM models
+│   │   ├── queries/        # database query functions
+│   │   ├── routers/        # APIRouter modules (one file per resource)
+│   │   ├── schemas/        # Pydantic request/response schemas
+│   │   ├── tasks/          # Celery task definitions
+│   │   ├── tests/          # pytest test suite
+│   │   │   ├── models/
+│   │   │   ├── queries/
+│   │   │   ├── routers/
+│   │   │   ├── tasks/
+│   │   │   └── utils/
+│   │   ├── utils/          # pure helper functions
 │   │   ├── __init__.py
 │   │   └── main.py         # Entry point, routers, lifespan
 │   └── pyproject.toml
@@ -192,6 +205,14 @@ dude api review    # sanity-check the generated output
 
 Prefer adding new routes as dedicated routers (`APIRouter`) and including them
 in `main.py`, rather than putting everything in a single file.
+
+**Required directory structure** inside `backend/app/`:
+`core/`, `fixtures/`, `management/`, `models/`, `queries/`, `routers/`,
+`schemas/`, `tasks/`, `tests/`, `utils/`
+
+Every source file in `models/`, `queries/`, `routers/`, `tasks/`, or `utils/`
+must have a corresponding test file in the matching `tests/<dir>/test_<name>.py`.
+Run `dude lint` to check coverage.
 
 ### Frontend (`frontend/src/`)
 

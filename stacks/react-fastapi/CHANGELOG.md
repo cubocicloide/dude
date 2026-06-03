@@ -1,5 +1,18 @@
 # @cubocicloide/stack-react-fastapi
 
+## Unreleased
+
+### Minor Changes
+
+- **tasks/ is now a required backend directory**: `backend/app/tasks/` and
+  `backend/app/tests/tasks/` are part of the required structure enforced by
+  lint checks BE001 and BE008.
+- `template/backend/app/tasks/__init__.py` and
+  `template/backend/app/tests/tasks/__init__.py` added to the base scaffold.
+- Celery overlay now includes `tests/tasks/test_example.py`; CeleryBeat overlay
+  includes `tests/tasks/test_scheduled.py`.
+- `.claude/rules/BE/001.md` and `008.md` updated to reflect the new structure.
+
 ## 4.0.0
 
 ### Patch Changes

@@ -2,6 +2,33 @@
 
 FastAPI service for `{{projectName}}`.
 
+## App structure
+
+```
+app/
+├── core/           # settings, database session, shared utilities
+├── fixtures/       # test fixture helpers
+├── management/     # management / admin commands
+├── models/         # SQLAlchemy ORM models
+├── queries/        # database query functions
+├── routers/        # APIRouter modules (one file per resource)
+├── schemas/        # Pydantic request/response schemas
+├── tasks/          # Celery task definitions
+├── tests/          # pytest test suite
+│   ├── models/
+│   ├── queries/
+│   ├── routers/
+│   ├── tasks/
+│   └── utils/
+├── utils/          # pure helper functions
+├── __init__.py
+└── main.py         # entry point — routers, lifespan
+```
+
+Every source file in `models/`, `queries/`, `routers/`, `tasks/`, and `utils/`
+must have a corresponding test file in `tests/<dir>/test_<name>.py`.
+Run `dude lint` from the project root to check coverage.
+
 ## Requirements
 
 - Python 3.13+
