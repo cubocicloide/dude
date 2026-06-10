@@ -40,3 +40,5 @@ coverage/
 
 # Local testing — not tracked by git
 private/
+
+.mcp.json
