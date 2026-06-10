@@ -41,7 +41,9 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Add pnpm global bin to PATH
-        run: echo "$(pnpm bin -g)" >> $GITHUB_PATH
+        run: |
+          pnpm setup
+          echo "${PNPM_HOME:-$HOME/.local/share/pnpm}" >> $GITHUB_PATH
 
       - name: Test
         run: pnpm run test
