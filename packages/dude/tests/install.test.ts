@@ -31,6 +31,27 @@ describe('dude global installation', () => {
   beforeAll(() => {
     // NODE_NO_WARNINGS suppresses Node deprecation notices that would pollute stderr
     installResult = run('pnpm', ['link', '--global'], PACKAGE_DIR, { NODE_NO_WARNINGS: '1' })
+    process.stdout.write(`   [install] pnpm link --global exit=${installResult.status}\n`)
+    process.stdout.write(`   [install] stdout: ${installResult.stdout.trim()}\n`)
+    process.stdout.write(`   [install] stderr: ${installResult.stderr.trim()}\n`)
+
+    // Discover where pnpm actually put the linked binary, then ensure that dir is on PATH.
+    // pnpm bin -g may return empty in corepack CI environments before global config is
+    // initialized. Fall back to PNPM_HOME env var, then the Linux/macOS/Windows platform default.
+    const globalBin = run('pnpm', ['bin', '-g'])
+    const fromPnpm = globalBin.status === 0 ? globalBin.stdout.trim() : ''
+    const defaultBinDir = process.platform === 'win32'
+      ? `${process.env.APPDATA ?? 'C:\\Users\\runner\\AppData\\Roaming'}\\npm`
+      : `${process.env.HOME ?? '/home/runner'}/.local/share/pnpm`
+    const binDir = fromPnpm || process.env.PNPM_HOME || defaultBinDir
+    process.stdout.write(`   [install] pnpm bin -g => ${JSON.stringify(fromPnpm)} (using: ${binDir})\n`)
+
+    const sep = process.platform === 'win32' ? ';' : ':'
+    process.env.PATH = `${binDir}${sep}${process.env.PATH ?? ''}`
+
+    const ls = run('ls', [binDir])
+    process.stdout.write(`   [install] ${binDir} contents: ${ls.stdout.trim() || '(empty or missing)'}\n`)
+    process.stdout.write(`   [install] PATH now starts with: ${(process.env.PATH ?? '').split(sep).slice(0, 3).join(sep)}\n`)
   }, 30000)
 
   afterAll(() => {
