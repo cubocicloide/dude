@@ -41,18 +41,19 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Test global installation (Docker)
-        env:
-          DUDE_TOKEN: ${{ secrets.DUDE_TOKEN }}
         run: |
           docker run --rm \
-            --env DUDE_TOKEN="${DUDE_TOKEN}" \
+            -v "${{ github.workspace }}:/dude-src:ro" \
+            --env GITHUB_TOKEN="${GITHUB_TOKEN}" \
             node:20 \
-            bash -c "
+            bash -c '
               set -e
-              git clone https://x-access-token:\${DUDE_TOKEN}@github.com/cubocicloide/dude.git /dude
-              export GITHUB_TOKEN=\"\${DUDE_TOKEN}\"
+              mkdir -p /dude
+              # Copy the checked-out repo into the container, excluding host-built
+              # node_modules/dist/.git so the container builds everything fresh.
+              tar -C /dude-src --exclude=node_modules --exclude=dist --exclude=.git -cf - . | tar -C /dude -xf -
               bash /dude/scripts/test-global-install.sh /dude
-            "
+            '
 
       - name: Test
         run: pnpm run test
