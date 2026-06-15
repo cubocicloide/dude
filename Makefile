@@ -51,6 +51,10 @@ dev: ## Run dev scripts in every package in parallel
 cli: ## Run the local CLI — usage: make cli ARGS="init --stack react-fastapi"
 	pnpm --filter @cubocicloide/dude exec dude $(ARGS)
 
+.PHONY: dev-run
+dev-run: ## Run the local CLI inside a scaffold — usage: make dev-run OUT=test-local ARGS="lint"
+	@cd private/examples/$(OUT) && pnpm dude $(ARGS)
+
 .PHONY: link
 link: ## Link the dude binary globally (first-time dev setup) via npm link
 	cd packages/dude && npm link
@@ -59,6 +63,22 @@ link: ## Link the dude binary globally (first-time dev setup) via npm link
 dev-init: ## Scaffold locally without publish — make dev-init [STACK=react-fastapi] [OUT=test-local]
 	pnpm --filter @cubocicloide/stack-$(STACK) build
 	node packages/dude/bin/dude.mjs init --stack ./stacks/$(STACK) private/examples/$(OUT)
+	@# Wire the local binary so `pnpm dude <cmd>` inside the scaffold uses the live
+	@# source tree rather than whatever `dude` is installed globally. The stack is
+	@# already resolved via workspace scan (pnpm-workspace.yaml). After changing any
+	@# source run `make build` (or `make dev-watch` in a second terminal) and the
+	@# next `pnpm dude <cmd>` will pick up the new code automatically.
+	@mkdir -p private/examples/$(OUT)/node_modules/.bin
+	@ln -sfn "$(CURDIR)/packages/dude/bin/dude.mjs" \
+		"private/examples/$(OUT)/node_modules/.bin/dude"
+	@printf "\n  \033[32m✓\033[0m  Scaffolded → private/examples/$(OUT)\n"
+	@printf "  \033[32m✓\033[0m  Local dude binary linked\n"
+	@printf "  \033[36mℹ\033[0m  Use \033[1mpnpm dude <cmd>\033[0m inside the scaffold to test changes\n"
+	@printf "  \033[36mℹ\033[0m  Rebuild: \033[1mmake build\033[0m  (or keep \033[1mmake dev-watch\033[0m running)\n\n"
+
+.PHONY: dev-watch
+dev-watch: ## Watch and rebuild all packages on source change (HMR-like, run alongside dev-init)
+	pnpm run dev
 
 ##@ Quality
 
