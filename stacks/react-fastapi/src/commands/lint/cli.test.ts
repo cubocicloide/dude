@@ -1,12 +1,12 @@
 /**
- * Integration test: `dude lint`
+ * CLI integration test: `dude lint` (react-fastapi stack)
  *
- * Tests CLI-level behaviour: exit codes, flag handling, and output shape.
- * Does NOT enumerate specific rule codes — those are the stack's concern and
- * are exercised in stacks/react-fastapi/src/commands/lint/checks/**\/*.test.ts.
+ * Tests CLI-level behaviour: exit codes, flag handling, output shape.
+ * Does NOT enumerate specific rule codes — those live in
+ * src/commands/lint/checks/**\/*.test.ts (unit tests).
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { Project } from '../../utils/testing.js'
+import { Project } from '@cubocicloide/dude/testing'
 
 let project: Project
 
@@ -17,18 +17,13 @@ describe('dude lint', () => {
 
   afterAll(() => project.cleanup())
 
-  // ── Baseline ─────────────────────────────────────────────────────────────
-
   it('exits 0 on a clean scaffold', () => {
     const r = project.run('lint')
     expect(r.status).toBe(0)
     expect(r.stdout).toContain('No issues found.')
   })
 
-  // ── Error detection ───────────────────────────────────────────────────────
-
   it('exits 1 when there is a lint error', () => {
-    // Remove a required directory to trigger an error-level violation.
     project.remove('backend/app/fixtures')
     const r = project.run('lint')
     expect(r.status).toBe(1)
@@ -40,10 +35,7 @@ describe('dude lint', () => {
     expect(project.run('lint').status).toBe(0)
   })
 
-  // ── Warning behaviour ─────────────────────────────────────────────────────
-
   it('exits 0 (not 1) when there are only warnings', () => {
-    // Introduce a warning: Settings fields out of alphabetical order (BE009).
     project.write(
       'backend/app/core/config.py',
       [
@@ -61,8 +53,6 @@ describe('dude lint', () => {
     expect(r.stdout + r.stderr).toMatch(/warning/)
     project.restore('backend/app/core/config.py')
   })
-
-  // ── --quiet flag ──────────────────────────────────────────────────────────
 
   it('--quiet suppresses warnings and still exits 0', () => {
     project.write(

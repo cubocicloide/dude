@@ -65,15 +65,16 @@ describe('dude global installation', () => {
 
   it('dude help lists core commands', () => {
     const { stdout } = run('dude', ['help'])
-    for (const cmd of ['init', 'up', 'down', 'logs', 'shell', 'upgrade']) {
+    for (const cmd of ['init', 'upgrade']) {
       expect(stdout).toContain(cmd)
     }
   })
 
   it('dude help shows no stack commands outside a project', () => {
     const { stdout } = run('dude', ['help'])
-    for (const cmd of ['lint', 'format', 'review']) {
+    for (const cmd of ['lint', 'format', 'review', 'down', 'logs', 'shell']) {
       expect(stdout).not.toContain(cmd)
     }
+    expect(stdout).not.toMatch(/^\s+up\s/m)
   })
 })

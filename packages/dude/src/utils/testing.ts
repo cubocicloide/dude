@@ -30,16 +30,14 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { join, dirname, resolve } from 'node:path'
+import { getPackageRoot } from './paths.js'
 
 /**
  * Absolute path to the monorepo root.
- * Resolved from packages/dude/src/utils/ (4 levels up).
+ * Uses getPackageRoot() so it resolves correctly from both src/ and dist/.
  */
-export const REPO_ROOT = resolve(__dirname, '../../../..')
+export const REPO_ROOT = resolve(getPackageRoot(), '../..')
 
 /** Absolute path to the local dude binary. Never the globally-installed one. */
 export const DUDE_BIN = resolve(REPO_ROOT, 'packages/dude/bin/dude.mjs')
