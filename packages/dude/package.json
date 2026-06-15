@@ -30,7 +30,6 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
     "lint": "echo \"(lint placeholder — to be configured)\"",
     "clean": "rm -rf dist .turbo"
   },

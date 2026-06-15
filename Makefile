@@ -87,11 +87,11 @@ test: ## Run all tests across all packages (unit + integration)
 	pnpm run test
 
 .PHONY: test-integration
-test-integration: ## Run CLI integration tests (dude init, lint, format, review…)
-	pnpm --filter @cubocicloide/dude run test:integration
+test-integration: ## Run CLI integration tests (co-located in packages/dude/src/commands/**)
+	pnpm --filter @cubocicloide/dude run test
 
 .PHONY: test-stack
-test-stack: ## Run stack unit tests (BE/FE/E2E checks, command logic)
+test-stack: ## Run stack unit tests (BE/FE/E2E checks, command logic in stacks/react-fastapi/src/**)
 	pnpm --filter @cubocicloide/stack-react-fastapi run test
 
 .PHONY: lint

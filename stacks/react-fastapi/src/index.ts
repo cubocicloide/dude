@@ -3,15 +3,19 @@ import { defineStack, renderTemplateTree } from '@cubocicloide/dude'
 import { syncCommand, reviewCommand as apiReviewCommand } from './commands/api/index.js'
 import { makemigrationCommand, migrateCommand, rollbackCommand } from './commands/db/index.js'
 import { docsCommand } from './commands/docs/index.js'
+import { downCommand } from './commands/down/index.js'
 import { formatCommand } from './commands/format/index.js'
 import { lintCommand } from './commands/lint/index.js'
+import { logsCommand } from './commands/logs/index.js'
 import { reviewCommand } from './commands/review/index.js'
-import { testCommand } from './commands/test/index.js'
 import {
   securityScanCommand,
   securityAcceptCommand,
   securityVerifyCommand,
 } from './commands/security/index.js'
+import { shellCommand } from './commands/shell/index.js'
+import { testCommand } from './commands/test/index.js'
+import { upCommand } from './commands/up/index.js'
 
 export default defineStack({
   name: 'react-fastapi',
@@ -125,6 +129,10 @@ export default defineStack({
   rules: [],
 
   commands: {
+    up: upCommand,
+    down: downCommand,
+    logs: logsCommand,
+    shell: shellCommand,
     lint: lintCommand,
     format: formatCommand,
     review: reviewCommand,

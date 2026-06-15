@@ -1,10 +1,6 @@
 import { defineCommand, runMain } from 'citty'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
-import { upCommand } from './commands/up/index.js'
-import { downCommand } from './commands/down/index.js'
-import { logsCommand } from './commands/logs/index.js'
-import { shellCommand } from './commands/shell/index.js'
 import { initCommand } from './commands/init/index.js'
 import { helpCommand } from './commands/help/index.js'
 import { upgradeCommand } from './commands/upgrade/index.js'
@@ -14,8 +10,9 @@ import type { StackCommandDef } from './core/stack-contract.js'
 import { getCliVersion } from './utils/paths.js'
 
 // ---------------------------------------------------------------------------
-// Core commands — generic, stack-agnostic. A stack may override any of these
-// by declaring its own command with the same name in StackDefinition.commands.
+// Core commands — stack-agnostic. Only commands that make sense for every
+// possible stack regardless of technology. Stack-specific commands (up, down,
+// logs, shell, lint, format, …) are defined by each stack plugin.
 // ---------------------------------------------------------------------------
 
 const main = defineCommand({
@@ -29,10 +26,6 @@ const main = defineCommand({
     help: helpCommand,
     init: initCommand,
     upgrade: upgradeCommand,
-    up: upCommand,
-    down: downCommand,
-    logs: logsCommand,
-    shell: shellCommand,
   },
 })
 

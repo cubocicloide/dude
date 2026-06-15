@@ -11,16 +11,19 @@ describe('dude help', () => {
 
   it('lists all core commands', () => {
     const { stdout } = runCLI(['help'])
-    for (const cmd of ['init', 'up', 'down', 'logs', 'shell', 'upgrade']) {
+    for (const cmd of ['init', 'upgrade', 'version']) {
       expect(stdout).toContain(cmd)
     }
   })
 
   it('does not show stack commands when outside a project', () => {
     const { stdout } = runCLI(['help'])
-    // Stack commands (lint, format, review…) only appear inside a project with dude.json
-    for (const cmd of ['lint', 'format', 'review']) {
+    // Stack commands only appear inside a project with dude.json.
+    // Use word-boundary regex to avoid false positives (e.g. "upgrade" contains "up").
+    for (const cmd of ['lint', 'format', 'review', 'down', 'logs', 'shell']) {
       expect(stdout).not.toContain(cmd)
     }
+    // "up" needs a stricter check — "upgrade" contains the substring "up"
+    expect(stdout).not.toMatch(/^\s+up\s/m)
   })
 })
