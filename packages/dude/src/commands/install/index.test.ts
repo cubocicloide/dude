@@ -30,7 +30,10 @@ let installResult: ReturnType<typeof run>
 
 describe('dude global installation', () => {
   beforeAll(() => {
-    installResult = run('pnpm', ['link', '--global'], { NODE_NO_WARNINGS: '1', cwd: PACKAGE_DIR } as any)
+    installResult = run('pnpm', ['link', '--global'], {
+      NODE_NO_WARNINGS: '1',
+      cwd: PACKAGE_DIR,
+    } as any)
 
     // Expose the global .bin dir on PATH so the newly linked binary is resolvable.
     const globalRoot = run('pnpm', ['root', '-g'])

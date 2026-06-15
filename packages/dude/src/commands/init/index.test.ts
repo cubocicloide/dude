@@ -35,7 +35,9 @@ describe('dude init', () => {
     const m = JSON.parse(project.readFile('dude.json')) as Record<string, unknown>
     expect(m['stack']).toBe('@cubocicloide/stack-react-fastapi')
     expect(typeof (m['answers'] as Record<string, unknown>)['projectName']).toBe('string')
-    expect(String((m['answers'] as Record<string, unknown>)['projectName']).length).toBeGreaterThan(0)
+    expect(String((m['answers'] as Record<string, unknown>)['projectName']).length).toBeGreaterThan(
+      0,
+    )
     expect(String(m['stackVersion'])).toMatch(/^\d+\.\d+\.\d+/)
     expect(String(m['dudeVersion'])).toMatch(/^\d+\.\d+\.\d+/)
     expect(() => new Date(String(m['generatedAt']))).not.toThrow()

@@ -24,8 +24,12 @@ describe('dude upgrade', () => {
     }
     const r = project.run(
       'upgrade',
-      '--cli', `--cli-version`, manifest.dudeVersion,
-      '--stack', `--stack-version`, manifest.stackVersion,
+      '--cli',
+      `--cli-version`,
+      manifest.dudeVersion,
+      '--stack',
+      `--stack-version`,
+      manifest.stackVersion,
     )
     expect(r.status).toBe(0)
   })
@@ -35,9 +39,7 @@ describe('dude upgrade', () => {
     const current = manifest.stackVersion
     // Downgrade by one patch as a safe, always-valid test value
     const [major, minor, patch] = current.split('.').map(Number)
-    const target = patch! > 0
-      ? `${major}.${minor}.${patch! - 1}`
-      : `${major}.${minor! - 1}.0`
+    const target = patch! > 0 ? `${major}.${minor}.${patch! - 1}` : `${major}.${minor! - 1}.0`
 
     const r = project.run('upgrade', '--stack', '--stack-version', target)
     expect(r.status).toBe(0)
@@ -54,9 +56,7 @@ describe('dude upgrade', () => {
     }
     const current = pkg.devDependencies['@cubocicloide/dude']!.replace(/^\^/, '')
     const [major, minor, patch] = current.split('.').map(Number)
-    const target = patch! > 0
-      ? `${major}.${minor}.${patch! - 1}`
-      : `${major}.${minor! - 1}.0`
+    const target = patch! > 0 ? `${major}.${minor}.${patch! - 1}` : `${major}.${minor! - 1}.0`
 
     const r = project.run('upgrade', '--cli', '--cli-version', target)
     expect(r.status).toBe(0)

@@ -57,10 +57,7 @@ describe('dude format', () => {
   // ── Python formatting ─────────────────────────────────────────────────────
 
   it.skipIf(!UV_AVAILABLE)('format --check exits 1 on a badly-formatted .py file', () => {
-    project.write(
-      'backend/app/utils/bad.py',
-      '"""Bad formatting."""\nx=1\ny   =   2\n',
-    )
+    project.write('backend/app/utils/bad.py', '"""Bad formatting."""\nx=1\ny   =   2\n')
     expect(project.run('format', '--check').status).toBe(1)
     project.restore('backend/app/utils/bad.py')
   })
@@ -74,17 +71,11 @@ describe('dude format', () => {
 
   // ── TypeScript formatting ─────────────────────────────────────────────────
 
-  it.skipIf(!PNPM_AVAILABLE)(
-    'format --check exits 1 on a badly-formatted .ts file',
-    () => {
-      project.write(
-        'frontend/src/bad.ts',
-        'export const x=1\nexport const y   =   2\n',
-      )
-      expect(project.run('format', '--check').status).toBe(1)
-      project.restore('frontend/src/bad.ts')
-    },
-  )
+  it.skipIf(!PNPM_AVAILABLE)('format --check exits 1 on a badly-formatted .ts file', () => {
+    project.write('frontend/src/bad.ts', 'export const x=1\nexport const y   =   2\n')
+    expect(project.run('format', '--check').status).toBe(1)
+    project.restore('frontend/src/bad.ts')
+  })
 
   it.skipIf(!PNPM_AVAILABLE)('format (write) fixes a badly-formatted .ts file', () => {
     project.write('frontend/src/bad.ts', 'export const x=1\n')

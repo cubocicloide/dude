@@ -140,15 +140,15 @@ export class Project {
 
     const dir = mkdtempSync(join(tmpdir(), prefix))
 
-    const r = spawnSync(
-      'node',
-      [DUDE_BIN, 'init', '--stack', stack, ...flags, dir],
-      { cwd: REPO_ROOT, encoding: 'utf8', stdio: 'pipe' },
-    )
+    const r = spawnSync('node', [DUDE_BIN, 'init', '--stack', stack, ...flags, dir], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      stdio: 'pipe',
+    })
 
     if ((r.status ?? 1) !== 0) {
       rmSync(dir, { recursive: true, force: true })
-      throw new Error(`dude init failed (exit ${r.status}):\n${(r.stderr as string)}`)
+      throw new Error(`dude init failed (exit ${r.status}):\n${r.stderr as string}`)
     }
 
     // Wire the local binary so commands use the live source tree.

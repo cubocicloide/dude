@@ -55,11 +55,8 @@ describe('dude review', () => {
     expect(r.stdout + r.stderr).toMatch(/eslint/i)
   })
 
-  it.skipIf(PNPM_AVAILABLE)(
-    'ESLint section emits a warning when pnpm is absent',
-    () => {
-      const r = project.run('review')
-      expect(r.stdout + r.stderr).toMatch(/pnpm/i)
-    },
-  )
+  it.skipIf(PNPM_AVAILABLE)('ESLint section emits a warning when pnpm is absent', () => {
+    const r = project.run('review')
+    expect(r.stdout + r.stderr).toMatch(/pnpm/i)
+  })
 })
