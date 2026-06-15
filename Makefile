@@ -83,8 +83,16 @@ dev-watch: ## Watch and rebuild all packages on source change (HMR-like, run alo
 ##@ Quality
 
 .PHONY: test
-test: ## Run tests across all packages
+test: ## Run all tests across all packages (unit + integration)
 	pnpm run test
+
+.PHONY: test-integration
+test-integration: ## Run CLI integration tests (dude init, lint, format, review…)
+	pnpm --filter @cubocicloide/dude run test:integration
+
+.PHONY: test-stack
+test-stack: ## Run stack unit tests (BE/FE/E2E checks, command logic)
+	pnpm --filter @cubocicloide/stack-react-fastapi run test
 
 .PHONY: lint
 lint: ## Lint all packages
