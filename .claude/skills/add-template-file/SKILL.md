@@ -12,13 +12,13 @@ Use this skill when asked to add a new file (or conditional content) to the
 
 ## Decision tree — which overlay?
 
-| When should the file appear?                | Target directory                                                        |
-| ------------------------------------------- | ----------------------------------------------------------------------- |
-| Always                                      | `stacks/react-fastapi/template/`                                        |
-| Only when Postgres is enabled               | `stacks/react-fastapi/template-postgres/`                               |
-| Only when Celery is enabled                 | `stacks/react-fastapi/template-celery/`                                 |
-| Only when CeleryBeat is enabled             | `stacks/react-fastapi/template-celerybeat/`                             |
-| Conditional content inside an existing file | Use `{{#if withPostgres}}…{{/if}}` inside an `.hbs` file in `template/` |
+| When should the file appear?                | Target directory                                                             |
+| ------------------------------------------- | ---------------------------------------------------------------------------- |
+| Always                                      | `stacks/react-fastapi/templates/base/`                                       |
+| Only when Postgres is enabled               | `stacks/react-fastapi/templates/postgres/`                                   |
+| Only when Celery is enabled                 | `stacks/react-fastapi/templates/celery/`                                     |
+| Only when CeleryBeat is enabled             | `stacks/react-fastapi/templates/celerybeat/`                                 |
+| Conditional content inside an existing file | Use `{{#if withPostgres}}…{{/if}}` inside an `.hbs` file in `templates/base/` |
 
 ## Handlebars variables
 
@@ -40,8 +40,8 @@ withRedis     — boolean
 Every new Python package directory needs an `__init__.py`.
 If the directory should appear in the base scaffold, add both:
 
-- `template/backend/app/<dir>/__init__.py`
-- `template/backend/app/tests/<dir>/__init__.py`
+- `templates/base/backend/app/<dir>/__init__.py`
+- `templates/base/backend/app/tests/<dir>/__init__.py`
 
 ## After adding the file
 
@@ -54,5 +54,5 @@ If the directory should appear in the base scaffold, add both:
 
 If the new file is part of the required backend structure, also update:
 
-- `template/.claude/rules/BE/001.md` — add to the directory tree
-- `stacks/react-fastapi/template/backend/README.md.hbs` — mention the new directory if user-facing
+- `templates/base/.claude/rules/BE/001.md` — add to the directory tree
+- `stacks/react-fastapi/templates/base/backend/README.md.hbs` — mention the new directory if user-facing

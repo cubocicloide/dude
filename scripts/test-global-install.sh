@@ -77,4 +77,22 @@ for cmd in lint format review; do
   ok "help does not contain '$cmd'"
 done
 
+# ── 6. Full customer chain: init → lint ─────────────────────────────────────
+# Scaffold a project from the bundled stack and lint it, driving the installed
+# binary exactly as a user would. Uses the postgres + celery options so the
+# template overlays are exercised too. (No uv/docker needed: lint is pure Node.)
+header "Scaffolding a project (dude init)"
+PROJECT_DIR="$(mktemp -d)/app"
+dude init --stack "$REPO/stacks/react-fastapi" --yes --database postgres --celery "$PROJECT_DIR" \
+  || fail "dude init exited non-zero"
+[ -f "$PROJECT_DIR/dude.json" ] || fail "init did not produce dude.json"
+[ -f "$PROJECT_DIR/backend/app/models/user.py" ] || fail "postgres overlay not applied"
+[ -f "$PROJECT_DIR/backend/app/worker.py" ] || fail "celery overlay not applied"
+ok "project scaffolded at $PROJECT_DIR"
+
+header "Linting the scaffold (dude lint)"
+cd "$PROJECT_DIR"
+dude lint || fail "dude lint exited non-zero on a fresh scaffold"
+ok "dude lint exits 0 on the fresh scaffold"
+
 header "All global install checks passed"

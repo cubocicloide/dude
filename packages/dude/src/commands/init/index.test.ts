@@ -58,3 +58,32 @@ describe('dude init', () => {
     300_000,
   )
 })
+
+// Stack variables can be answered non-interactively through CLI flags. A
+// value-taking flag (`--database postgres`) and a bare boolean switch
+// (`--celery`) must both be recorded — and the trailing positional directory
+// must survive the boolean switch immediately before it.
+describe('dude init — variable flags', () => {
+  let project: Project
+  beforeAll(() => {
+    project = Project.scaffold({
+      prefix: 'dude-init-flags-',
+      flags: ['--yes', '--database', 'postgres', '--celery'],
+    })
+  }, 60_000)
+  afterAll(() => project.cleanup())
+
+  it('records flag answers in dude.json', () => {
+    const answers = (
+      JSON.parse(project.readFile('dude.json')) as { answers: Record<string, unknown> }
+    ).answers
+    expect(answers['database']).toBe('postgres')
+    expect(answers['celery']).toBe(true)
+  })
+
+  it('still scaffolds into the positional directory after a boolean flag', () => {
+    // If the dir had been swallowed by `--celery`, none of these would exist.
+    expect(project.exists('dude.json')).toBe(true)
+    expect(project.exists('backend')).toBe(true)
+  })
+})

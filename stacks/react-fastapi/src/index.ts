@@ -1,6 +1,13 @@
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
+import yaml from 'yaml'
+import type { OpenAPI3 } from 'openapi-typescript'
 import { defineStack, renderTemplateTree } from '@cubocicloide/dude'
-import { syncCommand, reviewCommand as apiReviewCommand } from './commands/api/index.js'
+import {
+  syncCommand,
+  reviewCommand as apiReviewCommand,
+  generateClientFromSpec,
+} from './commands/api/index.js'
 import { makemigrationCommand, migrateCommand, rollbackCommand } from './commands/db/index.js'
 import { docsCommand } from './commands/docs/index.js'
 import { downCommand } from './commands/down/index.js'
@@ -69,22 +76,34 @@ export default defineStack({
       dudeVersion,
     }
 
+    const templates = path.join(stackRoot, 'templates')
+
     // Base template — always rendered
-    await renderTemplateTree({ src: path.join(stackRoot, 'template'), dest, data })
+    await renderTemplateTree({ src: path.join(templates, 'base'), dest, data })
 
     // Postgres overlay — SQLModel, Alembic, migrations, User model
     if (withPostgres) {
-      await renderTemplateTree({ src: path.join(stackRoot, 'template-postgres'), dest, data })
+      await renderTemplateTree({ src: path.join(templates, 'postgres'), dest, data })
     }
 
     // Celery overlay — worker app + example task
     if (withCelery) {
-      await renderTemplateTree({ src: path.join(stackRoot, 'template-celery'), dest, data })
+      await renderTemplateTree({ src: path.join(templates, 'celery'), dest, data })
     }
 
     // Celery Beat overlay — periodic tasks
     if (withCeleryBeat) {
-      await renderTemplateTree({ src: path.join(stackRoot, 'template-celerybeat'), dest, data })
+      await renderTemplateTree({ src: path.join(templates, 'celerybeat'), dest, data })
+    }
+
+    // Generate the typed API client from the openapi.yaml that was just
+    // rendered into the destination. This makes `dude api sync` a no-op
+    // until the backend routes actually change, and means the frontend
+    // openapi/ tree is complete straight after `dude init`.
+    const openapiYamlPath = path.join(dest, 'frontend', 'src', 'openapi', 'utils', 'openapi.yaml')
+    if (existsSync(openapiYamlPath)) {
+      const spec = yaml.parse(readFileSync(openapiYamlPath, 'utf8')) as OpenAPI3
+      await generateClientFromSpec(spec, path.join(dest, 'frontend', 'src', 'openapi'), dest)
     }
   },
 

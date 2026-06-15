@@ -8,10 +8,7 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "template",
-    "template-postgres",
-    "template-celery",
-    "template-celerybeat",
+    "templates",
     "dude.stack.json",
     "README.md"
   ],
@@ -24,6 +21,7 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest --passWithNoTests",
     "lint": "echo \"(lint placeholder)\"",
     "clean": "rm -rf dist .turbo"
   },

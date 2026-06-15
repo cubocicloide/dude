@@ -1,10 +1,14 @@
 /**
  * Shared test utilities for CLI integration tests.
  *
- * NOT published and NOT built by tsup (only src/index.ts and src/cli.ts are
- * entry points). Import via relative path from co-located test files:
+ * Built by tsup as the `testing` entry and exposed through the package's
+ * `./testing` export, so it is importable from two places:
  *
+ *   // co-located tests inside this package (compiled by vitest):
  *   import { Project, runCLI, isAvailable } from '../../utils/testing.js'
+ *
+ *   // tests in other workspace packages (e.g. the stack), via the built entry:
+ *   import { Project } from '@cubocicloide/dude/testing'
  *
  * ── Design principles ──────────────────────────────────────────────────────
  *

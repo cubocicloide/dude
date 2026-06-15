@@ -56,7 +56,7 @@ The command updates version pins only. It does not migrate existing files.
 
 `dude lint` enforces naming, layout, and test-coverage conventions defined in
 `src/commands/lint/checks/`. Each check has a companion explanation in
-`template/.claude/rules/`.
+`templates/base/.claude/rules/`.
 
 | Check       | What it enforces                                |
 | ----------- | ----------------------------------------------- |

@@ -23,7 +23,7 @@ paths:
 ## Directory rules
 
 - Source lives in `src/`; compiled output lives in `dist/` — never edit `dist/`.
-- Templates live in `template/`, `template-postgres/`, `template-celery/`, `template-celerybeat/`.
+- Templates live under `templates/` as overlays: `base/`, `postgres/`, `celery/`, `celerybeat/`.
 - Test scaffolds land in `private/examples/` — this path is gitignored.
 - Changesets live in `.changeset/` — commit them alongside the source change.
 

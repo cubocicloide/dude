@@ -21,7 +21,7 @@ Lint checks are **per-stack** and **per-group**. Confirm both before continuing:
 
 The group determines:
 - Where the module lives: `stacks/<stack>/src/commands/lint/checks/<GROUP>/`
-- Where the Claude rule goes: `stacks/<stack>/template/.claude/rules/<GROUP>/`
+- Where the Claude rule goes: `stacks/<stack>/templates/base/.claude/rules/<GROUP>/`
 - What prefix the rule ID carries: `BE001`, `FE001`, `E2E001`, …
 
 ---
@@ -82,7 +82,7 @@ No registration step is needed — modules are auto-discovered by the build.
 
 ## Step 3 — Create the matching .claude rule
 
-Path: `stacks/<stack>/template/.claude/rules/<GROUP>/NNN.md`
+Path: `stacks/<stack>/templates/base/.claude/rules/<GROUP>/NNN.md`
 
 Content must cover:
 1. What the rule enforces and why

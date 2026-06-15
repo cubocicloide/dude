@@ -41,10 +41,11 @@ dude/
 │       │               ├── BE/  # backend checks (BE001–BE011)
 │       │               ├── FE/  # frontend checks
 │       │               └── E2E/ # e2e checks
-│       ├── template/            # base template overlay (always applied)
-│       ├── template-postgres/   # overlay — applied when withPostgres = true
-│       ├── template-celery/     # overlay — applied when withCelery = true
-│       └── template-celerybeat/ # overlay — applied when withCeleryBeat = true
+│       └── templates/           # template overlays
+│           ├── base/            # base overlay — always applied
+│           ├── postgres/        # overlay — applied when withPostgres = true
+│           ├── celery/          # overlay — applied when withCelery = true
+│           └── celerybeat/      # overlay — applied when withCeleryBeat = true
 ├── Makefile                     # top-level developer targets (see below)
 ├── turbo.json
 └── pnpm-workspace.yaml
@@ -83,8 +84,10 @@ conflict.
 - **Boolean context variables** available in every `.hbs` file:
   `withPostgres`, `withCelery`, `withCeleryBeat`, `withRedis`
 
-To add a new file to the base scaffold, drop it in `stacks/react-fastapi/template/`.
-To add a file that only appears when Celery is enabled, drop it in `template-celery/`.
+Overlays live under `stacks/<stack>/templates/` (`base`, `postgres`, `celery`,
+`celerybeat`). To add a new file to the base scaffold, drop it in
+`stacks/react-fastapi/templates/base/`. To add a file that only appears when
+Celery is enabled, drop it in `templates/celery/`.
 
 ---
 
@@ -95,7 +98,7 @@ Modules are auto-discovered by the build and loaded at runtime — no registrati
 
 Every lint rule must have a matching prose description in the **generated project's**
 `.claude/rules/` directory:
-`stacks/react-fastapi/template/.claude/rules/{BE,FE,E2E}/NNN.md`
+`stacks/react-fastapi/templates/base/.claude/rules/{BE,FE,E2E}/NNN.md`
 
 **Rule**: when you add or change a lint check, update the corresponding
 `.claude/rules` file in the template so generated projects stay in sync.
@@ -104,7 +107,7 @@ Every lint rule must have a matching prose description in the **generated projec
 
 1. Create `src/commands/lint/checks/BE/NNN.ts` (copy an existing one for structure).
 2. Export a default function `check(projectRoot: string): LintResult[]`.
-3. Add `template/.claude/rules/BE/NNN.md` describing what the rule enforces and
+3. Add `templates/base/.claude/rules/BE/NNN.md` describing what the rule enforces and
    how to fix violations.
 4. Rebuild the stack: `pnpm --filter @cubocicloide/stack-react-fastapi build`
 5. Scaffold + verify: `make dev-init && dude lint` (see dev loop below).

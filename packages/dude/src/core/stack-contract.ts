@@ -56,7 +56,7 @@ export interface StackContext {
   readonly answers: Record<string, unknown>
   /** Absolute path of the target project directory. */
   readonly dest: string
-  /** Absolute path of the stack plugin root (where `template/` lives). */
+  /** Absolute path of the stack plugin root (where `templates/` lives). */
   readonly stackRoot: string
   /** Version of the dude CLI that is running the init. */
   readonly dudeVersion: string
@@ -118,7 +118,7 @@ export interface StackDefinition {
   variables?: StackVariable[]
   /**
    * Optional explicit scaffold step. If omitted, the CLI copies the
-   * `template/` folder shipped with the plugin, applying Handlebars
+   * `templates/base` folder shipped with the plugin, applying Handlebars
    * substitution on `.hbs` files using `ctx.answers` as the data.
    */
   scaffold?: (ctx: StackContext) => Promise<void>

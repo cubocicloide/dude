@@ -137,10 +137,11 @@ dude/
     └── react-fastapi/   # @cubocicloide/stack-react-fastapi
         ├── src/
         │   └── commands/lint/checks/  # BE / FE / E2E lint rules
-        ├── template/                  # base scaffold (all projects)
-        ├── template-postgres/         # overlay for --database postgres
-        ├── template-celery/           # overlay for --celery
-        └── template-celerybeat/       # overlay for --celerybeat
+        └── templates/                 # template overlays
+            ├── base/                  # base scaffold (all projects)
+            ├── postgres/              # overlay for --database postgres
+            ├── celery/                # overlay for --celery
+            └── celerybeat/            # overlay for --celerybeat
 ```
 
 ---
