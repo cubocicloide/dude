@@ -7,6 +7,9 @@
  * - Creates the expected directory structure (backend/, frontend/, e2e/)
  * - Writes a valid dude.json manifest
  * - Produces a .gitignore and docker-compose.yml
+ * - Runs the freshly-scaffolded project's OWN test suite (backend pytest, via
+ *   `dude test --backend`) to prove the generated project is healthy, not just
+ *   structurally present. Skipped automatically when `uv` is not installed.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { spawnSync } from 'node:child_process'
@@ -19,6 +22,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '../../..') // monorepo root
 const DUDE_BIN = resolve(REPO_ROOT, 'packages/dude/bin/dude.mjs')
 const PROJECT_NAME = 'dude-init-test'
+
+// The backend suite runs through `uv`; skip that step gracefully where it is
+// absent (e.g. a dev machine without uv) instead of hard-failing.
+const UV_AVAILABLE = spawnSync('uv', ['--version'], { stdio: 'ignore' }).error == null
 
 let tempDir: string
 let projectDir: string
@@ -107,4 +114,32 @@ describe('dude init', () => {
     expect(() => new Date(manifest.generatedAt)).not.toThrow()
     expect(new Date(manifest.generatedAt).getFullYear()).toBeGreaterThanOrEqual(2024)
   })
+
+  // ── Project test suite ───────────────────────────────────────────────────────
+  //
+  // Drive the generated project exactly as a user would: `dude test --backend`
+  // runs `uv run pytest` inside the scaffolded backend/. This proves the new
+  // project's own tests pass, not merely that the files exist. (e2e is left out —
+  // it needs a running app + browsers, which is out of scope for this test.)
+
+  it.skipIf(!UV_AVAILABLE)(
+    "runs the scaffolded project's backend test suite (dude test --backend)",
+    () => {
+      const result = spawnSync('node', [DUDE_BIN, 'test', '--backend'], {
+        cwd: projectDir,
+        encoding: 'utf8',
+        stdio: 'pipe',
+      })
+
+      // Surface the project's test output when something goes wrong.
+      if (result.status !== 0) {
+        process.stdout.write((result.stdout ?? '') + '\n')
+        process.stderr.write((result.stderr ?? '') + '\n')
+      }
+
+      expect(result.status).toBe(0)
+      expect(result.stdout).toMatch(/All tests passed\./)
+    },
+    300_000,
+  )
 })
