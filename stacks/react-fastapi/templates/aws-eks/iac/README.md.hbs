@@ -1,0 +1,146 @@
+# Infrastructure as Code — {{projectName}}
+
+Deploys {{projectName}} to **AWS EKS** with **Terraform** (infrastructure) and
+**Helm** (the application). Everything is environment-scoped and driven by
+`dude iac …`, which works identically on your laptop and in CI/CD.
+
+```
+iac/
+├── terraform/
+│   ├── versions.tf            # provider + S3 backend (partial)
+│   ├── providers.tf           # aws / kubernetes / helm (exec auth)
+│   ├── variables.tf           # all inputs (sane defaults)
+│   ├── main.tf                # VPC + EKS + ECR + ALB controller{{#if withPostgres}} + RDS{{/if}}
+│   ├── outputs.tf             # cluster name, ECR URLs{{#if withPostgres}}, RDS endpoint{{/if}}
+│   ├── bootstrap/             # one-time: S3 state bucket + DynamoDB lock table
+│   └── environments/
+│       └── dev/
+│           ├── backend.hcl        # remote-state location for this env
+│           └── terraform.tfvars   # this env's sizing/knobs
+└── helm/
+    └── app/                   # the application chart (backend, frontend,{{#if withRedis}} redis,{{/if}}{{#if withCelery}} celery,{{/if}} ingress…)
+```
+
+## What gets provisioned
+
+- **VPC** across 3 AZs (public + private{{#if withPostgres}} + database{{/if}} subnets), NAT gateway.
+- **EKS** cluster + a managed node group.
+- **ECR** repositories for the backend and frontend images.
+- **AWS Load Balancer Controller** (for ALB Ingress), wired via IRSA.
+{{#if withPostgres}}- **RDS PostgreSQL** (managed); the master password is stored in AWS Secrets Manager.
+{{/if}}- **Redis**{{#if withRedis}} runs **in-cluster** via the Helm chart{{else}} is not used{{/if}}.
+
+The application itself (backend, frontend,{{#if withCelery}} Celery worker{{#if withCeleryBeat}}, beat{{/if}}, Flower,{{/if}}{{#if withRedis}} Redis,{{/if}} Ingress) is deployed by the Helm chart.
+
+## Prerequisites
+
+- `terraform` ≥ 1.6, `kubectl`, `helm`, and the `aws` CLI on your PATH.
+- AWS credentials configured (`aws configure` or environment variables / SSO).
+
+## One-time: remote state
+
+Terraform state lives in S3 with a DynamoDB lock — created once per project:
+
+```bash
+cd iac/terraform/bootstrap
+terraform init
+terraform apply -var project_name={{projectName}} -var region=eu-west-1 -var state_bucket_prefix=<your-org>
+```
+
+Copy the two outputs (`state_bucket`, `lock_table`) into
+`environments/dev/backend.hcl` (replace the `CHANGE-ME-…` placeholders).
+
+## Provision an environment
+
+```bash
+dude iac init   --env dev      # terraform init (configures the S3 backend)
+dude iac plan   --env dev      # review changes
+dude iac apply  --env dev      # create/update infrastructure
+dude iac output --env dev      # cluster name, ECR URLs{{#if withPostgres}}, RDS endpoint{{/if}}
+```
+
+## Build & push images (CI or local)
+
+Image build/push is intentionally left to you / CI so it fits your pipeline.
+Repos and URLs come from `dude iac output`:
+
+```bash
+REGISTRY=$(dude iac output --env dev --json | jq -r '.ecr_backend_repository_url.value' | cut -d/ -f1)
+aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin "$REGISTRY"
+
+# Backend (production image)
+docker build -f backend/Dockerfile.prod -t "$REGISTRY/{{projectName}}-backend:<tag>" backend
+docker push "$REGISTRY/{{projectName}}-backend:<tag>"
+
+# Frontend (production image — nginx)
+docker build -f frontend/Dockerfile.prod --build-arg VITE_APP_TITLE="{{projectName}}" \
+  -t "$REGISTRY/{{projectName}}-frontend:<tag>" frontend
+docker push "$REGISTRY/{{projectName}}-frontend:<tag>"
+```
+
+## Deploy the application
+
+```bash
+dude iac kubeconfig --env dev    # point kubectl/helm at the cluster
+```
+
+Set the image registry{{#if withPostgres}} and database URL{{/if}} in `helm/app/values-dev.yaml`
+(or pass `--set` flags), then:
+
+```bash
+dude iac deploy --env dev        # helm upgrade --install
+dude iac status --env dev        # release status + pods
+```
+
+{{#if withPostgres}}`secrets.databaseUrl` must be set (the chart refuses to deploy otherwise). Build it from
+`dude iac output rds_endpoint` and the password in Secrets Manager
+(`rds_master_user_secret_arn`).
+
+{{/if}}Find the public URL:
+
+```bash
+kubectl get ingress -n dev
+```
+
+## Add a new environment
+
+It scales by copying a folder — no code changes:
+
+```bash
+cp -r iac/terraform/environments/dev iac/terraform/environments/prod
+cp iac/helm/app/values-dev.yaml iac/helm/app/values-prod.yaml
+```
+
+Then edit `environments/prod/{backend.hcl,terraform.tfvars}` (new state `key`,
+bigger nodes,{{#if withPostgres}} `db_multi_az = true`, `db_deletion_protection = true`,{{/if}} …) and
+`values-prod.yaml`, and run every command with `--env prod`.
+
+## Local vs CI/CD
+
+The exact same commands run in CI — state is remote (S3) and auth is via the
+AWS CLI exec plugin, so no kubeconfig file is committed. A pipeline typically
+runs: `dude iac init/plan/apply` → build & push images → `dude iac deploy`.
+
+## Tear down
+
+```bash
+helm uninstall {{projectName}} -n dev
+dude iac destroy --env dev
+```
+
+## Commands
+
+| Command | Wraps |
+|---------|-------|
+| `dude iac init`      | `terraform init` (S3 backend per env) |
+| `dude iac plan`      | `terraform plan` |
+| `dude iac apply`     | `terraform apply` (`--yes` to auto-approve) |
+| `dude iac destroy`   | `terraform destroy` (`--yes` to auto-approve) |
+| `dude iac output`    | `terraform output` (`--json`) |
+| `dude iac fmt`       | `terraform fmt -recursive` |
+| `dude iac validate`  | `terraform validate` |
+| `dude iac kubeconfig`| `aws eks update-kubeconfig` from outputs |
+| `dude iac deploy`    | `helm upgrade --install` |
+| `dude iac status`    | `helm status` + `kubectl get pods` |
+
+All commands take `--env <name>` (default `dev`).

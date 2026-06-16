@@ -1,0 +1,22 @@
+{{ .Chart.Name }} deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+1. Find the ALB address (may take a minute to provision):
+
+   kubectl get ingress {{ include "app.fullname" . }} -n {{ .Release.Namespace }} \
+     -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+
+   Then open http://<that-hostname>/  (API is served under /api).
+{{- if .Values.database.enabled }}
+
+2. Database: the pre-upgrade migration job runs `alembic upgrade head`.
+   DATABASE_URL comes from the Secret {{ include "app.fullname" . }}-secret.
+{{- end }}
+{{- if and .Values.celery.enabled .Values.celery.flower.enabled }}
+
+3. Flower (Celery monitor) is internal. Reach it with:
+
+   kubectl port-forward svc/{{ include "app.fullname" . }}-flower {{ .Values.celery.flower.port }}:{{ .Values.celery.flower.port }} -n {{ .Release.Namespace }}
+{{- end }}
+
+Pods:  kubectl get pods -n {{ .Release.Namespace }}
+Status: dude iac status --env <env>

@@ -158,6 +158,31 @@ New findings cause a non-zero exit; known/accepted findings (baseline) do not.
 | `dude docs --port 9000`  | Same, on a custom port                                              |
 
 Docs are live-reload: edit any `.md` file under `docs/docs/` and the browser refreshes automatically.
+{{#if withIac}}
+
+### Infrastructure (IaC — AWS EKS)
+
+This project ships Terraform + a Helm chart under `iac/` to deploy to AWS EKS.
+Terraform owns the infrastructure (VPC, EKS, ECR, ALB controller{{#if withPostgres}}, RDS{{/if}});
+Helm owns the application release. All commands are environment-scoped via
+`--env` (default `dev`) and use S3 remote state, so they run the same locally
+and in CI. See `iac/README.md` for the full workflow.
+
+| Command                 | What it does                                                  |
+|-------------------------|---------------------------------------------------------------|
+| `dude iac init`         | `terraform init` (configures the S3 backend for the env)      |
+| `dude iac plan`         | `terraform plan`                                              |
+| `dude iac apply`        | Provision/update infrastructure (`--yes` to auto-approve)     |
+| `dude iac destroy`      | Tear down infrastructure (`--yes` to auto-approve)            |
+| `dude iac output`       | Show outputs (cluster, ECR URLs{{#if withPostgres}}, RDS endpoint{{/if}}; `--json`) |
+| `dude iac fmt`          | `terraform fmt -recursive`                                    |
+| `dude iac validate`     | `terraform validate`                                         |
+| `dude iac kubeconfig`   | Point `kubectl`/`helm` at the provisioned cluster             |
+| `dude iac deploy`       | `helm upgrade --install` the application                      |
+| `dude iac status`       | Release status + pods                                         |
+
+These commands appear **only** in IaC-enabled projects.
+{{/if}}
 
 ### Project-local custom commands
 

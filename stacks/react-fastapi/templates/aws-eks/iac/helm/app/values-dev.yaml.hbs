@@ -1,0 +1,23 @@
+## dev environment overrides.
+## Copy to values-<env>.yaml for new environments and scale the knobs up.
+
+backend:
+  replicas: 1
+  autoscaling:
+    enabled: false
+
+frontend:
+  replicas: 1
+
+config:
+  debug: "true"
+
+{{#if withCelery}}
+celery:
+  worker:
+    replicas: 1
+{{/if}}
+
+ingress:
+  enabled: true
+  host: ""

@@ -103,6 +103,15 @@ export interface StackCommandDef {
   description: string
   args?: Record<string, StackCommandArg>
   run: (ctx: StackCommandContext) => Promise<void>
+  /**
+   * Optional visibility predicate. When present and it returns `false` for the
+   * current project, the command is hidden from `dude help` (and should also be
+   * guarded at runtime by its own `run`). Used for features that only exist
+   * when a matching init answer was chosen — e.g. the `iac` group only shows up
+   * when the project was scaffolded with an IaC target, the `db` group only when
+   * PostgreSQL was selected. Receives the project root (where `dude.json` lives).
+   */
+  available?: (projectRoot: string) => boolean
 }
 
 /**

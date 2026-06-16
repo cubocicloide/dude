@@ -1,0 +1,42 @@
+output "region" {
+  description = "AWS region the cluster runs in."
+  value       = var.region
+}
+
+output "cluster_name" {
+  description = "EKS cluster name (use with `aws eks update-kubeconfig`)."
+  value       = module.eks.cluster_name
+}
+
+output "cluster_endpoint" {
+  description = "EKS API server endpoint."
+  value       = module.eks.cluster_endpoint
+}
+
+output "ecr_backend_repository_url" {
+  description = "ECR repository URL for the backend image."
+  value       = aws_ecr_repository.backend.repository_url
+}
+
+output "ecr_frontend_repository_url" {
+  description = "ECR repository URL for the frontend image."
+  value       = aws_ecr_repository.frontend.repository_url
+}
+{{#if withPostgres}}
+
+output "rds_endpoint" {
+  description = "RDS PostgreSQL connection endpoint (host:port)."
+  value       = module.rds.db_instance_endpoint
+}
+
+output "rds_database_name" {
+  description = "Initial database name."
+  value       = var.db_name
+}
+
+output "rds_master_user_secret_arn" {
+  description = "Secrets Manager ARN holding the RDS master credentials."
+  value       = module.rds.db_instance_master_user_secret_arn
+  sensitive   = true
+}
+{{/if}}

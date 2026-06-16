@@ -1,0 +1,29 @@
+{{- if and .Values.celery.enabled .Values.celery.flower.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app.fullname" . }}-flower
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flower
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: flower
+  template:
+    metadata:
+      labels:
+        {{- include "app.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: flower
+    spec:
+      containers:
+        - name: flower
+          image: mher/flower:2.0
+          ports:
+            - containerPort: {{ .Values.celery.flower.port }}
+          env:
+            - name: CELERY_BROKER_URL
+              value: {{ include "app.redisUrl" . | quote }}
+{{- end }}
