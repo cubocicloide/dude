@@ -2,23 +2,35 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "dude lint",
+      "label": "dude lint (watch)",
       "type": "shell",
-      "command": "dude lint .",
+      "command": "echo 'Lint started'; dude lint 2>&1; fswatch -r --exclude '\\.git' --exclude 'node_modules' --exclude '__pycache__' --exclude '\\.venv' --exclude '\\.mypy_cache' . | while read -r _; do echo 'Lint started'; dude lint 2>&1; done",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
       "group": {
         "kind": "build",
         "isDefault": true
       },
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
       "presentation": {
-        "reveal": "always",
-        "panel": "shared",
-        "clear": true
+        "reveal": "silent",
+        "panel": "dedicated",
+        "clear": false
       },
       "problemMatcher": {
         "owner": "dude",
         "fileLocation": ["relative", "${workspaceFolder}"],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^Lint started$",
+          "endsPattern": "^(No issues found\\.|(\\d+ errors?(, \\d+ warnings?)?|\\d+ warnings?))$"
+        },
         "pattern": {
-          "regexp": "^(.+)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(\\w+):\\s+(.+)$",
+          "regexp": "^(.+?)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+([\\w-]+):\\s+(.+)$",
           "file": 1,
           "line": 2,
           "column": 3,
