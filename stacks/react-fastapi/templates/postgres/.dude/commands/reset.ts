@@ -23,9 +23,11 @@ async function waitForBackend(url: string, retries = 30, intervalMs = 2000): Pro
 }
 
 const SEED_SCRIPT = `
-from sqlmodel import Session, select
+from sqlmodel import Session, select, SQLModel
 from app.core.database import engine
 from app.models.user import User
+
+SQLModel.metadata.create_all(engine)
 
 users = [
     User(email="admin@example.com", full_name="Admin User"),
