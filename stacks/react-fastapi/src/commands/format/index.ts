@@ -26,10 +26,12 @@ function ensureNodeModules(dir: string, executable?: string): boolean {
 
   process.stdout.write(
     hasDeps
-      ? `${executable ?? 'required dependency'} not found — running pnpm install…\n`
-      : 'node_modules not found — running pnpm install…\n',
+      ? `${executable ?? 'required dependency'} not found — running npm install…\n`
+      : 'node_modules not found — running npm install…\n',
   )
-  return exec('pnpm', ['install'], dir)
+  // Use npm --prefix to avoid pnpm workspace detection walking up to the
+  // monorepo root, which would fail on machines without GitHub Packages access.
+  return exec('npm', ['install', '--prefix', dir, '--silent'], dir)
 }
 
 function ensureVenv(dir: string): boolean {
@@ -128,18 +130,15 @@ export const formatCommand: StackCommandDef = {
     if (existsSync(frontendDir)) {
       process.stdout.write(check ? 'Checking frontend formatting…\n' : 'Formatting frontend…\n')
 
-      const ready = ensureNodeModules(frontendDir, 'prettier')
-      if (!ready) {
-        process.stderr.write('error: pnpm install failed in frontend/\n')
-        ok = false
+      const prettierBin = path.join(frontendDir, 'node_modules', '.bin', 'prettier')
+      if (!existsSync(prettierBin)) {
+        ensureNodeModules(frontendDir, 'prettier')
       }
-      if (ready) {
-        ok =
-          exec(
-            'pnpm',
-            ['exec', 'prettier', ...(check ? ['--check'] : ['--write']), 'src/'],
-            frontendDir,
-          ) && ok
+      if (!existsSync(prettierBin)) {
+        process.stderr.write('  prettier not found — run: cd frontend && npm install\n')
+        ok = false
+      } else {
+        ok = exec(prettierBin, [...(check ? ['--check'] : ['--write']), 'src/'], frontendDir) && ok
       }
     }
 
@@ -147,18 +146,18 @@ export const formatCommand: StackCommandDef = {
     if (existsSync(e2eDir)) {
       process.stdout.write(check ? 'Checking e2e formatting…\n' : 'Formatting e2e…\n')
 
-      const ready = ensureNodeModules(e2eDir, 'prettier')
-      if (!ready) {
-        process.stderr.write('error: pnpm install failed in e2e/\n')
-        ok = false
+      const prettierBin = path.join(e2eDir, 'node_modules', '.bin', 'prettier')
+      if (!existsSync(prettierBin)) {
+        ensureNodeModules(e2eDir, 'prettier')
       }
-      if (ready) {
+      if (!existsSync(prettierBin)) {
+        process.stderr.write('  prettier not found — run: cd e2e && npm install\n')
+        ok = false
+      } else {
         ok =
           exec(
-            'pnpm',
+            prettierBin,
             [
-              'exec',
-              'prettier',
               ...(check ? ['--check'] : ['--write']),
               '**/*.{ts,json}',
               '--ignore-path',

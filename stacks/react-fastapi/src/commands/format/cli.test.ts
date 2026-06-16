@@ -18,8 +18,13 @@ describe('dude format', () => {
     if (UV_AVAILABLE) {
       spawnSync('uv', ['sync'], { cwd: join(project.dir, 'backend'), stdio: 'pipe', shell: true })
     }
-    if (PNPM_AVAILABLE) {
-      spawnSync('pnpm', ['install'], { cwd: join(project.dir, 'frontend'), stdio: 'pipe', shell: true })
+    // Install both frontend and e2e so the format command finds the prettier
+    // binary without triggering pnpm workspace detection on the project root.
+    for (const sub of ['frontend', 'e2e']) {
+      spawnSync('npm', ['install', '--prefix', join(project.dir, sub), '--silent'], {
+        cwd: join(project.dir, sub),
+        stdio: 'pipe',
+      })
     }
   }, 180_000)
 
