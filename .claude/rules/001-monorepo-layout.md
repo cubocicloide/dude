@@ -7,10 +7,11 @@ paths:
 
 ## Package names
 
-| Directory               | npm name                            | Role         |
-| ----------------------- | ----------------------------------- | ------------ |
-| `packages/dude/`        | `@cubocicloide/dude`                | CLI runtime  |
-| `stacks/react-fastapi/` | `@cubocicloide/stack-react-fastapi` | Stack plugin |
+| Directory                 | npm name                            | Role        |
+| ------------------------- | ----------------------------------- | ----------- |
+| `packages/dude/`          | `@cubocicloide/dude`                | CLI runtime |
+| `packages/dude-launcher/` | `@cubocicloide/dude-launcher`       | Global shim |
+| `stacks/react-fastapi/`   | `@cubocicloide/stack-react-fastapi` | Stack plugin|
 
 ## Adding a new stack
 

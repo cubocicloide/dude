@@ -74,6 +74,13 @@ using the `react-fastapi` stack:
 > Run `dude help` for a live, merged overview.
 > Run `dude help <command>` or `dude help <group> <sub>` for flags.
 
+> **How `dude` is provided.** The `dude` command comes from the global launcher
+> (`@cubocicloide/dude-launcher`, installed once via `npm i -g`). It resolves the
+> CLI + stack versions **this project pins** in `package.json` (lockfile-enforced)
+> and runs them — so every contributor and CI use identical tooling. `pnpm install`
+> provisions them; the launcher also does it automatically on first run. You can
+> equivalently run `pnpm dude <cmd>` from the project root.
+
 ### Infrastructure
 
 | Command                   | What it does                                            |

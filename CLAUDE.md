@@ -7,12 +7,13 @@ monorepo. Read it fully before making changes.
 
 ## What this repo is
 
-**dude** is a monorepo that ships two things:
+**dude** is a monorepo that ships three things:
 
-| Package                 | npm name                            | Purpose                                                                               |
-| ----------------------- | ----------------------------------- | ------------------------------------------------------------------------------------- |
-| `packages/dude/`        | `@cubocicloide/dude`                | The CLI runtime — `dude init`, `dude lint`, `dude up`, …                              |
-| `stacks/react-fastapi/` | `@cubocicloide/stack-react-fastapi` | A stack plugin that teaches `dude` how to scaffold and lint a React + FastAPI project |
+| Package                  | npm name                            | Purpose                                                                               |
+| ------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------- |
+| `packages/dude/`         | `@cubocicloide/dude`                | The CLI runtime — `dude init`, `dude lint`, `dude up`, …                              |
+| `packages/dude-launcher/`| `@cubocicloide/dude-launcher`       | Tiny global shim; runs each project's pinned CLI + stack (the only global install)    |
+| `stacks/react-fastapi/`  | `@cubocicloide/stack-react-fastapi` | A stack plugin that teaches `dude` how to scaffold and lint a React + FastAPI project |
 
 Everything is TypeScript + ESM. Toolchain: **pnpm workspaces**, **Turbo**, **tsup**.
 
@@ -153,12 +154,24 @@ dude lint
 
 ## Project version pinning
 
-Scaffolded projects record two independent version pins:
+Both the CLI and the stack are pinned as **devDependencies** in the scaffolded
+`package.json`, so `pnpm install` provisions a reproducible toolchain from the
+lockfile — the single source of truth. `dude.json` mirrors the pins (`stack`,
+`stackVersion`, `dudeVersion`) for provenance and records the scaffold answers.
 
-- `package.json` → `@cubocicloide/dude`
-- `dude.json` → `stack` + `stackVersion`
+At runtime the CLI loads the stack from `node_modules` (its first resolution
+strategy); the `~/.dude` cache is only a fallback for `dude init` on a bare
+machine. `minDudeVersion` (declared by each stack) is enforced before any stack
+command runs.
 
-Use `dude upgrade` inside a generated project to update either or both pins:
+The **launcher** (`@cubocicloide/dude-launcher`, installed globally) makes
+`dude <cmd>` run each project's pinned versions automatically: it finds the
+nearest `dude.json`, provisions the toolchain if needed, and re-execs the
+project-local `dude`. Different projects → different versions, no switching.
+
+Use `dude upgrade` inside a generated project to bump either or both pins (it
+updates `package.json` **and** `dude.json` in lockstep; run `pnpm install`
+after):
 
 ```bash
 dude upgrade
