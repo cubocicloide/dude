@@ -277,6 +277,9 @@ Invoke skills from the Claude chat panel with `/skill-name`.
 
 | Skill | What it does |
 |-------|--------------|
+| `/create` | Guided scaffolding router — asks route or page, then runs the matching flow |
+| `/create-route` | Scaffold a backend API route (router + model/query/schema + tests), enforcing the BE rules |
+| `/create-page` | Scaffold a frontend page (React + antd), wire the route, reuse shared components/hooks, enforcing the FE rules |
 | `/security-scan` | Full SAST scan → parallel fix agents per finding → PR + Jira issues |
 | `/verify-security-fixes` | Re-scan, confirm resolved findings, close Jira issues, update baseline |
 | `/fix-issues` | Fetch open Jira issues → route to `issue-fixer` or `security-fixer` agents → PR |
