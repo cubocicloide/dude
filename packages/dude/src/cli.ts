@@ -8,6 +8,7 @@ import { versionCommand } from './commands/version/index.js'
 import { loadStack } from './core/stack-loader.js'
 import type { StackCommandDef } from './core/stack-contract.js'
 import { getCliVersion } from './utils/paths.js'
+import { satisfiesMinVersion } from './utils/semver.js'
 
 // ---------------------------------------------------------------------------
 // Core commands — stack-agnostic. Only commands that make sense for every
@@ -87,6 +88,19 @@ async function tryStackDispatch(): Promise<boolean> {
   )
   const entry = definition.commands?.[first]
   if (!entry) return false
+
+  // Compatibility gate: refuse to run a stack command under a CLI older than the
+  // stack requires. Core commands (version, upgrade, …) are NOT routed here, so
+  // they remain available to remediate the mismatch.
+  const cliVersion = getCliVersion()
+  if (definition.minDudeVersion && !satisfiesMinVersion(cliVersion, definition.minDudeVersion)) {
+    process.stderr.write(
+      `error: stack "${dudeJson.stack}" requires dude >= ${definition.minDudeVersion}, ` +
+        `but the running CLI is ${cliVersion}.\n` +
+        `Upgrade with \`dude upgrade --cli\`, then \`pnpm install\`.\n`,
+    )
+    process.exit(1)
+  }
 
   // Flat: `dude <cmd>` — entry is a StackCommandDef itself
   if (isCommandDef(entry)) {

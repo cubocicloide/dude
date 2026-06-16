@@ -88,7 +88,7 @@ describe('api sync', () => {
     const routeDir = path.join(root, OUT, 'todos', '[id]')
 
     const typesContent = readFileSync(path.join(routeDir, 'types.ts'), 'utf8')
-    expect(typesContent).toContain(`import type { paths, components } from '../../../utils/openapi.types'`)
+    expect(typesContent).toContain(`import type { paths, components } from '../../utils/openapi.types'`)
     expect(typesContent).toContain(`export type GetParameters = paths['/todos/{id}']['get']['parameters']['query']`)
     expect(typesContent).toContain(`export type GetResponse = components['schemas']['Todo']`)
     expect(typesContent).toContain(`export type PostRequestBody = components['schemas']['Todo']`)

@@ -60,7 +60,7 @@ export default defineStack({
   ],
 
   async scaffold(ctx) {
-    const { answers, dest, stackRoot, dudeVersion } = ctx
+    const { answers, dest, stackRoot, dudeVersion, stackVersion } = ctx
 
     const withPostgres = answers.database === 'postgres'
     const withCeleryBeat = Boolean(answers.celeryBeat)
@@ -74,6 +74,7 @@ export default defineStack({
       withCeleryBeat,
       withRedis,
       dudeVersion,
+      stackVersion,
     }
 
     const templates = path.join(stackRoot, 'templates')

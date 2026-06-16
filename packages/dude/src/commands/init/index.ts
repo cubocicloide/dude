@@ -112,6 +112,7 @@ export const initCommand = defineCommand({
       dest,
       stackRoot,
       dudeVersion,
+      stackVersion,
       logger: {
         info: (m) => logger.info(m),
         warn: (m) => logger.warn(m),

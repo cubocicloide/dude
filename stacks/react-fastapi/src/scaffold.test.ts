@@ -120,4 +120,24 @@ describe.each(VARIANTS)('scaffold variant: $name', (variant) => {
     if (result.status !== 0) process.stdout.write(result.stdout + result.stderr + '\n')
     expect(result.status).toBe(0)
   })
+
+  it('pins both the CLI and the stack in package.json, in lockstep with dude.json', () => {
+    const pkg = JSON.parse(project.readFile('package.json')) as {
+      devDependencies?: Record<string, string>
+    }
+    const manifest = JSON.parse(project.readFile('dude.json')) as {
+      stack: string
+      stackVersion: string
+    }
+    const deps = pkg.devDependencies ?? {}
+
+    // The CLI must be pinned so `pnpm install` provisions a reproducible version.
+    expect(deps['@cubocicloide/dude'], 'CLI must be pinned in devDependencies').toBeTruthy()
+
+    // The stack must be pinned too, at exactly the version dude.json records —
+    // so the package manager (not dude's runtime cache) resolves it.
+    expect(deps[manifest.stack], `stack ${manifest.stack} must be pinned`).toBe(
+      manifest.stackVersion,
+    )
+  })
 })

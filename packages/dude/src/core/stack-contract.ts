@@ -60,6 +60,8 @@ export interface StackContext {
   readonly stackRoot: string
   /** Version of the dude CLI that is running the init. */
   readonly dudeVersion: string
+  /** Resolved version of the stack plugin being scaffolded. */
+  readonly stackVersion: string
   /** Tagged logger. */
   readonly logger: {
     info: (msg: string) => void

@@ -39,24 +39,29 @@ function resolvePublishedVersion(packageName: string, requestedVersion?: string)
   }
 }
 
-function updateCliDependency(pkg: ProjectPackageJson, version: string): boolean {
+/**
+ * Pin `packageName` to `version` in package.json, preserving whichever block
+ * (dev/prod) already declares it; defaults to devDependencies for new entries.
+ * Returns true if the file content changed.
+ */
+function updateDependency(pkg: ProjectPackageJson, packageName: string, version: string): boolean {
   const ranges = [`^${version}`, version]
-  const currentDev = pkg.devDependencies?.['@cubocicloide/dude']
-  const currentProd = pkg.dependencies?.['@cubocicloide/dude']
+  const currentDev = pkg.devDependencies?.[packageName]
+  const currentProd = pkg.dependencies?.[packageName]
 
   if (currentDev !== undefined) {
     if (ranges.includes(currentDev)) return false
-    pkg.devDependencies = { ...pkg.devDependencies, '@cubocicloide/dude': version }
+    pkg.devDependencies = { ...pkg.devDependencies, [packageName]: version }
     return true
   }
 
   if (currentProd !== undefined) {
     if (ranges.includes(currentProd)) return false
-    pkg.dependencies = { ...pkg.dependencies, '@cubocicloide/dude': version }
+    pkg.dependencies = { ...pkg.dependencies, [packageName]: version }
     return true
   }
 
-  pkg.devDependencies = { ...pkg.devDependencies, '@cubocicloide/dude': version }
+  pkg.devDependencies = { ...pkg.devDependencies, [packageName]: version }
   return true
 }
 
@@ -110,7 +115,7 @@ export const upgradeCommand = defineCommand({
         '@cubocicloide/dude',
         typeof args.cliVersion === 'string' ? args.cliVersion : undefined,
       )
-      const changed = updateCliDependency(pkg, targetCliVersion)
+      const changed = updateDependency(pkg, '@cubocicloide/dude', targetCliVersion)
       let manifestChanged = false
 
       if (changed) {
@@ -162,6 +167,20 @@ export const upgradeCommand = defineCommand({
         await fs.writeFile(dudeJsonPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8')
         process.stdout.write(`Updated dude.json: ${manifest.stack} -> ${targetStackVersion}\n`)
         wrote = true
+      }
+
+      // Keep the package.json pin in lockstep so `pnpm install` provisions the
+      // stack at the same version dude.json declares (single source of truth).
+      if (existsSync(packageJsonPath)) {
+        const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as ProjectPackageJson
+        if (updateDependency(pkg, manifest.stack, targetStackVersion)) {
+          await fs.writeFile(packageJsonPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8')
+          process.stdout.write(
+            `Updated package.json: ${manifest.stack} -> ${targetStackVersion}\n` +
+              'Run `pnpm install` to refresh the lockfile.\n',
+          )
+          wrote = true
+        }
       }
     }
 
