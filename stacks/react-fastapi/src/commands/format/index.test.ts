@@ -108,18 +108,20 @@ describe('format — frontend happy path', () => {
     expect(exit).not.toHaveBeenCalled()
     expect(io.stdout()).toContain('Checking frontend formatting')
 
-    // pnpm exec prettier --check src/  (no install, since node_modules/.bin/prettier exists)
+    // node_modules/.bin/prettier --check src/  (invoked directly, no install,
+    // since the binary already exists — avoids pnpm workspace detection)
     const prettierCall = spawnSync.mock.calls.find(
-      ([cmd, args]) => cmd === 'pnpm' && Array.isArray(args) && args.includes('prettier'),
+      ([cmd, args]) =>
+        typeof cmd === 'string' && cmd.includes('prettier') && Array.isArray(args),
     )
     expect(prettierCall).toBeTruthy()
-    const [, args] = prettierCall!
-    expect(args).toContain('prettier')
+    const [bin, args] = prettierCall!
+    expect(bin).toContain('.bin/prettier')
     expect(args).toContain('--check')
 
     // ensureNodeModules must NOT have run an install.
     const installCall = spawnSync.mock.calls.find(
-      ([cmd, a]) => cmd === 'pnpm' && Array.isArray(a) && a[0] === 'install',
+      ([cmd, a]) => (cmd === 'npm' || cmd === 'pnpm') && Array.isArray(a) && a[0] === 'install',
     )
     expect(installCall).toBeFalsy()
   })
