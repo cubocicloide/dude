@@ -35,11 +35,14 @@ and always export the variable before running npm/pnpm:
 export GITHUB_TOKEN=ghp_xxx
 ```
 
-### 2. Install globally
+### 2. Install the launcher globally (once, per machine)
 
 ```bash
-npm install -g @cubocicloide/dude
+npm install -g @cubocicloide/dude-launcher
 ```
+
+The launcher is a small, stable shim. All real logic lives in each project's
+pinned CLI + stack, resolved automatically at run time.
 
 ### 3. Scaffold a new project
 
@@ -50,6 +53,17 @@ dude init
 # Or specify the stack directly and skip all prompts
 dude init --stack react-fastapi --yes
 ```
+
+### 4. Provision the project toolchain
+
+```bash
+cd <project-name>
+pnpm install   # installs the exact CLI + stack versions pinned in package.json
+```
+
+From this point, `dude <cmd>` (via the global launcher) always runs the
+project's pinned toolchain. Different projects on the same machine use
+different versions transparently.
 
 ---
 
@@ -81,8 +95,9 @@ set. Run `dude help` for the complete list.
 
 ### Upgrading a project
 
-Generated projects pin the `dude` CLI in `package.json` and the active stack in
-`dude.json`. Use `dude upgrade` to move either pin forward or backward:
+Generated projects pin **both** the CLI and the active stack as exact
+`devDependencies` in `package.json` (lockfile-enforced), and record the same
+versions in `dude.json`. Use `dude upgrade` to move either pin forward or backward:
 
 ```bash
 dude upgrade
@@ -92,11 +107,11 @@ dude upgrade --stack --stack-version 5.0.5
 # rollback example
 dude upgrade --cli --cli-version 0.6.0
 dude upgrade --stack --stack-version 5.0.4
-pnpm install
+pnpm install   # refresh the lockfile after any pin change
 ```
 
-`dude upgrade` updates version pins only. It does not migrate existing project
-files.
+`dude upgrade` updates version pins in `package.json` and `dude.json`. It does
+not migrate existing project files.
 
 ### First run (react-fastapi stack)
 
@@ -132,7 +147,8 @@ dude up
 ```
 dude/
 ├── packages/
-│   └── dude/            # @cubocicloide/dude — CLI runtime
+│   ├── dude/            # @cubocicloide/dude — CLI runtime
+│   └── dude-launcher/   # @cubocicloide/dude-launcher — global shim
 └── stacks/
     └── react-fastapi/   # @cubocicloide/stack-react-fastapi
         ├── src/
