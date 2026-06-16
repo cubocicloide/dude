@@ -135,6 +135,25 @@ dude lint
 
 ---
 
+## Command resolution
+
+`dude <cmd>` is resolved with precedence **project-custom > stack > core**:
+
+1. **Project-custom** — files under the project's `.dude/commands/` directory.
+   Loaded by `packages/dude/src/core/custom-commands.ts` (via **jiti**, so
+   users can author `.ts` and import project deps). One file = one command,
+   named after the file. Reserved names (`init`, `upgrade`, `version`, `help`)
+   cannot be overridden.
+2. **Stack** — commands declared by the active stack plugin (`definition.commands`).
+3. **Core** — `init`, `upgrade`, `version`, `help` defined in `cli.ts`.
+
+The dispatcher lives in `packages/dude/src/cli.ts` (`tryProjectDispatch`); the
+merged catalog for `dude help` is built in `packages/dude/src/commands/help/index.ts`.
+The hello-world example + contract docs are shipped from the stack template at
+`stacks/react-fastapi/templates/base/.dude/commands/`.
+
+---
+
 ## Common Makefile targets
 
 | Target            | Description                                              |

@@ -105,6 +105,24 @@ export interface StackCommandDef {
   run: (ctx: StackCommandContext) => Promise<void>
 }
 
+/**
+ * Identity helper for project-local custom commands defined under
+ * `.dude/commands/`:
+ *
+ *   // .dude/commands/reset.ts
+ *   import { defineCommand } from '@cubocicloide/dude'
+ *   export default defineCommand({
+ *     description: 'Reset the database to a clean state.',
+ *     async run({ projectRoot, args }) { ... },
+ *   })
+ *
+ * It returns the definition unchanged; its only job is to attach the
+ * `StackCommandDef` type so editors give autocomplete and type-checking.
+ */
+export function defineCommand(definition: StackCommandDef): StackCommandDef {
+  return definition
+}
+
 // ---------- Stack definition ----------
 
 export interface StackDefinition {

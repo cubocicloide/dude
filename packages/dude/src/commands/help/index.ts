@@ -4,6 +4,7 @@ import path from 'pathe'
 import { initCommand } from '../init/index.js'
 import { upgradeCommand } from '../upgrade/index.js'
 import { loadStack } from '../../core/stack-loader.js'
+import { loadCustomCommands } from '../../core/custom-commands.js'
 import type { StackCommandDef, StackCommandArg } from '../../core/stack-contract.js'
 import { getCliVersion } from '../../utils/paths.js'
 
@@ -31,6 +32,8 @@ interface GroupInfo {
 interface Catalog {
   flat: Map<string, CmdInfo>
   groups: Map<string, GroupInfo>
+  /** Project-local custom commands (.dude/commands/), highest precedence. */
+  custom: Map<string, CmdInfo>
 }
 
 // ── Extract info from a citty CommandDef ──────────────────────────────────────
@@ -85,13 +88,14 @@ function isStackCommandDef(v: unknown): v is StackCommandDef {
 function buildCoreCatalog(): Catalog {
   const flat = new Map<string, CmdInfo>()
   const groups = new Map<string, GroupInfo>()
+  const custom = new Map<string, CmdInfo>()
 
   const coreCmds: [string, AnyCittyCmdDef][] = [
     ['init', initCommand as AnyCittyCmdDef],
     ['upgrade', upgradeCommand as AnyCittyCmdDef],
   ]
   for (const [name, def] of coreCmds) flat.set(name, fromCittyDef(name, def))
-  return { flat, groups }
+  return { flat, groups, custom }
 }
 
 function mergeStackInto(
@@ -111,6 +115,17 @@ function mergeStackInto(
       catalog.groups.set(key, group)
     }
   }
+}
+
+function mergeCustomInto(catalog: Catalog, commands: Map<string, StackCommandDef>): void {
+  for (const [name, def] of commands) {
+    catalog.custom.set(name, fromStackCmd(name, def))
+  }
+}
+
+/** A custom command "overrides" when it shadows a core/stack command name. */
+function isOverride(catalog: Catalog, name: string): boolean {
+  return catalog.flat.has(name) || catalog.groups.has(name)
 }
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
@@ -175,6 +190,15 @@ function renderOverview(catalog: Catalog, stackName?: string): void {
     }
   }
 
+  if (catalog.custom.size > 0) {
+    out.push('')
+    out.push('PROJECT COMMANDS  (.dude/commands/)')
+    for (const cmd of catalog.custom.values()) {
+      const tag = isOverride(catalog, cmd.name) ? '  (overrides default)' : ''
+      out.push(`  ${col(cmd.name)}${cmd.description}${tag}`)
+    }
+  }
+
   out.push('')
   out.push('Run `dude help <command>` or `dude help <group> <sub>` for flags.')
   out.push('')
@@ -215,8 +239,8 @@ export const helpCommand = defineCommand({
   meta: {
     name: 'help',
     description:
-      'Show available commands and their flags. ' +
-      'Merges core commands with the active stack (stack overrides core on name conflict).',
+      'Show available commands and their flags. Merges core commands, the active ' +
+      'stack, and project-local commands (.dude/commands/). Precedence: custom > stack > core.',
   },
   async run() {
     const cwd = process.cwd()
@@ -240,6 +264,14 @@ export const helpCommand = defineCommand({
       } catch {
         // best-effort; fall back to core-only
       }
+
+      // Project-local custom commands are part of every project, independent of
+      // whether the stack loaded. Surface load errors so a broken file is visible.
+      const custom = await loadCustomCommands(cwd)
+      mergeCustomInto(catalog, custom.commands)
+      for (const e of custom.errors) {
+        process.stderr.write(`warning: .dude/commands/${e.file} ignored — ${e.message}\n`)
+      }
     }
 
     // ── Route to overview or specific command ──────────────────────────────────
@@ -254,7 +286,12 @@ export const helpCommand = defineCommand({
     const [first, second] = afterHelp as [string, string | undefined]
 
     if (!second) {
-      // `dude help <cmd>` — flat command or group overview
+      // `dude help <cmd>` — custom (highest precedence), then flat, then group
+      const customCmd = catalog.custom.get(first ?? '')
+      if (customCmd) {
+        renderCmd(customCmd)
+        return
+      }
       const flatCmd = catalog.flat.get(first ?? '')
       if (flatCmd) {
         renderCmd(flatCmd)

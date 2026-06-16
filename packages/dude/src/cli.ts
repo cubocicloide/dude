@@ -6,6 +6,7 @@ import { helpCommand } from './commands/help/index.js'
 import { upgradeCommand } from './commands/upgrade/index.js'
 import { versionCommand } from './commands/version/index.js'
 import { loadStack } from './core/stack-loader.js'
+import { resolveCustomCommand } from './core/custom-commands.js'
 import type { StackCommandDef } from './core/stack-contract.js'
 import { getCliVersion } from './utils/paths.js'
 import { satisfiesMinVersion } from './utils/semver.js'
@@ -31,14 +32,16 @@ const main = defineCommand({
 })
 
 // ---------------------------------------------------------------------------
-// Generic stack-command dispatcher
+// Generic project-command dispatcher
 //
-// Two shapes are supported (precedence: stack > core):
+// Precedence: project-custom > stack > core.
 //
-//   `dude <cmd>`            → definition.commands[cmd]              (flat)
-//   `dude <group> <sub>`    → definition.commands[group][sub]       (grouped)
+//   `.dude/commands/<cmd>.ts`  → project custom command       (highest)
+//   `dude <cmd>`               → definition.commands[cmd]      (flat stack)
+//   `dude <group> <sub>`       → definition.commands[group][sub] (grouped stack)
 //
-// A flat stack command with the same name as a core command overrides it.
+// A custom command overrides a stack command of the same name; a flat stack
+// command overrides a core command of the same name.
 // ---------------------------------------------------------------------------
 
 function parseRawArgs(argv: string[]): Record<string, unknown> {
@@ -67,7 +70,7 @@ function isCommandDef(v: unknown): v is StackCommandDef {
   return !!v && typeof v === 'object' && typeof (v as StackCommandDef).run === 'function'
 }
 
-async function tryStackDispatch(): Promise<boolean> {
+async function tryProjectDispatch(): Promise<boolean> {
   const [, , first, second, ...rest] = process.argv
   if (!first || first.startsWith('-')) return false
 
@@ -79,6 +82,39 @@ async function tryStackDispatch(): Promise<boolean> {
     stack?: string
     stackVersion?: string
   }
+
+  // ── 1. Project-local custom commands (highest precedence) ──────────────────
+  // Lazily resolve only the invoked name, so unrelated command modules are
+  // never imported (and their top-level deps never executed).
+  const custom = await resolveCustomCommand(cwd, first)
+  if (custom?.def) {
+    const argv = second !== undefined ? [second, ...rest] : []
+    // Custom commands must work even if the stack can't load; stackRoot is a
+    // best-effort convenience and falls back to the project root.
+    let customStackRoot = cwd
+    if (dudeJson.stack) {
+      try {
+        customStackRoot = (await loadStack(dudeJson.stack, cwd, dudeJson.stackVersion)).root
+      } catch {
+        // ignore — keep projectRoot as stackRoot
+      }
+    }
+    await custom.def.run({ projectRoot: cwd, stackRoot: customStackRoot, args: parseRawArgs(argv) })
+    return true
+  }
+  // If the user explicitly invoked a command whose file is unusable, fail
+  // loudly with the reason instead of silently falling through. Reserved-name
+  // clashes are excluded: there the file is ignored and the core/stack command
+  // of that name must still run (e.g. `dude init` despite a stray init.ts).
+  if (custom?.error && custom.error.kind !== 'reserved') {
+    process.stderr.write(
+      `error: custom command \`dude ${first}\` could not be loaded ` +
+        `(.dude/commands/${custom.error.file}): ${custom.error.message}\n`,
+    )
+    process.exit(1)
+  }
+
+  // ── 2. Stack commands ──────────────────────────────────────────────────────
   if (!dudeJson.stack) return false
 
   const { definition, root: stackRoot } = await loadStack(
@@ -128,6 +164,6 @@ async function tryStackDispatch(): Promise<boolean> {
 }
 
 export async function run(): Promise<void> {
-  if (await tryStackDispatch()) return
+  if (await tryProjectDispatch()) return
   return runMain(main)
 }

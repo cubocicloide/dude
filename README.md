@@ -113,6 +113,31 @@ pnpm install   # refresh the lockfile after any pin change
 `dude upgrade` updates version pins in `package.json` and `dude.json`. It does
 not migrate existing project files.
 
+### Project-local custom commands
+
+Any scaffolded project can define its own `dude` commands under `.dude/commands/`.
+Each file becomes a command named after the file (`reset.ts` → `dude reset`),
+shows up in `dude help` under **PROJECT COMMANDS**, and can override a stack
+command of the same name. Commands are loaded with
+[jiti](https://github.com/unjs/jiti) — write them in TypeScript and `import` any
+package you add to the project:
+
+```ts
+// .dude/commands/reset.ts
+import { defineCommand } from '@cubocicloide/dude'
+
+export default defineCommand({
+  description: 'Reset the database to a clean state.',
+  async run({ projectRoot, args }) {
+    // ...
+  },
+})
+```
+
+Precedence is **custom > stack > core**. The core commands `init`, `upgrade`,
+`version`, and `help` are reserved and cannot be overridden. The scaffold ships
+a `hello` example and a `.dude/commands/README.md` with the full contract.
+
 ### First run (react-fastapi stack)
 
 ```bash

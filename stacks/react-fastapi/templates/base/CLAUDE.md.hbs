@@ -62,6 +62,8 @@ using the `react-fastapi` stack:
 │       ├── index.md
 │       ├── dude.md
 │       └── mkdocs.md
+├── .dude/                  # project extensions
+│   └── commands/           # custom `dude` commands (one file = one command)
 ├── dude.json               # dude project config (stack identifier)
 ├── docker-compose.yml
 └── CLAUDE.md               ← you are here
@@ -156,6 +158,34 @@ New findings cause a non-zero exit; known/accepted findings (baseline) do not.
 | `dude docs --port 9000`  | Same, on a custom port                                              |
 
 Docs are live-reload: edit any `.md` file under `docs/docs/` and the browser refreshes automatically.
+
+### Project-local custom commands
+
+This project can define its own `dude` commands under `.dude/commands/`. Each
+file becomes a command named after the file (`reset.ts` → `dude reset`); no
+registration step. They appear in `dude help` under **PROJECT COMMANDS** and
+take precedence over stack commands of the same name (so a `.dude/commands/up.ts`
+overrides the default `dude up`). The core commands `init`, `upgrade`, `version`,
+and `help` are reserved.
+
+Commands are loaded with [jiti](https://github.com/unjs/jiti), so they can be
+written in TypeScript and `import` any package added to the project. Use the
+`defineCommand` helper for type-checking:
+
+```ts
+// .dude/commands/reset.ts
+import { defineCommand } from '@cubocicloide/dude'
+
+export default defineCommand({
+  description: 'Reset the database to a clean state.',
+  args: { force: { type: 'boolean', description: 'Skip confirmation.' } },
+  async run({ projectRoot, args }) {
+    // ...
+  },
+})
+```
+
+See `.dude/commands/README.md` (shipped with the scaffold) for the full contract.
 
 ---
 
