@@ -1,7 +1,6 @@
 import { defineCommand, runMain } from 'citty'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
-import { upCommand, downCommand, logsCommand, shellCommand } from './commands/docker/index.js'
 import { initCommand } from './commands/init/index.js'
 import { helpCommand } from './commands/help/index.js'
 import { upgradeCommand } from './commands/upgrade/index.js'
@@ -9,10 +8,12 @@ import { versionCommand } from './commands/version/index.js'
 import { loadStack } from './core/stack-loader.js'
 import type { StackCommandDef } from './core/stack-contract.js'
 import { getCliVersion } from './utils/paths.js'
+import { satisfiesMinVersion } from './utils/semver.js'
 
 // ---------------------------------------------------------------------------
-// Core commands — generic, stack-agnostic. A stack may override any of these
-// by declaring its own command with the same name in StackDefinition.commands.
+// Core commands — stack-agnostic. Only commands that make sense for every
+// possible stack regardless of technology. Stack-specific commands (up, down,
+// logs, shell, lint, format, …) are defined by each stack plugin.
 // ---------------------------------------------------------------------------
 
 const main = defineCommand({
@@ -26,10 +27,6 @@ const main = defineCommand({
     help: helpCommand,
     init: initCommand,
     upgrade: upgradeCommand,
-    up: upCommand,
-    down: downCommand,
-    logs: logsCommand,
-    shell: shellCommand,
   },
 })
 
@@ -91,6 +88,19 @@ async function tryStackDispatch(): Promise<boolean> {
   )
   const entry = definition.commands?.[first]
   if (!entry) return false
+
+  // Compatibility gate: refuse to run a stack command under a CLI older than the
+  // stack requires. Core commands (version, upgrade, …) are NOT routed here, so
+  // they remain available to remediate the mismatch.
+  const cliVersion = getCliVersion()
+  if (definition.minDudeVersion && !satisfiesMinVersion(cliVersion, definition.minDudeVersion)) {
+    process.stderr.write(
+      `error: stack "${dudeJson.stack}" requires dude >= ${definition.minDudeVersion}, ` +
+        `but the running CLI is ${cliVersion}.\n` +
+        `Upgrade with \`dude upgrade --cli\`, then \`pnpm install\`.\n`,
+    )
+    process.exit(1)
+  }
 
   // Flat: `dude <cmd>` — entry is a StackCommandDef itself
   if (isCommandDef(entry)) {

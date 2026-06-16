@@ -37,8 +37,9 @@ function extractSettingsFields(content: string): string[] {
     if (classIndent > 0 && indent > classIndent) continue
     classIndent = 0
     // Field: `    FIELD_NAME: Type` or `    FIELD_NAME = …`
+    // Exclude `model_config` — it is Pydantic's class-level metadata, not a settings field.
     const m = /^([A-Za-z_]\w*)\s*[:=]/.exec(stripped)
-    if (m?.[1] && !m[1].startsWith('__') && m[1] !== 'class') {
+    if (m?.[1] && !m[1].startsWith('__') && m[1] !== 'class' && m[1] !== 'model_config') {
       fields.push(m[1])
     }
   }

@@ -1,6 +1,6 @@
 ---
 paths:
-  - "stacks/**/template*/**"
+  - "stacks/**/templates/**"
 ---
 
 # Template overlay system
@@ -9,10 +9,12 @@ paths:
 
 Files are copied in this order; later overlays win on conflict:
 
-1. `template/` — base files, always applied
-2. `template-postgres/` — applied when `--database postgres`
-3. `template-celery/` — applied when `--celery`
-4. `template-celerybeat/` — applied when `--celerybeat` (implies `--celery`)
+Overlays live under `stacks/<stack>/templates/`:
+
+1. `templates/base/` — base files, always applied
+2. `templates/postgres/` — applied when `--database postgres`
+3. `templates/celery/` — applied when `--celery`
+4. `templates/celerybeat/` — applied when `--celerybeat` (implies `--celery`)
 
 ## Handlebars context variables
 
@@ -37,12 +39,12 @@ Use `{{#if withPostgres}}…{{/if}}` to guard conditional blocks.
 
 ## Adding a new file
 
-- **Always present**: add to `template/`.
-- **Postgres-only**: add to `template-postgres/`.
-- **Celery-only**: add to `template-celery/`.
-- **CeleryBeat-only**: add to `template-celerybeat/`.
+- **Always present**: add to `templates/base/`.
+- **Postgres-only**: add to `templates/postgres/`.
+- **Celery-only**: add to `templates/celery/`.
+- **CeleryBeat-only**: add to `templates/celerybeat/`.
 - **Optional content within a file**: use `{{#if withPostgres}}…{{/if}}` inside
-  an `.hbs` file in `template/`.
+  an `.hbs` file in `templates/base/`.
 
 ## Testing changes
 

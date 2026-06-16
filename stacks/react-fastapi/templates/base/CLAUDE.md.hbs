@@ -1,0 +1,303 @@
+# CLAUDE.md — {{projectName}}
+
+This file gives Claude the context it needs to work effectively in this project.
+Read it fully before suggesting changes. Keep it up to date as the project evolves.
+
+---
+
+## What this project is
+
+**{{projectName}}** is a full-stack web application scaffolded by [`dude`](https://github.com/cubocicloide/dude)
+using the `react-fastapi` stack:
+
+| Layer    | Technology                                    |
+|----------|-----------------------------------------------|
+| Frontend | React 19, Vite, TypeScript (strict)           |
+| Backend  | FastAPI, Python ≥ 3.13, uv, Uvicorn          |
+| Infra    | Docker Compose (single `docker-compose.yml`)  |
+| Testing  | pytest (backend) · Playwright + Cucumber (e2e)|
+| Security | Bandit · Semgrep · Trivy (all via Docker)     |
+
+---
+
+## Project layout
+
+```
+{{projectName}}/
+├── frontend/               # React + Vite SPA
+│   ├── src/
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── openapi/        # Auto-generated typed API client (never edit by hand)
+│   ├── package.json
+│   └── vite.config.ts
+├── backend/                # FastAPI application
+│   ├── app/
+│   │   ├── core/           # settings, database session, shared utilities
+│   │   ├── models/         # SQLAlchemy ORM models
+│   │   ├── queries/        # database query functions
+│   │   ├── routers/        # APIRouter modules (one file per resource)
+│   │   ├── schemas/        # Pydantic request/response schemas
+│   │   ├── tasks/          # Celery task definitions
+│   │   ├── tests/          # pytest test suite
+│   │   │   ├── models/
+│   │   │   ├── queries/
+│   │   │   ├── routers/
+│   │   │   ├── tasks/
+│   │   │   └── utils/
+│   │   ├── utils/          # pure helper functions
+│   │   ├── __init__.py
+│   │   └── main.py         # Entry point, routers, lifespan
+│   └── pyproject.toml
+├── e2e/                    # End-to-end tests (Playwright + Cucumber.js)
+│   ├── features/           # Gherkin .feature files
+│   └── steps/              # Step definitions
+├── security/
+│   └── baseline.json       # Accepted security findings (versioned, commit this)
+├── private/                # Gitignored — ephemeral files (reports, scratch)
+│   └── sast-reports/       # Security scan output (auto-generated)
+├── docs/                   # MkDocs project (served via `dude docs`)
+│   ├── mkdocs.yml          # MkDocs configuration
+│   └── docs/               # Markdown source pages
+│       ├── index.md
+│       ├── dude.md
+│       └── mkdocs.md
+├── dude.json               # dude project config (stack identifier)
+├── docker-compose.yml
+└── CLAUDE.md               ← you are here
+```
+
+---
+
+## dude CLI — all available commands
+
+> Run `dude help` for a live, merged overview.
+> Run `dude help <command>` or `dude help <group> <sub>` for flags.
+
+> **How `dude` is provided.** The `dude` command comes from the global launcher
+> (`@cubocicloide/dude-launcher`, installed once via `npm i -g`). It resolves the
+> CLI + stack versions **this project pins** in `package.json` (lockfile-enforced)
+> and runs them — so every contributor and CI use identical tooling. `pnpm install`
+> provisions them; the launcher also does it automatically on first run. You can
+> equivalently run `pnpm dude <cmd>` from the project root.
+
+### Infrastructure
+
+| Command                   | What it does                                            |
+|---------------------------|---------------------------------------------------------|
+| `dude up`                 | `docker compose up -d` (start all services)             |
+| `dude up --build`         | Rebuild images before starting                          |
+| `dude down`               | `docker compose down` (stop + remove containers)        |
+| `dude logs [service]`     | Follow logs; omit service to follow all                 |
+| `dude shell <service>`    | Interactive shell inside a running container            |
+
+### Code quality
+
+| Command                   | What it does                                                          |
+|---------------------------|-----------------------------------------------------------------------|
+| `dude lint`               | Run all stack structural lint checks (naming, layout conventions)     |
+| `dude format`             | `ruff format` (backend) + `prettier` (frontend)                       |
+| `dude review`             | Run lint + ESLint + API contract review in one pass                   |
+
+### API contract (OpenAPI)
+
+| Command                   | What it does                                                          |
+|---------------------------|-----------------------------------------------------------------------|
+| `dude api sync`           | Fetch OpenAPI spec from the running backend → generate typed client   |
+| `dude api review`         | Validate `frontend/src/openapi/` against the saved spec               |
+
+**Workflow**: always run `dude api sync` after changing backend routes, then commit
+the updated `frontend/src/openapi/` alongside the route change.
+
+### Testing
+
+| Command                           | What it does                                       |
+|-----------------------------------|----------------------------------------------------|
+| `dude test`                       | Run all available suites (backend + e2e)           |
+| `dude test --backend`             | pytest only                                        |
+| `dude test --e2e`                 | Playwright + Cucumber only                         |
+| `dude test --e2e --headed`        | E2e in a visible browser window                    |
+| `dude test --e2e --report`        | E2e with HTML + JSON output to `e2e/reports/`      |
+
+### Security scanning
+
+All scanners run inside Docker — no host-level tool installation required.
+New findings cause a non-zero exit; known/accepted findings (baseline) do not.
+
+| Command                                          | What it does                                                  |
+|--------------------------------------------------|---------------------------------------------------------------|
+| `dude security scan`                             | Run all scanners; exit 1 if new findings ≥ HIGH               |
+| `dude security scan --only bandit,semgrep`       | Run a subset of scanners                                       |
+| `dude security scan --min-severity LOW`          | Lower the reporting threshold (default: MEDIUM)               |
+| `dude security scan --fail-on CRITICAL`          | Raise the failure threshold (default: HIGH)                   |
+| `dude security scan --update-baseline`           | Scan + absorb all findings into the baseline                  |
+| `dude security accept`                           | Equivalent to `scan --update-baseline`; use after triage      |
+| `dude security verify --rule-id B105,CVE-…`     | Confirm a specific finding has been fixed                     |
+| `dude security verify --rule-id B105 --remove-resolved` | Fix confirmed → prune it from the baseline          |
+
+**Scanners**:
+- `bandit` — Python AST (backend only)
+- `semgrep` — multi-language rules (backend + frontend)
+- `trivy-fs` — filesystem: vulns, IaC misconfigs, secrets
+- `trivy-image` — container image CVEs (requires built image)
+
+**Baseline workflow**:
+1. `dude security scan` — review new findings
+2. Triage: fix what needs fixing, accept acceptable risks
+3. `dude security accept` — absorbs remaining findings into `security/baseline.json`
+4. `git add security/baseline.json && git commit` — commit the baseline update
+5. Subsequent scans only flag *new* issues not in the baseline
+
+### Documentation
+
+| Command                  | What it does                                                        |
+|--------------------------|---------------------------------------------------------------------|
+| `dude docs`              | Serve `docs/` via MkDocs Material in dev mode at http://localhost:8001 |
+| `dude docs --port 9000`  | Same, on a custom port                                              |
+
+Docs are live-reload: edit any `.md` file under `docs/docs/` and the browser refreshes automatically.
+
+---
+
+## Development workflows
+
+### Start the stack (Docker)
+
+```bash
+dude up --build   # first time
+dude up           # subsequent runs
+```
+
+Services:
+
+| Service  | URL                              |
+|----------|----------------------------------|
+| Frontend | http://localhost                 |
+| API      | http://localhost:8000            |
+| Health   | http://localhost:8000/api/health |
+
+### Local development (no Docker)
+
+```bash
+# Backend (terminal 1)
+cd backend
+uv sync
+uv run uvicorn app.main:app --reload   # http://localhost:8000
+
+# Frontend (terminal 2)
+cd frontend
+pnpm install
+pnpm dev                               # http://localhost:5173
+```
+
+### After changing backend routes
+
+```bash
+dude api sync      # regenerate the typed client
+dude api review    # sanity-check the generated output
+```
+
+---
+
+## Tech stack conventions
+
+### Backend (`backend/`)
+
+- **Language**: Python ≥ 3.13
+- **Package manager / runtime**: `uv` (never use pip directly)
+- **Linter / formatter**: `ruff` — rules `E, F, I, N, UP, B, S, RUF`, line length 100
+- **Type checking**: `mypy --strict`
+- **Tests**: `pytest` with `pytest-asyncio`; test files in `backend/tests/`
+- **App entry point**: `backend/app/main.py` → `uvicorn app.main:app`
+
+Prefer adding new routes as dedicated routers (`APIRouter`) and including them
+in `main.py`, rather than putting everything in a single file.
+
+**Required directory structure** inside `backend/app/`:
+`core/`, `fixtures/`, `management/`, `models/`, `queries/`, `routers/`,
+`schemas/`, `tasks/`, `tests/`, `utils/`
+
+Every source file in `models/`, `queries/`, `routers/`, `tasks/`, or `utils/`
+must have a corresponding test file in the matching `tests/<dir>/test_<name>.py`.
+Run `dude lint` to check coverage.
+
+### Frontend (`frontend/src/`)
+
+- **Language**: TypeScript (strict mode)
+- **Framework**: React 19 with function components + hooks
+- **Build tool**: Vite
+- **Package manager**: `pnpm`
+- **Formatter**: `prettier` (run via `dude format`)
+- **Linter**: ESLint with `react-hooks` + `react-refresh` plugins
+- **API client**: `frontend/src/openapi/` — **never edit by hand**, always regenerate via `dude api sync`
+
+### Docker Compose
+
+- Service names: `frontend`, `backend` (use these with `dude logs`, `dude shell`)
+- Hot-reload is enabled in development mode for both services
+
+---
+
+## Claude AI assistance
+
+This project ships a set of Claude skills and agents inside `.claude/`.
+Invoke skills from the Claude chat panel with `/skill-name`.
+
+### Skills (slash commands)
+
+| Skill | What it does |
+|-------|--------------|
+| `/security-scan` | Full SAST scan → parallel fix agents per finding → PR + Jira issues |
+| `/verify-security-fixes` | Re-scan, confirm resolved findings, close Jira issues, update baseline |
+| `/fix-issues` | Fetch open Jira issues → route to `issue-fixer` or `security-fixer` agents → PR |
+| `/create-jira-issue` | Guided Jira issue creation with type/priority/labels |
+| `/clean-branches` | Prune merged and stale local/remote branches |
+| `/draft-email` | Draft a professional email from a brief |
+
+### Agents (autonomous workers)
+
+| Agent | What it does |
+|-------|--------------|
+| `issue-fixer` | Implements a single Jira issue in its own git worktree; opens PR; transitions issue to Done |
+| `security-fixer` | Fixes a single SAST finding in its own worktree; handles suppressions and CVE updates |
+
+Agents run in isolated git worktrees (one branch per task) and can operate in
+parallel when orchestrated by `/fix-issues` or `/security-scan`.
+
+### Saved config (autodiscovery)
+
+Skills read Atlassian/Bitbucket connection details from `.claude/config.json`
+(gitignored). Create it on first use:
+
+```json
+{
+  "jira": { "projectKey": "PROJ" },
+  "bitbucket": { "workspace": "my-org", "repo": "{{projectName}}" }
+}
+```
+
+---
+
+## What Claude should NOT do
+
+- Edit anything under `frontend/src/openapi/` — it is auto-generated. Run `dude api sync` instead.
+- Edit `security/baseline.json` by hand — use `dude security accept` or `dude security verify --remove-resolved`.
+- Add files to `private/` to version control — it is gitignored.
+- Use `pip install` — always `uv add <package>` for backend dependencies.
+- Use `npm` or `yarn` — always `pnpm` for frontend dependencies.
+
+---
+
+## Key files at a glance
+
+| File | Purpose |
+|------|---------|
+| `dude.json` | Identifies the stack (`react-fastapi`); required for `dude` commands |
+| `docker-compose.yml` | Service definitions for all environments |
+| `security/baseline.json` | Accepted security findings; commit whenever updated |
+| `backend/pyproject.toml` | Python project metadata, deps, ruff/mypy config |
+| `frontend/package.json` | JS/TS project metadata and dev scripts |
+| `frontend/src/openapi/` | Auto-generated API client — do not edit |
+| `docs/mkdocs.yml` | MkDocs configuration; edit nav here to add new pages |
+| `docs/docs/` | Markdown source for the documentation site |
+| `CLAUDE.md` | This file — project context for Claude |

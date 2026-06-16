@@ -175,6 +175,66 @@ function generateIndexFile(route: string, methods: Methods): string {
 }
 
 // ---------------------------------------------------------------------------
+// Core generation — callable from scaffold() without a live backend
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate the typed API client files from an OpenAPI spec object.
+ * Used both by `dude api sync` (after fetching a live spec) and by
+ * `scaffold()` (from the bundled openapi.yaml shipped in the template).
+ */
+export async function generateClientFromSpec(
+  spec: OpenAPI3,
+  outDir: string,
+  root: string,
+  log?: (msg: string) => void,
+): Promise<{ written: number; skipped: number }> {
+  mkdirSync(path.join(outDir, 'utils'), { recursive: true })
+
+  // utils/openapi.types.ts — full TypeScript types from the spec
+  const typesPath = path.join(outDir, 'utils', 'openapi.types.ts')
+  if (shouldWrite(typesPath)) {
+    const ast = await openapiTS(spec)
+    writeFileSync(typesPath, astToString(ast), 'utf8')
+    log?.(`Saved  ${path.relative(root, typesPath)}\n`)
+  } else {
+    log?.(`Skipped (no-override) ${path.relative(root, typesPath)}\n`)
+  }
+
+  // api/<route>/types.ts + api/<route>/index.ts — per-route files
+  const specPaths = (spec as any).paths ?? {}
+  let written = 0
+  let skipped = 0
+
+  for (const [route, methods] of Object.entries(specPaths) as [string, Methods][]) {
+    const segments = routeToSegments(route)
+    const folderPath = path.join(outDir, ...segments)
+    mkdirSync(folderPath, { recursive: true })
+    const depth = segments.length
+
+    const typesFile = path.join(folderPath, 'types.ts')
+    if (safeWrite(typesFile, generateTypesFile(route, methods, depth))) {
+      log?.(`Saved  ${path.relative(root, typesFile)}\n`)
+      written++
+    } else {
+      log?.(`Skipped (no-override) ${path.relative(root, typesFile)}\n`)
+      skipped++
+    }
+
+    const indexFile = path.join(folderPath, 'index.ts')
+    if (safeWrite(indexFile, generateIndexFile(route, methods))) {
+      log?.(`Saved  ${path.relative(root, indexFile)}\n`)
+      written++
+    } else {
+      log?.(`Skipped (no-override) ${path.relative(root, indexFile)}\n`)
+      skipped++
+    }
+  }
+
+  return { written, skipped }
+}
+
+// ---------------------------------------------------------------------------
 // sync command
 // ---------------------------------------------------------------------------
 
@@ -209,48 +269,16 @@ export const syncCommand: StackCommandDef = {
     }
 
     mkdirSync(utilsDir, { recursive: true })
-
     const yamlPath = path.join(utilsDir, 'openapi.yaml')
     writeFileSync(yamlPath, yaml.stringify(spec), 'utf8')
     process.stdout.write(`Saved  ${path.relative(root, yamlPath)}\n`)
 
-    const typesPath = path.join(utilsDir, 'openapi.types.ts')
-    if (shouldWrite(typesPath)) {
-      const ast = await openapiTS(new URL(specUrl))
-      writeFileSync(typesPath, astToString(ast), 'utf8')
-      process.stdout.write(`Saved  ${path.relative(root, typesPath)}\n`)
-    } else {
-      process.stdout.write(`Skipped (no-override) ${path.relative(root, typesPath)}\n`)
-    }
-
-    const specPaths = (spec as any).paths ?? {}
-    let written = 0
-    let skipped = 0
-
-    for (const [route, methods] of Object.entries(specPaths) as [string, Methods][]) {
-      const segments = routeToSegments(route)
-      const folderPath = path.join(outDir, ...segments)
-      mkdirSync(folderPath, { recursive: true })
-      const depth = segments.length + 1
-
-      const typesFile = path.join(folderPath, 'types.ts')
-      if (safeWrite(typesFile, generateTypesFile(route, methods, depth))) {
-        process.stdout.write(`Saved  ${path.relative(root, typesFile)}\n`)
-        written++
-      } else {
-        process.stdout.write(`Skipped (no-override) ${path.relative(root, typesFile)}\n`)
-        skipped++
-      }
-
-      const indexFile = path.join(folderPath, 'index.ts')
-      if (safeWrite(indexFile, generateIndexFile(route, methods))) {
-        process.stdout.write(`Saved  ${path.relative(root, indexFile)}\n`)
-        written++
-      } else {
-        process.stdout.write(`Skipped (no-override) ${path.relative(root, indexFile)}\n`)
-        skipped++
-      }
-    }
+    const { written, skipped } = await generateClientFromSpec(
+      spec,
+      outDir,
+      root,
+      (msg) => process.stdout.write(msg),
+    )
 
     process.stdout.write(`\n${written} file(s) written, ${skipped} skipped (no-override).\n`)
   },

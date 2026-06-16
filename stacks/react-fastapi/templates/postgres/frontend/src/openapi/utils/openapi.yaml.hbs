@@ -1,0 +1,132 @@
+openapi: 3.1.0
+info:
+  title: {{projectName}} backend
+  version: 0.1.0
+paths:
+  /api/health:
+    get:
+      summary: Get Health
+      description: Health-check endpoint.
+      operationId: get_health_api_health_get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Get Health Api Health Get
+  /api/users:
+    get:
+      tags:
+        - users
+      summary: Get Users
+      description: Return all users.
+      operationId: get_users_api_users_get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/User"
+                type: array
+                title: Response Get Users Api Users Get
+  /api/users/{id}:
+    get:
+      tags:
+        - users
+      summary: Get User By Id
+      description: Return a single user by ID.
+      operationId: get_users__id_api_users__id__get
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: "#/components/schemas/ValidationError"
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    User:
+      properties:
+        id:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Id
+        email:
+          type: string
+          title: Email
+        full_name:
+          anyOf:
+            - type: string
+            - type: "null"
+          title: Full Name
+        is_active:
+          type: boolean
+          title: Is Active
+          default: true
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+        - email
+      title: User
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError

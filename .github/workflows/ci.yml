@@ -37,5 +37,23 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Test global installation + scaffold + lint (Docker)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/dude-src:ro" \
+            --env GITHUB_TOKEN="${GITHUB_TOKEN}" \
+            node:20 \
+            bash -c '
+              set -e
+              mkdir -p /dude
+              # Copy the checked-out repo into the container, excluding host-built
+              # node_modules/dist/.git so the container builds everything fresh.
+              tar -C /dude-src --exclude=node_modules --exclude=dist --exclude=.git -cf - . | tar -C /dude -xf -
+              bash /dude/scripts/test-global-install.sh /dude
+            '
+
       - name: Test
         run: pnpm run test

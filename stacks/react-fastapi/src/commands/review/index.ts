@@ -57,13 +57,25 @@ export const reviewCommand: StackCommandDef = {
     // ── 2. ESLint (frontend) ──────────────────────────────────────────────────
     if (existsSync(frontendDir)) {
       section('eslint')
-      ok = exec('pnpm', ['exec', 'eslint', 'src/'], frontendDir) && ok
+      const eslintBin = path.join(frontendDir, 'node_modules', '.bin', 'eslint')
+      if (!existsSync(eslintBin)) {
+        process.stderr.write('  eslint not found — run: cd frontend && pnpm install\n')
+        ok = false
+      } else {
+        ok = exec(eslintBin, ['src/'], frontendDir) && ok
+      }
     }
 
     // ── 3. ESLint (e2e) ───────────────────────────────────────────────────────
     if (existsSync(e2eDir)) {
       section('eslint (e2e)')
-      ok = exec('pnpm', ['exec', 'eslint', '.'], e2eDir) && ok
+      const eslintBin = path.join(e2eDir, 'node_modules', '.bin', 'eslint')
+      if (!existsSync(eslintBin)) {
+        process.stderr.write('  eslint not found — run: cd e2e && pnpm install\n')
+        ok = false
+      } else {
+        ok = exec(eslintBin, ['.'], e2eDir) && ok
+      }
     }
 
     // ── 4. API contract review ────────────────────────────────────────────────

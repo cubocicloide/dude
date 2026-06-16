@@ -10,7 +10,7 @@ import { loadStack } from '../../core/stack-loader.js'
 import { promptVariables } from '../../core/prompts.js'
 import { renderTemplateTree } from '../../core/template-runner.js'
 import { getPackageRoot, getCliVersion } from '../../utils/paths.js'
-import type { StackContext } from '../../core/stack-contract.js'
+import type { StackContext, StackVariable } from '../../core/stack-contract.js'
 
 export const initCommand = defineCommand({
   meta: {
@@ -34,7 +34,7 @@ export const initCommand = defineCommand({
       default: false,
     },
   },
-  async run({ args }) {
+  async run({ args, rawArgs }) {
     p.intro('dude — project scaffolding')
 
     const cwd = process.cwd()
@@ -68,14 +68,22 @@ export const initCommand = defineCommand({
       version: stackVersion,
     } = await loadStack(resolvedSpec, cwd)
 
-    // 2. Collect answers
-    const answers = await promptVariables(stack.variables ?? [], {
+    // 2. Collect answers. Any CLI flag matching a declared stack variable
+    //    (e.g. `--database postgres`, `--celery`) becomes a non-interactive
+    //    override, so the whole prompt set can be driven from the command line.
+    //    Parsed from rawArgs (not citty's args) because the variable flags are
+    //    declared by the stack, not the init command — citty cannot know which
+    //    of them take a value vs. which are bare boolean switches.
+    const variables = stack.variables ?? []
+    const { overrides, dir } = parseStackArgs(rawArgs, variables)
+    const answers = await promptVariables(variables, {
+      overrides,
       yes: Boolean(args.yes),
     })
 
     // 3. Resolve destination
-    const projectName = String(answers.projectName ?? args.dir ?? 'my-project')
-    const dest = path.resolve(cwd, args.dir ?? projectName)
+    const projectName = String(answers.projectName ?? dir ?? 'my-project')
+    const dest = path.resolve(cwd, dir ?? projectName)
 
     if (existsSync(dest)) {
       const dirEntries = await fs.readdir(dest)
@@ -104,6 +112,7 @@ export const initCommand = defineCommand({
       dest,
       stackRoot,
       dudeVersion,
+      stackVersion,
       logger: {
         info: (m) => logger.info(m),
         warn: (m) => logger.warn(m),
@@ -123,7 +132,9 @@ export const initCommand = defineCommand({
     if (stack.scaffold) {
       await stack.scaffold(ctx)
     } else {
-      const templateDir = path.join(stackRoot, 'template')
+      // Convention for stacks without a custom scaffold(): a single base
+      // template overlay at `templates/base`.
+      const templateDir = path.join(stackRoot, 'templates', 'base')
       await renderTemplateTree({
         src: templateDir,
         dest,
@@ -171,6 +182,72 @@ async function writeProjectMetadata(input: MetadataInput): Promise<void> {
     JSON.stringify(manifest, null, 2) + '\n',
     'utf8',
   )
+}
+
+interface ParsedStackArgs {
+  /** Variable answers supplied via CLI flags. */
+  overrides: Record<string, unknown>
+  /** The target directory positional, if one was given. */
+  dir?: string
+}
+
+/**
+ * Parse the raw argv for stack-variable flags and the target-directory
+ * positional. For each variable declared by the stack, a matching flag supplies
+ * its value non-interactively. Matching is tolerant of casing and dashes, so
+ * `--celeryBeat`, `--celery-beat` and `--celerybeat` all map to `celeryBeat`.
+ *
+ * Boolean variables are bare switches (`--celery`); every other variable, plus
+ * `--stack`, consumes the following token as its value (`--database postgres`).
+ * Knowing this per-variable is what lets the positional directory survive a
+ * trailing boolean flag — something citty cannot do for stack-defined flags.
+ */
+function parseStackArgs(rawArgs: string[], variables: StackVariable[]): ParsedStackArgs {
+  const byKey = new Map<string, StackVariable>()
+  const valueFlags = new Set<string>(['stack'])
+  for (const v of variables) {
+    byKey.set(normalizeKey(v.name), v)
+    if (v.type !== 'boolean') valueFlags.add(normalizeKey(v.name))
+  }
+
+  const overrides: Record<string, unknown> = {}
+  const positionals: string[] = []
+
+  for (let i = 0; i < rawArgs.length; i++) {
+    const arg = rawArgs[i]!
+    if (!arg.startsWith('--')) {
+      positionals.push(arg)
+      continue
+    }
+    const eq = arg.indexOf('=')
+    let key: string
+    let value: unknown
+    if (eq !== -1) {
+      key = normalizeKey(arg.slice(2, eq))
+      value = arg.slice(eq + 1)
+    } else {
+      key = normalizeKey(arg.slice(2))
+      value = valueFlags.has(key) ? rawArgs[++i] : true
+    }
+    const variable = byKey.get(key)
+    if (variable) overrides[variable.name] = coerceVariableValue(variable, value)
+  }
+
+  return { overrides, dir: positionals[0] }
+}
+
+function normalizeKey(key: string): string {
+  return key.toLowerCase().replace(/-/g, '')
+}
+
+/** Coerce a raw CLI flag value to the type declared by the variable. */
+function coerceVariableValue(v: StackVariable, raw: unknown): unknown {
+  if (v.type === 'boolean') {
+    if (typeof raw === 'boolean') return raw
+    const s = String(raw).toLowerCase()
+    return s === '' || s === 'true' || s === '1' || s === 'yes'
+  }
+  return String(raw)
 }
 
 function getStackPackageName(stackRoot: string): string {

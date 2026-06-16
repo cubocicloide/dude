@@ -8,8 +8,11 @@ SHELL := /bin/bash
 ARGS  ?=
 
 # Local scaffold test — override with: make dev-init STACK=react-fastapi OUT=test-local
-STACK ?= react-fastapi
-OUT   ?= test-local
+# STACK_OPTS defaults to the full matrix so the scaffold exercises every overlay.
+# Override to test a subset: make dev-init STACK_OPTS="--database postgres"
+STACK      ?= react-fastapi
+OUT        ?= test-local
+STACK_OPTS ?= --database postgres --celery --celerybeat
 
 # ---------------------------------------------------------------------------
 # Help
@@ -44,27 +47,109 @@ build: ## Build every package via turbo
 	pnpm run build
 
 .PHONY: dev
-dev: ## Run dev scripts in every package in parallel
+dev: ## Watch and rebuild all packages on source change — keep running in a second terminal for HMR
 	pnpm run dev
 
 .PHONY: cli
 cli: ## Run the local CLI — usage: make cli ARGS="init --stack react-fastapi"
 	pnpm --filter @cubocicloide/dude exec dude $(ARGS)
 
-.PHONY: link
-link: ## Link the dude binary globally (first-time dev setup) via npm link
-	cd packages/dude && npm link
+.PHONY: dev-run
+dev-run: ## Run a command inside the scaffold — make dev-run ARGS="lint" [OUT=test-local]
+	@if [ -z "$(ARGS)" ]; then \
+		printf "  \033[31m✗\033[0m  No command given. Usage: make dev-run ARGS=\"lint\"\n"; \
+		exit 1; \
+	fi
+	@cd private/examples/$(OUT) && pnpm dude $(ARGS)
 
 .PHONY: dev-init
-dev-init: ## Scaffold locally without publish — make dev-init [STACK=react-fastapi] [OUT=test-local]
-	pnpm --filter @cubocicloide/stack-$(STACK) build
-	node packages/dude/bin/dude.mjs init --stack ./stacks/$(STACK) private/examples/$(OUT)
+dev-init: ## Tear down, re-scaffold, and relink — make dev-init [STACK=react-fastapi] [OUT=test-local] [STACK_OPTS="…"]
+	@# 1. Tear down any running Docker environment from a previous scaffold run so
+	@#    we don't leak containers, named volumes, or locally-built images.
+	@if [ -f "private/examples/$(OUT)/docker-compose.yml" ]; then \
+		printf "  \033[33m→\033[0m  Stopping Docker environment in private/examples/$(OUT)…\n"; \
+		cd "private/examples/$(OUT)" && docker compose down --volumes --rmi local 2>/dev/null || true; \
+	fi
+	@# 2. Remove the old scaffold so we start completely clean.
+	@rm -rf private/examples/$(OUT)
+	@# 3. Rebuild BOTH the CLI runtime and the stack: the `dude` binary runs from
+	@#    packages/dude/dist, so a stack-only build leaves the CLI stale.
+	@#    Turbo caches unchanged packages so this is a no-op when nothing changed.
+	pnpm --filter @cubocicloide/dude --filter @cubocicloide/stack-$(STACK) build
+	@# 4. Scaffold. Default STACK_OPTS enables the full overlay matrix so every
+	@#    template is exercised. Pass STACK_OPTS="" to test the minimal base.
+	node packages/dude/bin/dude.mjs init --stack ./stacks/$(STACK) --yes $(STACK_OPTS) private/examples/$(OUT)
+	@# 5. Wire the local binary so `pnpm dude <cmd>` inside the scaffold resolves
+	@#    to the live source tree rather than any globally-installed dude.
+	@mkdir -p private/examples/$(OUT)/node_modules/.bin
+	@ln -sfn "$(CURDIR)/packages/dude/bin/dude.mjs" \
+		"private/examples/$(OUT)/node_modules/.bin/dude"
+	@# 6. Install dev dependencies in frontend/ and e2e/ so that `dude review`
+	@#    (eslint) works immediately without a separate install step.
+	@#    Uses npm (not pnpm) to avoid pnpm resolving the dude monorepo workspace
+	@#    instead of the scaffold's local package.json.
+	@for dir in frontend e2e; do \
+		if [ -f "private/examples/$(OUT)/$$dir/package.json" ]; then \
+			printf "  \033[33m→\033[0m  Installing $$dir dev dependencies…\n"; \
+			npm install --prefix "private/examples/$(OUT)/$$dir" --silent 2>/dev/null; \
+		fi; \
+	done
+	@printf "\n  \033[32m✓\033[0m  Scaffolded → private/examples/$(OUT)\n"
+	@printf "  \033[32m✓\033[0m  Local dude binary linked\n"
+	@printf "  \033[36mℹ\033[0m  Run commands: \033[1mmake dev-run ARGS=\"lint\"\033[0m\n"
+	@printf "  \033[36mℹ\033[0m  For HMR: keep \033[1mmake dev\033[0m running in a second terminal\n\n"
 
 ##@ Quality
 
+# ── Test layout ──────────────────────────────────────────────────────────────
+# Tests are split by package, and each package mixes two kinds of test:
+#   • unit          — pure functions / lint rules, run via vitest's TS transform
+#   • integration   — scaffold a real project in a tmpdir and drive the actual
+#                     `dude` binary (init, lint, …), exactly like a customer
+# Integration tests spawn the built binary, so a fresh `dist/` is required; the
+# `test*` targets depend on `build`, and turbo's `test` task also rebuilds.
+#
+# Fast local loop (HMR): no publish needed — `dude init --stack ./stacks/...`
+# resolves the live workspace, and templates are read straight from source.
+#   1. terminal A:  make dev                  # tsup --watch → keeps dist/ fresh
+#   2. terminal B:  make test-watch-stack     # vitest --watch → reruns on change
+#      or:          make dev-run ARGS="lint"  # one-shot run in the scaffold
+# Editing a template re-runs scaffold tests instantly (templates are not built);
+# editing TypeScript is picked up after `make dev` rebuilds dist/.
+
 .PHONY: test
-test: ## Run tests across all packages
-	pnpm run test
+test: build ## Run every test suite (CLI runtime + stack)
+	pnpm -r run test
+
+.PHONY: test-cli
+test-cli: build ## Test the dude CLI runtime package only (packages/dude)
+	pnpm --filter @cubocicloide/dude run test
+
+.PHONY: test-stack
+test-stack: build ## Test the react-fastapi stack package only (stacks/react-fastapi)
+	pnpm --filter @cubocicloide/stack-react-fastapi run test
+
+.PHONY: test-watch
+test-watch: build ## Watch + rerun all tests on change (pair with `make dev`)
+	pnpm -r --parallel run test:watch
+
+.PHONY: test-watch-cli
+test-watch-cli: build ## Watch-test the CLI runtime package
+	pnpm --filter @cubocicloide/dude run test:watch
+
+.PHONY: test-watch-stack
+test-watch-stack: build ## Watch-test the stack package
+	pnpm --filter @cubocicloide/stack-react-fastapi run test:watch
+
+.PHONY: test-install
+test-install: ## Smoke-test the globally-installed binary end-to-end in Docker (mirrors CI)
+	docker run --rm \
+		-v "$(CURDIR):/dude-src:ro" \
+		--env GITHUB_TOKEN="$${GITHUB_TOKEN}" \
+		node:20 \
+		bash -c 'set -e; mkdir -p /dude; \
+			tar -C /dude-src --exclude=node_modules --exclude=dist --exclude=.git -cf - . | tar -C /dude -xf -; \
+			bash /dude/scripts/test-global-install.sh /dude'
 
 .PHONY: lint
 lint: ## Lint all packages

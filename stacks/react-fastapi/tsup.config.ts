@@ -17,7 +17,7 @@ function lintCheckEntries(): Record<string, string> {
   for (const group of readdirSync(checksDir)) {
     const groupDir = join(checksDir, group)
     for (const file of readdirSync(groupDir)) {
-      if (!file.endsWith('.ts')) continue
+      if (!file.endsWith('.ts') || file.endsWith('.test.ts')) continue
       const id = file.replace(/\.ts$/, '')
       entries[`commands/lint/checks/${group}/${id}`] = `src/commands/lint/checks/${group}/${file}`
     }

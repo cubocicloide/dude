@@ -7,12 +7,13 @@ monorepo. Read it fully before making changes.
 
 ## What this repo is
 
-**dude** is a monorepo that ships two things:
+**dude** is a monorepo that ships three things:
 
-| Package                 | npm name                            | Purpose                                                                               |
-| ----------------------- | ----------------------------------- | ------------------------------------------------------------------------------------- |
-| `packages/dude/`        | `@cubocicloide/dude`                | The CLI runtime — `dude init`, `dude lint`, `dude up`, …                              |
-| `stacks/react-fastapi/` | `@cubocicloide/stack-react-fastapi` | A stack plugin that teaches `dude` how to scaffold and lint a React + FastAPI project |
+| Package                  | npm name                            | Purpose                                                                               |
+| ------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------- |
+| `packages/dude/`         | `@cubocicloide/dude`                | The CLI runtime — `dude init`, `dude lint`, `dude up`, …                              |
+| `packages/dude-launcher/`| `@cubocicloide/dude-launcher`       | Tiny global shim; runs each project's pinned CLI + stack (the only global install)    |
+| `stacks/react-fastapi/`  | `@cubocicloide/stack-react-fastapi` | A stack plugin that teaches `dude` how to scaffold and lint a React + FastAPI project |
 
 Everything is TypeScript + ESM. Toolchain: **pnpm workspaces**, **Turbo**, **tsup**.
 
@@ -41,10 +42,11 @@ dude/
 │       │               ├── BE/  # backend checks (BE001–BE011)
 │       │               ├── FE/  # frontend checks
 │       │               └── E2E/ # e2e checks
-│       ├── template/            # base template overlay (always applied)
-│       ├── template-postgres/   # overlay — applied when withPostgres = true
-│       ├── template-celery/     # overlay — applied when withCelery = true
-│       └── template-celerybeat/ # overlay — applied when withCeleryBeat = true
+│       └── templates/           # template overlays
+│           ├── base/            # base overlay — always applied
+│           ├── postgres/        # overlay — applied when withPostgres = true
+│           ├── celery/          # overlay — applied when withCelery = true
+│           └── celerybeat/      # overlay — applied when withCeleryBeat = true
 ├── Makefile                     # top-level developer targets (see below)
 ├── turbo.json
 └── pnpm-workspace.yaml
@@ -83,8 +85,10 @@ conflict.
 - **Boolean context variables** available in every `.hbs` file:
   `withPostgres`, `withCelery`, `withCeleryBeat`, `withRedis`
 
-To add a new file to the base scaffold, drop it in `stacks/react-fastapi/template/`.
-To add a file that only appears when Celery is enabled, drop it in `template-celery/`.
+Overlays live under `stacks/<stack>/templates/` (`base`, `postgres`, `celery`,
+`celerybeat`). To add a new file to the base scaffold, drop it in
+`stacks/react-fastapi/templates/base/`. To add a file that only appears when
+Celery is enabled, drop it in `templates/celery/`.
 
 ---
 
@@ -95,7 +99,7 @@ Modules are auto-discovered by the build and loaded at runtime — no registrati
 
 Every lint rule must have a matching prose description in the **generated project's**
 `.claude/rules/` directory:
-`stacks/react-fastapi/template/.claude/rules/{BE,FE,E2E}/NNN.md`
+`stacks/react-fastapi/templates/base/.claude/rules/{BE,FE,E2E}/NNN.md`
 
 **Rule**: when you add or change a lint check, update the corresponding
 `.claude/rules` file in the template so generated projects stay in sync.
@@ -104,7 +108,7 @@ Every lint rule must have a matching prose description in the **generated projec
 
 1. Create `src/commands/lint/checks/BE/NNN.ts` (copy an existing one for structure).
 2. Export a default function `check(projectRoot: string): LintResult[]`.
-3. Add `template/.claude/rules/BE/NNN.md` describing what the rule enforces and
+3. Add `templates/base/.claude/rules/BE/NNN.md` describing what the rule enforces and
    how to fix violations.
 4. Rebuild the stack: `pnpm --filter @cubocicloide/stack-react-fastapi build`
 5. Scaffold + verify: `make dev-init && dude lint` (see dev loop below).
@@ -150,12 +154,24 @@ dude lint
 
 ## Project version pinning
 
-Scaffolded projects record two independent version pins:
+Both the CLI and the stack are pinned as **devDependencies** in the scaffolded
+`package.json`, so `pnpm install` provisions a reproducible toolchain from the
+lockfile — the single source of truth. `dude.json` mirrors the pins (`stack`,
+`stackVersion`, `dudeVersion`) for provenance and records the scaffold answers.
 
-- `package.json` → `@cubocicloide/dude`
-- `dude.json` → `stack` + `stackVersion`
+At runtime the CLI loads the stack from `node_modules` (its first resolution
+strategy); the `~/.dude` cache is only a fallback for `dude init` on a bare
+machine. `minDudeVersion` (declared by each stack) is enforced before any stack
+command runs.
 
-Use `dude upgrade` inside a generated project to update either or both pins:
+The **launcher** (`@cubocicloide/dude-launcher`, installed globally) makes
+`dude <cmd>` run each project's pinned versions automatically: it finds the
+nearest `dude.json`, provisions the toolchain if needed, and re-execs the
+project-local `dude`. Different projects → different versions, no switching.
+
+Use `dude upgrade` inside a generated project to bump either or both pins (it
+updates `package.json` **and** `dude.json` in lockstep; run `pnpm install`
+after):
 
 ```bash
 dude upgrade

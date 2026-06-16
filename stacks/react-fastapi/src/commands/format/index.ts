@@ -32,6 +32,22 @@ function ensureNodeModules(dir: string, executable?: string): boolean {
   return exec('pnpm', ['install'], dir)
 }
 
+function ensureVenv(dir: string): boolean {
+  const venvRuff = path.join(dir, '.venv', 'bin', 'ruff')
+  if (existsSync(venvRuff)) return true
+
+  process.stdout.write('.venv not found — running uv sync…\n')
+  return exec('uv', ['sync'], dir)
+}
+
+function isDockerServiceRunning(service: string, cwd: string): boolean {
+  const r = spawnSync('docker', ['compose', 'ps', '--status', 'running', '-q', service], {
+    stdio: 'pipe',
+    cwd,
+  })
+  return r.status === 0 && r.stdout != null && r.stdout.toString().trim().length > 0
+}
+
 export const formatCommand: StackCommandDef = {
   description: 'Format backend (ruff) and frontend (prettier) source files.',
   args: {
@@ -48,8 +64,10 @@ export const formatCommand: StackCommandDef = {
     const e2eDir = path.join(projectRoot, 'e2e')
 
     // ── Preflight ─────────────────────────────────────────────────────────────
+    const backendExists = existsSync(backendDir)
+    const backendContainerUp = backendExists && isDockerServiceRunning('backend', projectRoot)
     const missing: string[] = []
-    if (existsSync(backendDir) && !isAvailable('uv'))
+    if (backendExists && !backendContainerUp && !isAvailable('uv'))
       missing.push('uv  →  https://docs.astral.sh/uv/getting-started/installation/')
     if ((existsSync(frontendDir) || existsSync(e2eDir)) && !isAvailable('pnpm'))
       missing.push('pnpm  →  https://pnpm.io/installation')
@@ -65,24 +83,45 @@ export const formatCommand: StackCommandDef = {
     let ok = true
 
     // ── Backend ───────────────────────────────────────────────────────────────
-    if (existsSync(backendDir)) {
+    if (backendExists) {
       process.stdout.write(check ? 'Checking backend formatting…\n' : 'Formatting backend…\n')
 
-      // ruff format: black-compatible formatter
-      ok =
-        exec(
-          'uv',
-          ['run', 'ruff', 'format', ...(check ? ['--check'] : []), 'backend/'],
-          projectRoot,
-        ) && ok
-
-      // ruff check --select I: isort-compatible import sorting
-      ok =
-        exec(
-          'uv',
-          ['run', 'ruff', 'check', '--select', 'I', ...(check ? [] : ['--fix']), 'backend/'],
-          projectRoot,
-        ) && ok
+      if (backendContainerUp) {
+        // Container is running — ruff is already installed in the image; no host venv needed.
+        ok =
+          exec(
+            'docker',
+            ['compose', 'exec', 'backend', 'uv', 'run', 'ruff', 'format', ...(check ? ['--check'] : []), 'app/'],
+            projectRoot,
+          ) && ok
+        ok =
+          exec(
+            'docker',
+            ['compose', 'exec', 'backend', 'uv', 'run', 'ruff', 'check', '--select', 'I', ...(check ? [] : ['--fix']), 'app/'],
+            projectRoot,
+          ) && ok
+      } else {
+        // Containers not running — fall back to local uv + venv.
+        const venvReady = ensureVenv(backendDir)
+        if (!venvReady) {
+          process.stderr.write('error: uv sync failed in backend/\n')
+          ok = false
+        }
+        if (venvReady) {
+          ok =
+            exec(
+              'uv',
+              ['run', 'ruff', 'format', ...(check ? ['--check'] : []), '.'],
+              backendDir,
+            ) && ok
+          ok =
+            exec(
+              'uv',
+              ['run', 'ruff', 'check', '--select', 'I', ...(check ? [] : ['--fix']), '.'],
+              backendDir,
+            ) && ok
+        }
+      }
     }
 
     // ── Frontend ──────────────────────────────────────────────────────────────

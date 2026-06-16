@@ -3,7 +3,6 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 import { initCommand } from '../init/index.js'
 import { upgradeCommand } from '../upgrade/index.js'
-import { upCommand, downCommand, logsCommand, shellCommand } from '../docker/index.js'
 import { loadStack } from '../../core/stack-loader.js'
 import type { StackCommandDef, StackCommandArg } from '../../core/stack-contract.js'
 import { getCliVersion } from '../../utils/paths.js'
@@ -90,10 +89,6 @@ function buildCoreCatalog(): Catalog {
   const coreCmds: [string, AnyCittyCmdDef][] = [
     ['init', initCommand as AnyCittyCmdDef],
     ['upgrade', upgradeCommand as AnyCittyCmdDef],
-    ['up', upCommand as AnyCittyCmdDef],
-    ['down', downCommand as AnyCittyCmdDef],
-    ['logs', logsCommand as AnyCittyCmdDef],
-    ['shell', shellCommand as AnyCittyCmdDef],
   ]
   for (const [name, def] of coreCmds) flat.set(name, fromCittyDef(name, def))
   return { flat, groups }
@@ -233,7 +228,10 @@ export const helpCommand = defineCommand({
 
     if (existsSync(dudeJsonPath)) {
       try {
-        const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as { stack?: string; stackVersion?: string }
+        const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as {
+          stack?: string
+          stackVersion?: string
+        }
         if (dudeJson.stack) {
           stackName = dudeJson.stack
           const { definition } = await loadStack(dudeJson.stack, cwd, dudeJson.stackVersion)
