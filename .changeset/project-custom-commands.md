@@ -26,3 +26,5 @@ in `.dude/commands/` — one file per command, named after the file (`reset.ts` 
 **@cubocicloide/stack-react-fastapi**
 - Scaffold ships a `.dude/commands/` directory with a `hello` example command
   and a `README.md` documenting the full contract.
+- PostgreSQL projects additionally get `dude reset` (drop DB → restart services →
+  migrate → seed demo data) as a ready-to-use custom command under `.dude/commands/`.
