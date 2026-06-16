@@ -49,11 +49,18 @@ export default defineCommand({
     process.stdout.write('Dropping all containers and volumes...\n')
     exec('docker', ['compose', 'down', '--volumes'], projectRoot)
 
-    process.stdout.write('Starting services (migrations apply automatically on backend startup)...\n')
+    process.stdout.write('Starting services...\n')
     exec('docker', ['compose', 'up', '--detach'], projectRoot)
 
     process.stdout.write('Waiting for backend to be ready...\n')
     await waitForBackend('http://localhost:8000/api/health')
+
+    process.stdout.write('Running migrations...\n')
+    exec(
+      'docker',
+      ['compose', 'exec', 'backend', 'uv', 'run', 'alembic', 'upgrade', 'head'],
+      projectRoot,
+    )
 
     process.stdout.write('Seeding demo data...\n')
     exec(
