@@ -59,22 +59,25 @@ if ! which dude > /dev/null 2>&1; then
 fi
 ok "dude found at: $(which dude)"
 
-# ── 5. dude help ───────────────────────────────────────────────────────────
-header "Running dude help"
+# ── 5. dude help (no project context) ─────────────────────────────────────
+# Without a dude.json in scope, only core commands (init, upgrade) appear.
+# Stack commands (up, down, …) are loaded dynamically from the project's
+# pinned stack plugin and must NOT appear here.
+header "Running dude help (global — no project context)"
 HELP="$(dude help 2>&1)"
 echo "$HELP"
 
 dude help > /dev/null 2>&1 || fail "dude help exited non-zero"
 ok "dude help exits 0"
 
-for cmd in init up down logs shell; do
+for cmd in init upgrade; do
   echo "$HELP" | grep -q "$cmd" || fail "'dude help' is missing '$cmd'"
   ok "help contains '$cmd'"
 done
 
-for cmd in lint format review; do
-  echo "$HELP" | grep -qw "$cmd" && fail "'dude help' unexpectedly contains '$cmd'" || true
-  ok "help does not contain '$cmd'"
+for cmd in up down logs shell lint format review; do
+  echo "$HELP" | grep -qw "$cmd" && fail "'dude help' unexpectedly shows stack command '$cmd' outside a project" || true
+  ok "global help does not contain stack command '$cmd'"
 done
 
 # ── 6. Full customer chain: init → lint ─────────────────────────────────────
@@ -90,8 +93,17 @@ dude init --stack "$REPO/stacks/react-fastapi" --yes --database postgres --celer
 [ -f "$PROJECT_DIR/backend/app/worker.py" ] || fail "celery overlay not applied"
 ok "project scaffolded at $PROJECT_DIR"
 
-header "Linting the scaffold (dude lint)"
+header "dude help (project context)"
 cd "$PROJECT_DIR"
+PROJECT_HELP="$(dude help 2>&1)"
+echo "$PROJECT_HELP"
+
+for cmd in up down logs shell lint format review; do
+  echo "$PROJECT_HELP" | grep -q "$cmd" || fail "'dude help' from project is missing stack command '$cmd'"
+  ok "project help contains '$cmd'"
+done
+
+header "Linting the scaffold (dude lint)"
 dude lint || fail "dude lint exited non-zero on a fresh scaffold"
 ok "dude lint exits 0 on the fresh scaffold"
 
