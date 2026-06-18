@@ -61,24 +61,19 @@ module "eks" {
 }
 
 # ── Container registries ────────────────────────────────────────────────────────
-resource "aws_ecr_repository" "backend" {
-  name                 = "${var.project_name}-backend"
-  image_tag_mutability = "MUTABLE"
-  force_delete         = true
+# ECR repositories are SHARED across environments and owned by the bootstrap
+# config (one image, promoted dev → staging → prod by tag). Each repo's URL is
+# deterministic — "<account>.dkr.ecr.<region>.amazonaws.com/<name>" — so we
+# build it from the caller's account id rather than querying the ECR API. That
+# keeps a second env from colliding on the repos, stops any env's destroy from
+# deleting another's registry, and (unlike an `aws_ecr_repository` data source)
+# never makes plan/apply/destroy depend on the ECR API being reachable.
+data "aws_caller_identity" "current" {}
 
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-resource "aws_ecr_repository" "frontend" {
-  name                 = "${var.project_name}-frontend"
-  image_tag_mutability = "MUTABLE"
-  force_delete         = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
+locals {
+  ecr_registry     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com"
+  ecr_backend_url  = "${local.ecr_registry}/${var.project_name}-backend"
+  ecr_frontend_url = "${local.ecr_registry}/${var.project_name}-frontend"
 }
 
 # ── AWS Load Balancer Controller (for ALB Ingress) ──────────────────────────────
@@ -179,8 +174,11 @@ resource "aws_acm_certificate_validation" "app" {
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
 }
 
-# external-dns reconciles Route53 records from Ingress hosts (upsert-only: it
-# never deletes records, so a removed Ingress won't take DNS down with it).
+# external-dns reconciles Route53 records from Ingress hosts. Policy is
+# upsert-only: it never deletes records at runtime, so a transiently removed
+# Ingress won't take DNS down with it. Deliberate teardown is handled instead by
+# `dude iac destroy`, which removes this env's records (matched by the txtOwnerId
+# below) so they don't outlive the ALB they point at.
 module "external_dns_irsa" {
   count   = var.domain_name == "" ? 0 : 1
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"

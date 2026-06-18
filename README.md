@@ -1,289 +1,199 @@
 # dude
 
-> Cubocicloide's internal project scaffolding & code quality CLI.
+> Cubocicloide's project scaffolding & code-quality CLI.
 > Multi-stack, plugin-based, distributed via GitHub Packages.
 
-`dude` bootstraps new projects, enforces conventions, and assists with code
-review across all stacks Cubocicloide works with. Each stack ships its own
-templates, lint rules, generators, and lifecycle hooks — the CLI is
-completely stack-agnostic.
+**This README is for maintainers of `dude` itself** — people working in this
+monorepo on the CLI runtime, the launcher, and the stack plugins. It focuses on
+the development workflow and the `make` targets you'll actually use.
+
+> **Using `dude` in a generated project?** You don't need this file. Run
+> **`dude help`** for the live, init-aware command catalog, and **`dude docs`**
+> for the full browsable documentation of the entire `dude` API. Those two
+> commands are the complete end-user reference (authored under
+> [`stacks/react-fastapi/templates/base/docs/`](stacks/react-fastapi/templates/base/docs/)
+> and rendered per project).
 
 ---
 
-## Installation (end users)
+## What's in here
 
-> **Prerequisite — GitHub token**
-> `dude` and its stack plugins are published on GitHub Packages (private
-> registry). You need a GitHub Personal Access Token with **`read:packages`**
-> scope.
->
-> Generate one at: <https://github.com/settings/tokens>
+| Directory                 | npm name                            | Role                                                            |
+| ------------------------- | ----------------------------------- | -------------------------------------------------------------- |
+| `packages/dude/`          | `@cubocicloide/dude`                | CLI runtime — `init`, `upgrade`, `help`, and command dispatch  |
+| `packages/dude-launcher/` | `@cubocicloide/dude-launcher`       | Tiny global shim; runs each project's pinned CLI + stack       |
+| `stacks/react-fastapi/`   | `@cubocicloide/stack-react-fastapi` | Stack plugin: templates, lint rules, generators, IaC, commands |
 
-### 1. Configure the registry
-
-Add the following to `~/.npmrc` (create it if it does not exist):
-
-```ini
-@cubocicloide:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
-```
-
-Replace `YOUR_GITHUB_TOKEN` with your actual token, or keep the placeholder
-and always export the variable before running npm/pnpm:
-
-```bash
-export GITHUB_TOKEN=ghp_xxx
-```
-
-### 2. Install the launcher globally (once, per machine)
-
-```bash
-npm install -g @cubocicloide/dude-launcher
-```
-
-The launcher is a small, stable shim. All real logic lives in each project's
-pinned CLI + stack, resolved automatically at run time.
-
-### 3. Scaffold a new project
-
-```bash
-# Interactive — picks the stack from a menu
-dude init
-
-# Or specify the stack directly and skip all prompts
-dude init --stack react-fastapi --yes
-```
-
-### 4. Provision the project toolchain
-
-```bash
-cd <project-name>
-pnpm install   # installs the exact CLI + stack versions pinned in package.json
-```
-
-From this point, `dude <cmd>` (via the global launcher) always runs the
-project's pinned toolchain. Different projects on the same machine use
-different versions transparently.
+Everything is TypeScript + ESM. Toolchain: **pnpm workspaces**, **Turbo**, **tsup**.
 
 ---
 
-## Core commands
-
-Once inside a scaffolded project you have access to the full `dude` command
-set. Run `dude help` for the complete list.
-
-| Command                 | Description                                        |
-| ----------------------- | -------------------------------------------------- |
-| `dude init`             | Scaffold a new project from a stack template       |
-| `dude upgrade`          | Update the CLI pin and/or active stack pin         |
-| `dude up [--build]`     | Start services (`--build` to rebuild images first) |
-| `dude down`             | Stop and remove containers                         |
-| `dude logs [service]`   | Stream logs (omit service to follow all)           |
-| `dude shell <service>`  | Open a shell inside a running container            |
-| `dude lint`             | Run all stack convention checks                    |
-| `dude format`           | Format backend (ruff) + frontend (prettier)        |
-| `dude review`           | lint + ESLint + API contract review in one pass    |
-| `dude test`             | Run all test suites (backend + e2e)                |
-| `dude api sync`         | Fetch OpenAPI spec → generate typed client         |
-| `dude api review`       | Validate the generated client against the spec     |
-| `dude db makemigration` | Generate a new Alembic migration (postgres stack)  |
-| `dude db migrate`       | Apply pending migrations                           |
-| `dude db rollback`      | Revert the last migration                          |
-| `dude docs`             | Serve the project docs at http://localhost:8001    |
-| `dude security scan`    | Run SAST scanners (bandit, semgrep, trivy)         |
-| `dude help`             | Show all available commands for the current stack  |
-
-### Upgrading a project
-
-Generated projects pin **both** the CLI and the active stack as exact
-`devDependencies` in `package.json` (lockfile-enforced), and record the same
-versions in `dude.json`. Use `dude upgrade` to move either pin forward or backward:
-
-```bash
-dude upgrade
-dude upgrade --cli --cli-version 0.6.1
-dude upgrade --stack --stack-version 5.0.5
-
-# rollback example
-dude upgrade --cli --cli-version 0.6.0
-dude upgrade --stack --stack-version 5.0.4
-pnpm install   # refresh the lockfile after any pin change
-```
-
-`dude upgrade` updates version pins in `package.json` and `dude.json`. It does
-not migrate existing project files.
-
-### Project-local custom commands
-
-Any scaffolded project can define its own `dude` commands under `.dude/commands/`.
-Each file becomes a command named after the file (`reset.ts` → `dude reset`),
-shows up in `dude help` under **PROJECT COMMANDS**, and can override a stack
-command of the same name. Commands are loaded with
-[jiti](https://github.com/unjs/jiti) — write them in TypeScript and `import` any
-package you add to the project:
-
-```ts
-// .dude/commands/reset.ts
-import { defineCommand } from '@cubocicloide/dude'
-
-export default defineCommand({
-  description: 'Reset the database to a clean state.',
-  async run({ projectRoot, args }) {
-    // ...
-  },
-})
-```
-
-Precedence is **custom > stack > core**. The core commands `init`, `upgrade`,
-`version`, and `help` are reserved and cannot be overridden. The scaffold ships
-a `hello` example and a `.dude/commands/README.md` with the full contract.
-
-### First run (react-fastapi stack)
-
-```bash
-# Build images and start all services — required the first time,
-# and after any Dockerfile / pyproject.toml change
-dude up --build
-
-# From the second run onward
-dude up
-```
-
-### Service URLs (react-fastapi stack, after `dude up`)
-
-| Service    | URL                              | Notes                               |
-| ---------- | -------------------------------- | ----------------------------------- |
-| Frontend   | http://localhost:5173            | React + Vite — HMR active           |
-| API        | http://localhost:8000            | FastAPI                             |
-| Swagger UI | http://localhost:8000/docs       | Interactive API explorer            |
-| ReDoc      | http://localhost:8000/redoc      | API reference docs                  |
-| Health     | http://localhost:8000/api/health | JSON health check                   |
-| Flower     | http://localhost:5555            | Celery task monitor (--celery only) |
-| Docs       | http://localhost:8001            | MkDocs dev server (`dude docs`)     |
-
-> **Hot reload** — Vite HMR is active on the frontend (edit `frontend/src/` and
-> the browser updates instantly). Uvicorn runs with `--reload` on the backend
-> (edit `backend/app/` and the API restarts within ~1 second).
-
----
-
-## Repository layout
+## Repo layout
 
 ```
 dude/
 ├── packages/
-│   ├── dude/            # @cubocicloide/dude — CLI runtime
-│   └── dude-launcher/   # @cubocicloide/dude-launcher — global shim
+│   ├── dude/                 # CLI runtime
+│   │   └── src/
+│   │       ├── cli.ts        # citty entry point, command dispatch
+│   │       ├── commands/     # init, upgrade, help, …
+│   │       └── core/         # config, registry, stack-loader, template-runner
+│   └── dude-launcher/        # global shim
 └── stacks/
-    └── react-fastapi/   # @cubocicloide/stack-react-fastapi
+    └── react-fastapi/
         ├── src/
-        │   └── commands/lint/checks/  # BE / FE / E2E lint rules
-        └── templates/                 # template overlays
-            ├── base/                  # base scaffold (all projects)
-            ├── postgres/              # overlay for --database postgres
-            ├── celery/                # overlay for --celery
-            └── celerybeat/            # overlay for --celerybeat
+        │   ├── index.ts      # stack contract (commands, answers, context)
+        │   └── commands/     # lint, api, db, iac, …
+        └── templates/        # template overlays (see below)
+            ├── base/         # always applied — includes the end-user docs/
+            ├── postgres/     # --database postgres
+            ├── celery/       # --celery
+            ├── celerybeat/   # --celerybeat
+            └── aws-eks/      # --iac aws-eks (Terraform + Helm + deploy docs)
 ```
 
 ---
 
-## Contributing (monorepo setup)
+## Prerequisites
+
+- Node ≥ 20, `pnpm`, and (for installing the private deps) a `GITHUB_TOKEN`
+  with `read:packages`:
+
+  ```bash
+  export GITHUB_TOKEN=ghp_xxx
+  ```
+
+- For exercising the IaC overlay end-to-end: `terraform`, `kubectl`, `helm`,
+  `docker`, and the `aws` CLI with credentials.
+
+---
+
+## Build & run from source
 
 ```bash
-# 1. Clone
-git clone git@github.com:cubocicloide/dude.git
-cd dude
+make install              # pnpm install (whole workspace)
+make build                # turbo build — every package via tsup
+make cli ARGS="--help"    # run the locally-built CLI
 
-# 2. Authenticate
-export GITHUB_TOKEN=ghp_xxx
-
-# 3. Install & build
-make install
-make build
-
-# 4. Run the CLI from sources
-make cli ARGS="--help"
-make cli ARGS="init --stack react-fastapi"
+# Faster single-package rebuilds during iteration:
+pnpm --filter @cubocicloide/dude build
+pnpm --filter @cubocicloide/stack-react-fastapi build
 ```
 
-### Testing the IaC feature locally
+> Never edit anything under `dist/` — it is overwritten on every build. Always
+> rebuild after changing source.
 
-The IaC overlay is not included in the default `dev-init` matrix. Pass it
-explicitly:
+---
+
+## Dev scaffold loop
+
+The standard way to validate template, lint, command, or IaC changes is to
+scaffold a throwaway project into `private/examples/` (gitignored) and drive the
+real binary against it.
 
 ```bash
-# 1. Build after any source change
-make build
-# (faster, stack-only rebuild:)
-# pnpm --filter @cubocicloide/stack-react-fastapi build
+# Scaffold a fresh project from the local stack (full overlay matrix by default)
+make dev-init
 
-# 2. Scaffold a test project with the IaC overlay
-make dev-init STACK_OPTS="--iac aws-eks"
+# A subset:
+make dev-init STACK_OPTS="--database postgres"
 
-# With the full option matrix (postgres + celery + IaC):
-make dev-init STACK_OPTS="--database postgres --celery --celerybeat --iac aws-eks"
+# Run a command inside the scaffold (uses the linked local binary, not the
+# global launcher — so no GITHUB_TOKEN round-trip):
+make dev-run ARGS="lint"
+make dev-run ARGS="help"
 
-# 3. Inspect the scaffold — always use make dev-run (or pnpm dude) in local dev
-#    Running `dude` directly inside the scaffold invokes the global launcher,
-#    which tries to pull @cubocicloide/dude from GitHub Packages and fails
-#    without a GITHUB_TOKEN. The symlink wired by dev-init bypasses this.
-make dev-run ARGS="help"                          # → iac group should appear
-make dev-run ARGS="help iac"                      # → iac sub-commands + flags
+# Iterate without rescaffolding: rebuild the stack, then re-run.
+pnpm --filter @cubocicloide/stack-react-fastapi build
+make dev-run ARGS="lint"
+```
 
-# Alternatively, cd into the scaffold and use pnpm dude directly:
-#   cd private/examples/test-local && pnpm dude help
+`make dev-init` tears down any previous scaffold, rebuilds the CLI **and** stack,
+scaffolds into `private/examples/test-local/`, links the local `dude` binary, and
+installs `frontend/` + `e2e/` dev deps so `dude review` works immediately.
 
-# 4. Inspect rendered files
-cat private/examples/test-local/iac/README.md
-cat private/examples/test-local/iac/terraform/environments/dev/backend.hcl
+### Exercising the IaC overlay locally
 
-# 5. Run IaC commands (requires aws CLI + credentials)
+The IaC overlay is part of the default `STACK_OPTS` matrix, but you can scope to
+just it. IaC commands need the `aws` CLI + credentials.
+
+```bash
+make dev-init STACK_OPTS="--iac aws-eks"          # or the full matrix
+make dev-run ARGS="help iac"                       # iac sub-commands + flags
+
+# A typical end-to-end run (see iac/README.md in the scaffold for the contract):
 make dev-run ARGS="iac login     --env dev"
 make dev-run ARGS="iac bootstrap --state-bucket-prefix <your-org> --env dev --yes"
 make dev-run ARGS="iac init      --env dev"
 make dev-run ARGS="iac apply     --env dev"
-
-# 6. Build + push images and deploy (requires docker; tag defaults to git SHA)
 make dev-run ARGS="iac kubeconfig --env dev"
-make dev-run ARGS="iac ship       --env dev"   # build + push + deploy in one
-make dev-run ARGS="iac status     --env dev"
+make dev-run ARGS="iac ship       --env dev"       # build + push + deploy
+make dev-run ARGS="iac destroy    --env dev --yes"
 ```
 
-To iterate quickly without rescaffolding, rebuild only the stack and rerun
-without tearing down the scaffold:
+---
+
+## Make targets
+
+The Makefile is self-documenting — **`make help`** lists every target grouped by
+section. The ones you'll reach for most:
+
+| Target            | What it does                                                       |
+| ----------------- | ----------------------------------------------------------------- |
+| `make install`    | Install all workspace dependencies                                 |
+| `make build`      | Build every package via turbo                                      |
+| `make dev`        | Watch + rebuild all packages (keep running for HMR)                |
+| `make cli ARGS=…` | Run the local CLI, e.g. `make cli ARGS="init --stack react-fastapi"` |
+| `make dev-init`   | Tear down + re-scaffold + relink `private/examples/test-local/`    |
+| `make dev-run`    | Run a command inside the scaffold, e.g. `ARGS="lint"`             |
+| `make test`       | Run every suite (CLI runtime + stack)                             |
+| `make test-stack` | Test the stack package only                                       |
+| `make check`      | `lint + typecheck + test` — the CI pre-flight                     |
+| `make changeset`  | Record a changeset for the next release                           |
+| `make clean`      | Remove `dist/`, `node_modules/`, `.turbo/`                        |
+
+---
+
+## Testing
+
+Each package mixes **unit** tests (pure functions / lint rules) and
+**integration** tests (scaffold a real project in a tmpdir and drive the built
+binary, exactly like a customer). Integration tests spawn `dist/`, so the
+`test*` targets rebuild first.
 
 ```bash
-pnpm --filter @cubocicloide/stack-react-fastapi build
-make dev-run ARGS="help iac"
+make test               # everything
+make test-stack         # stack only
+make test-watch-stack   # watch mode (pair with `make dev`)
+make test-install       # smoke-test the globally-installed binary in Docker (mirrors CI)
 ```
 
-> **Note** — `private/` is gitignored; scaffolds there are ephemeral.
-
-### Common Makefile targets
-
-| Command           | Description                                               |
-| ----------------- | --------------------------------------------------------- |
-| `make install`    | Install all workspace dependencies                        |
-| `make build`      | Build every package via turbo                             |
-| `make test`       | Run all tests                                             |
-| `make lint`       | Lint every package                                        |
-| `make typecheck`  | TypeScript type-check across the workspace                |
-| `make format`     | Format the entire workspace with Prettier                 |
-| `make dev`        | Run all package dev scripts in parallel                   |
-| `make cli ARGS=…` | Run the local CLI (e.g. `make cli ARGS="init --stack X"`) |
-| `make changeset`  | Record a changeset for the next release                   |
-| `make release`    | Publish updated packages to GitHub Packages               |
-| `make clean`      | Remove build artifacts and `node_modules`                 |
+Run `make check` before opening a PR.
 
 ---
 
 ## Releasing
 
 ```bash
-make changeset   # interactively record a version bump
-# → on merge to main, CI opens a "Version Packages" PR
+make changeset    # interactively record a version bump (patch/minor/major)
+# → push; CI opens a "Version Packages" PR
 # → merging that PR publishes to GitHub Packages automatically
 ```
+
+`make release` exists for emergency/manual publishes only — CI handles the
+normal path.
+
+---
+
+## End-user documentation lives in the templates
+
+The documentation that ships *inside generated projects* — the full `dude` API
+reference your users read via `dude docs` — is authored under
+[`stacks/react-fastapi/templates/base/docs/`](stacks/react-fastapi/templates/base/docs/)
+(plus [`stacks/react-fastapi/templates/aws-eks/docs/`](stacks/react-fastapi/templates/aws-eks/docs/)
+for the IaC deploy guide). **When you add or change a command, update that
+documentation in the same change** so the rendered docs stay in sync. See
+[CLAUDE.md](CLAUDE.md) for the full command reference and contributor invariants.
 
 ---
 

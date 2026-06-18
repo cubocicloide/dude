@@ -1,7 +1,29 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import path from 'pathe'
 import type { StackCommandDef } from '@cubocicloide/dude'
+
+/**
+ * Regenerate `docs/docs/api.md` from the live command catalog so the docs always
+ * match this project's real commands (init choices + .dude/commands/). Best
+ * effort: a dynamic import keeps it working even on an older CLI runtime that
+ * doesn't yet export `generateApiDoc` — we just skip the refresh in that case.
+ */
+async function regenerateApiDoc(projectRoot: string, docsDir: string): Promise<void> {
+  try {
+    const dude = (await import('@cubocicloide/dude')) as {
+      generateApiDoc?: (cwd: string, format?: 'md' | 'json') => Promise<string>
+    }
+    if (typeof dude.generateApiDoc !== 'function') return
+    const md = await dude.generateApiDoc(projectRoot, 'md')
+    writeFileSync(path.join(docsDir, 'docs', 'api.md'), md)
+    process.stdout.write('[docs] Regenerated docs/api.md from the live command catalog.\n')
+  } catch (e) {
+    process.stderr.write(
+      `[docs] Could not regenerate api.md (${(e as Error).message}); using the existing file.\n`,
+    )
+  }
+}
 
 function isDockerRunning(): boolean {
   const r = spawnSync('docker', ['info'], { stdio: 'ignore' })
@@ -35,6 +57,9 @@ export const docsCommand: StackCommandDef = {
       )
       process.exit(1)
     }
+
+    // Refresh the generated API reference before serving, so it's always current.
+    await regenerateApiDoc(projectRoot, docsDir)
 
     if (!isDockerRunning()) {
       process.stderr.write('[docs] Docker is not running. Start Docker Desktop and retry.\n')

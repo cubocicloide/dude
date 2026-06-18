@@ -119,6 +119,197 @@ export function cleanupOrphanedAlbs(
 }
 
 /**
+ * Delete dangling (status `available`) network interfaces left in the cluster's
+ * VPC. The AWS VPC CNI sometimes orphans secondary ENIs (`aws-K8S-*`) when the
+ * node group is torn down abruptly; while detached, they still occupy a subnet
+ * and reference the node security group, so `terraform destroy` then fails with
+ * `DeleteSubnet`/`DeleteSecurityGroup … DependencyViolation`. We locate the VPC
+ * by its `Project`/`Environment` default tags (every env resource carries them)
+ * and delete only ENIs that are already detached, so this is always safe.
+ *
+ * Returns the number of interfaces removed.
+ */
+export function releaseClusterVpcEnis(
+  project: string,
+  env: string,
+  region: string,
+  projectRoot: string,
+  profile?: string,
+): number {
+  const regionFlag = region ? ['--region', region] : []
+  const vpc = capture(
+    'aws',
+    [
+      'ec2',
+      'describe-vpcs',
+      '--filters',
+      `Name=tag:Project,Values=${project}`,
+      `Name=tag:Environment,Values=${env}`,
+      '--query',
+      'Vpcs[0].VpcId',
+      '--output',
+      'text',
+      ...regionFlag,
+    ],
+    projectRoot,
+    profile,
+  )
+  const vpcId = vpc.status === 0 ? vpc.stdout.trim() : ''
+  if (!vpcId || vpcId === 'None') return 0
+
+  const enis = capture(
+    'aws',
+    [
+      'ec2',
+      'describe-network-interfaces',
+      '--filters',
+      `Name=vpc-id,Values=${vpcId}`,
+      'Name=status,Values=available',
+      '--query',
+      'NetworkInterfaces[].NetworkInterfaceId',
+      '--output',
+      'text',
+      ...regionFlag,
+    ],
+    projectRoot,
+    profile,
+  )
+  let removed = 0
+  for (const id of enis.status === 0 ? textTokens(enis.stdout) : []) {
+    const r = capture(
+      'aws',
+      ['ec2', 'delete-network-interface', '--network-interface-id', id, ...regionFlag],
+      projectRoot,
+      profile,
+    )
+    if (r.status === 0) {
+      process.stdout.write(`  → deleted dangling network interface ${id}\n`)
+      removed++
+    }
+  }
+  return removed
+}
+
+/**
+ * Delete the Route53 records external-dns created for an environment, identified
+ * by its TXT-registry owner id (`<project>-<env>`). external-dns runs
+ * `--policy=upsert-only`, so it never removes records itself; without this a
+ * destroyed env orphans its A record (still pointing at the now-deleted ALB →
+ * NXDOMAIN) and a TXT ownership marker that blocks the next deploy from taking
+ * the hostname over. We delete by submitting the exact record sets back with
+ * `Action=DELETE`.
+ *
+ * Returns the number of record sets removed; 0 (no-op) when the zone can't be
+ * found or nothing is owned by this id.
+ */
+export function cleanupExternalDnsRecords(
+  zoneName: string,
+  ownerId: string,
+  projectRoot: string,
+  profile?: string,
+): number {
+  if (!zoneName || !ownerId) return 0
+  const fqdn = zoneName.endsWith('.') ? zoneName : `${zoneName}.`
+
+  const zid = capture(
+    'aws',
+    [
+      'route53',
+      'list-hosted-zones-by-name',
+      '--dns-name',
+      fqdn,
+      '--query',
+      `HostedZones[?Name=='${fqdn}'].Id | [0]`,
+      '--output',
+      'text',
+    ],
+    projectRoot,
+    profile,
+  )
+  const zoneId = zid.status === 0 ? zid.stdout.trim() : ''
+  if (!zoneId || zoneId === 'None') return 0
+
+  const list = capture(
+    'aws',
+    [
+      'route53',
+      'list-resource-record-sets',
+      '--hosted-zone-id',
+      zoneId,
+      '--max-items',
+      '1000',
+      '--output',
+      'json',
+    ],
+    projectRoot,
+    profile,
+  )
+  if (list.status !== 0) return 0
+
+  interface RecordSet {
+    Name: string
+    Type: string
+    TTL?: number
+    ResourceRecords?: Array<{ Value?: string }>
+    AliasTarget?: unknown
+    SetIdentifier?: string
+  }
+  let sets: RecordSet[] = []
+  try {
+    sets = (JSON.parse(list.stdout) as { ResourceRecordSets?: RecordSet[] }).ResourceRecordSets ?? []
+  } catch {
+    return 0
+  }
+
+  // Pass 1: find the TXT registry records that carry our owner id, then recover
+  // the managed name each one guards. external-dns names a guard TXT either
+  // identically to the managed record (`dev.zone.`) or with a type prefix
+  // (`a-dev.zone.`, `cname-dev.zone.`); strip a leading type label to map back.
+  const owned = `external-dns/owner=${ownerId}`
+  const managedNames = new Set<string>()
+  const toDelete: RecordSet[] = []
+  for (const rs of sets) {
+    if (rs.Type !== 'TXT') continue
+    if (!(rs.ResourceRecords ?? []).some((r) => (r.Value ?? '').includes(owned))) continue
+    toDelete.push(rs)
+    managedNames.add(rs.Name.replace(/^(a|aaaa|cname|txt)-/, ''))
+  }
+  if (!managedNames.size) return 0
+
+  // Pass 2: the actual A/AAAA/CNAME records those TXTs guard.
+  for (const rs of sets) {
+    if (rs.Type !== 'TXT' && managedNames.has(rs.Name)) toDelete.push(rs)
+  }
+
+  // DELETE requires the exact current record set — echo back what we read.
+  const changes = toDelete.map((rs) => {
+    const set: Record<string, unknown> = { Name: rs.Name, Type: rs.Type }
+    if (rs.SetIdentifier) set.SetIdentifier = rs.SetIdentifier
+    if (rs.AliasTarget) {
+      set.AliasTarget = rs.AliasTarget
+    } else {
+      set.TTL = rs.TTL
+      set.ResourceRecords = rs.ResourceRecords
+    }
+    return { Action: 'DELETE', ResourceRecordSet: set }
+  })
+  const r = capture(
+    'aws',
+    [
+      'route53',
+      'change-resource-record-sets',
+      '--hosted-zone-id',
+      zoneId,
+      '--change-batch',
+      JSON.stringify({ Changes: changes }),
+    ],
+    projectRoot,
+    profile,
+  )
+  return r.status === 0 ? toDelete.length : 0
+}
+
+/**
  * Empty a versioned S3 bucket — delete every object version and delete marker —
  * so Terraform can then destroy the bucket. State buckets hold only a handful of
  * objects, but versioning means `aws s3 rm` alone leaves noncurrent versions
