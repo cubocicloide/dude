@@ -1,0 +1,38 @@
+{{- if and .Values.database.enabled .Values.database.runMigrations }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "app.fullname" . }}-migrate
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "app.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      # Intentionally uses the namespace's `default` ServiceAccount, not the app
+      # SA: this is a pre-install/pre-upgrade hook that runs BEFORE the chart's
+      # ServiceAccount resource is created, and migrations only reach RDS over the
+      # network (DATABASE_URL) — they make no AWS API calls that would need IRSA.
+      containers:
+        - name: migrate
+          image: {{ include "app.backendImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["uv", "run", "alembic", "upgrade", "head"]
+          env:
+            # This hook runs before the chart's ConfigMap/Secret exist, so source
+            # DATABASE_URL directly from values (deploy injects it via --set-string)
+            # rather than via secretKeyRef. Migrations need only the DB connection;
+            # every other setting has a default in app/core/config.py.
+            - name: DATABASE_URL
+              value: {{ .Values.secrets.DATABASE_URL | quote }}
+{{- end }}

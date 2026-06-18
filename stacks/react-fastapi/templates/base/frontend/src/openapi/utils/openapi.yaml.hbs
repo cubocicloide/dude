@@ -14,9 +14,15 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties:
-                  type: string
-                type: object
-                title: Response Get Health Api Health Get
+                $ref: "#/components/schemas/HealthResponse"
 components:
-  schemas: {}
+  schemas:
+    HealthResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+        - status
+      title: HealthResponse

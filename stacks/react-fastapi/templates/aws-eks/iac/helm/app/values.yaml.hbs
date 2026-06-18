@@ -1,0 +1,130 @@
+## Default values for the {{projectName}} chart.
+## Per-environment overrides live in values-<env>.yaml.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  ## ECR registry host, e.g. 123456789012.dkr.ecr.eu-west-1.amazonaws.com
+  ## Get it from `dude iac output` (ecr_*_repository_url) — the host part.
+  registry: ""
+  pullPolicy: IfNotPresent
+  backend:
+    repository: {{projectName}}-backend
+    tag: latest
+  frontend:
+    repository: {{projectName}}-frontend
+    tag: latest
+
+backend:
+  replicas: 2
+  port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+frontend:
+  replicas: 2
+  ## nginx serving the production build (see frontend/Dockerfile.prod)
+  port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+## Non-sensitive configuration → rendered verbatim into a ConfigMap and loaded
+## into every app container via envFrom. Each key is the ENV VAR NAME exactly as
+## the backend reads it in app/core/config.py. To add one: add a line here (and
+## the matching field in config.py) — no chart edit needed.
+config:
+  APP_TITLE: {{projectName}}
+  DEBUG: "false"
+
+## Sensitive configuration → rendered into a Secret (same key = ENV VAR NAME rule).
+## Two ways to supply values, neither uses AWS Secrets Manager:
+##   • Generated/derived by Terraform (e.g. DATABASE_URL): `dude iac ship`/`deploy`
+##     injects it automatically via --set-string from the `database_url` output —
+##     don't put it in any file.
+##   • External/static (e.g. STRIPE_API_KEY): add it under `secrets:` in the
+##     per-environment values-<env>.yaml, which is GITIGNORED (see iac/.gitignore)
+##     precisely so secrets never get committed.
+## Keep this empty ({}) here in the committed defaults.
+secrets: {}
+
+## PostgreSQL is provided by managed AWS RDS (provisioned by Terraform), not by
+## the chart. `enabled` only controls whether the app wires DATABASE_URL and runs
+## the migration job.
+database:
+  enabled: {{withPostgres}}
+  ## Run `alembic upgrade head` as a pre-install/pre-upgrade hook job.
+  runMigrations: {{withPostgres}}
+
+## Redis runs in-cluster (broker/result backend for Celery).
+redis:
+  enabled: {{withRedis}}
+  image: redis:7-alpine
+  port: 6379
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+celery:
+  enabled: {{withCelery}}
+  worker:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  flower:
+    enabled: {{withCelery}}
+    port: 5555
+
+celeryBeat:
+  enabled: {{withCeleryBeat}}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+ingress:
+  enabled: true
+  className: alb
+  ## Optional hostname. Empty → reach the app via the ALB's own DNS name.
+  host: ""
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+  ## TLS is wired automatically by `dude iac deploy` when the Terraform
+  ## domain_name/route53_zone_name are set: it passes the ACM certificate ARN and
+  ## the host. The chart then makes the ALB listen on 443 and redirect HTTP→HTTPS
+  ## (listen-ports are computed from certificateArn — see templates/ingress.yaml).
+  certificateArn: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}

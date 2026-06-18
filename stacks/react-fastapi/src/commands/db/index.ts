@@ -3,8 +3,13 @@ import { existsSync } from 'node:fs'
 import path from 'pathe'
 import type { StackCommandDef } from '@cubocicloide/dude'
 
+/** True when the project was scaffolded with PostgreSQL (Alembic present). */
+function hasAlembic(projectRoot: string): boolean {
+  return existsSync(path.join(projectRoot, 'backend', 'alembic.ini'))
+}
+
 function requiresAlembic(projectRoot: string): boolean {
-  if (!existsSync(path.join(projectRoot, 'backend', 'alembic.ini'))) {
+  if (!hasAlembic(projectRoot)) {
     process.stderr.write(
       '\n  ✗  No Alembic configuration found.\n' +
         '     This project was not initialised with PostgreSQL support.\n\n',
@@ -15,6 +20,7 @@ function requiresAlembic(projectRoot: string): boolean {
 }
 
 export const makemigrationCommand: StackCommandDef = {
+  available: hasAlembic,
   description:
     'Autogenerate a new Alembic migration from model changes (runs inside the backend container).',
   args: {
@@ -37,6 +43,7 @@ export const makemigrationCommand: StackCommandDef = {
 }
 
 export const migrateCommand: StackCommandDef = {
+  available: hasAlembic,
   description: 'Apply all pending Alembic migrations (runs inside the backend container).',
   args: {
     revision: {
@@ -58,6 +65,7 @@ export const migrateCommand: StackCommandDef = {
 }
 
 export const rollbackCommand: StackCommandDef = {
+  available: hasAlembic,
   description: 'Downgrade by one Alembic revision (runs inside the backend container).',
   args: {
     revision: {

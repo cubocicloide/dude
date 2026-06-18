@@ -47,8 +47,8 @@ Once the stack is up, open these URLs:
 |---------|-----|-------|
 | **Frontend** | http://localhost:5173 | React + Vite — HMR active |
 | **API** | http://localhost:8000 | FastAPI |
-| **Swagger UI** | http://localhost:8000/docs | Interactive API explorer |
-| **ReDoc** | http://localhost:8000/redoc | API reference docs |
+| **Swagger UI** | http://localhost:8000/api/docs | Interactive API explorer |
+| **ReDoc** | http://localhost:8000/api/redoc | API reference docs |
 | **Health** | http://localhost:8000/api/health | JSON health check |
 | **Flower** | http://localhost:5555 | Celery task monitor |
 

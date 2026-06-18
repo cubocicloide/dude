@@ -1,0 +1,24 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars.local
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.terraform.lock.hcl
+
+# Helm
+*.tgz
+charts/*.tgz
+
+# Per-environment Helm values hold real config + secrets (e.g. API keys) and are
+# never committed. The committed `values.yaml` is the documented reference; copy
+# its structure into `values-<env>.yaml` locally. DATABASE_URL is injected at
+# deploy time from Terraform, so it doesn't belong in any committed file.
+**/values-*.yaml

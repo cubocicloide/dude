@@ -206,6 +206,59 @@ make cli ARGS="--help"
 make cli ARGS="init --stack react-fastapi"
 ```
 
+### Testing the IaC feature locally
+
+The IaC overlay is not included in the default `dev-init` matrix. Pass it
+explicitly:
+
+```bash
+# 1. Build after any source change
+make build
+# (faster, stack-only rebuild:)
+# pnpm --filter @cubocicloide/stack-react-fastapi build
+
+# 2. Scaffold a test project with the IaC overlay
+make dev-init STACK_OPTS="--iac aws-eks"
+
+# With the full option matrix (postgres + celery + IaC):
+make dev-init STACK_OPTS="--database postgres --celery --celerybeat --iac aws-eks"
+
+# 3. Inspect the scaffold — always use make dev-run (or pnpm dude) in local dev
+#    Running `dude` directly inside the scaffold invokes the global launcher,
+#    which tries to pull @cubocicloide/dude from GitHub Packages and fails
+#    without a GITHUB_TOKEN. The symlink wired by dev-init bypasses this.
+make dev-run ARGS="help"                          # → iac group should appear
+make dev-run ARGS="help iac"                      # → iac sub-commands + flags
+
+# Alternatively, cd into the scaffold and use pnpm dude directly:
+#   cd private/examples/test-local && pnpm dude help
+
+# 4. Inspect rendered files
+cat private/examples/test-local/iac/README.md
+cat private/examples/test-local/iac/terraform/environments/dev/backend.hcl
+
+# 5. Run IaC commands (requires aws CLI + credentials)
+make dev-run ARGS="iac login     --env dev"
+make dev-run ARGS="iac bootstrap --state-bucket-prefix <your-org> --env dev --yes"
+make dev-run ARGS="iac init      --env dev"
+make dev-run ARGS="iac apply     --env dev"
+
+# 6. Build + push images and deploy (requires docker; tag defaults to git SHA)
+make dev-run ARGS="iac kubeconfig --env dev"
+make dev-run ARGS="iac ship       --env dev"   # build + push + deploy in one
+make dev-run ARGS="iac status     --env dev"
+```
+
+To iterate quickly without rescaffolding, rebuild only the stack and rerun
+without tearing down the scaffold:
+
+```bash
+pnpm --filter @cubocicloide/stack-react-fastapi build
+make dev-run ARGS="help iac"
+```
+
+> **Note** — `private/` is gitignored; scaffolds there are ephemeral.
+
 ### Common Makefile targets
 
 | Command           | Description                                               |

@@ -98,21 +98,36 @@ function buildCoreCatalog(): Catalog {
   return { flat, groups, custom }
 }
 
+/** A command is visible unless it declares an `available` predicate that fails. */
+function isAvailable(def: StackCommandDef, projectRoot: string): boolean {
+  if (typeof def.available !== 'function') return true
+  try {
+    return def.available(projectRoot)
+  } catch {
+    // A faulty predicate must never crash help — treat as unavailable.
+    return false
+  }
+}
+
 function mergeStackInto(
   catalog: Catalog,
   commands: Record<string, StackCommandDef | Record<string, StackCommandDef>>,
+  projectRoot: string,
 ): void {
   for (const [key, value] of Object.entries(commands)) {
     if (isStackCommandDef(value)) {
-      // Flat command — overrides any core command with the same name
-      catalog.flat.set(key, fromStackCmd(key, value))
+      // Flat command — overrides any core command with the same name. Hidden
+      // when its availability predicate fails for this project.
+      if (isAvailable(value, projectRoot)) catalog.flat.set(key, fromStackCmd(key, value))
     } else if (value && typeof value === 'object') {
-      // Group of sub-commands
+      // Group of sub-commands — keep only the available ones, drop empty groups.
       const group: GroupInfo = { name: key, subs: [] }
       for (const [subKey, subDef] of Object.entries(value)) {
-        if (isStackCommandDef(subDef)) group.subs.push(fromStackCmd(subKey, subDef))
+        if (isStackCommandDef(subDef) && isAvailable(subDef, projectRoot)) {
+          group.subs.push(fromStackCmd(subKey, subDef))
+        }
       }
-      catalog.groups.set(key, group)
+      if (group.subs.length > 0) catalog.groups.set(key, group)
     }
   }
 }
@@ -259,7 +274,7 @@ export const helpCommand = defineCommand({
         if (dudeJson.stack) {
           stackName = dudeJson.stack
           const { definition } = await loadStack(dudeJson.stack, cwd, dudeJson.stackVersion)
-          if (definition.commands) mergeStackInto(catalog, definition.commands)
+          if (definition.commands) mergeStackInto(catalog, definition.commands, cwd)
         }
       } catch {
         // best-effort; fall back to core-only

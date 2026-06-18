@@ -104,10 +104,10 @@ export default function HomePage() {
         <Col xs={24} md={16}>
           <Card title={<><CodeOutlined /> Quick links</>} style={{ height: '100%' }}>
             <Space wrap size="middle">
-              <Link href="http://localhost:8000/docs" target="_blank">
+              <Link href="/api/docs" target="_blank">
                 API docs (Swagger)
               </Link>
-              <Link href="http://localhost:8000/redoc" target="_blank">
+              <Link href="/api/redoc" target="_blank">
                 ReDoc
               </Link>
               <Link href="http://localhost:8001" target="_blank">
@@ -128,7 +128,7 @@ export default function HomePage() {
           <li>
             <Text strong>Open the app</Text> —{' '}
             <Link href="http://localhost:5173" target="_blank">http://localhost:5173</Link> (frontend) ·{' '}
-            <Link href="http://localhost:8000/docs" target="_blank">http://localhost:8000/docs</Link>{' '}
+            <Link href="http://localhost:8000/api/docs" target="_blank">http://localhost:8000/api/docs</Link>{' '}
             (API)
           </li>
           <li>

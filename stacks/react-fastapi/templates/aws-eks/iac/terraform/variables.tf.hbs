@@ -1,0 +1,181 @@
+# ── Identity ──────────────────────────────────────────────────────────────────
+variable "project_name" {
+  description = "Project slug, used to name and tag every resource."
+  type        = string
+  default     = "{{projectName}}"
+}
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod, …). Drives naming + state key."
+  type        = string
+}
+
+variable "region" {
+  description = "AWS region to deploy into."
+  type        = string
+  default     = "eu-west-1"
+}
+
+# ── Network ───────────────────────────────────────────────────────────────────
+variable "vpc_cidr" {
+  description = "CIDR block for the VPC."
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "public_subnets" {
+  description = "Public subnet CIDRs (one per AZ) — host the ALB."
+  type        = list(string)
+  default     = ["10.0.0.0/20", "10.0.16.0/20", "10.0.32.0/20"]
+}
+
+variable "private_subnets" {
+  description = "Private subnet CIDRs (one per AZ) — host the EKS nodes."
+  type        = list(string)
+  default     = ["10.0.48.0/20", "10.0.64.0/20", "10.0.80.0/20"]
+}
+{{#if withPostgres}}
+
+variable "database_subnets" {
+  description = "Database subnet CIDRs (one per AZ) — host RDS."
+  type        = list(string)
+  default     = ["10.0.96.0/24", "10.0.97.0/24", "10.0.98.0/24"]
+}
+{{/if}}
+
+variable "single_nat_gateway" {
+  description = "Use one shared NAT gateway (cheaper) instead of one per AZ."
+  type        = bool
+  default     = true
+}
+
+# ── EKS ───────────────────────────────────────────────────────────────────────
+variable "cluster_version" {
+  description = "Kubernetes version for the EKS control plane (use a version in standard support to avoid extended-support fees)."
+  type        = string
+  default     = "1.36"
+}
+
+variable "node_instance_types" {
+  description = "Instance types for the managed node group."
+  type        = list(string)
+  default     = ["t3.medium"]
+}
+
+variable "node_min_size" {
+  description = "Minimum number of worker nodes."
+  type        = number
+  default     = 2
+}
+
+variable "node_max_size" {
+  description = "Maximum number of worker nodes."
+  type        = number
+  default     = 4
+}
+
+variable "node_desired_size" {
+  description = "Desired number of worker nodes."
+  type        = number
+  default     = 2
+}
+
+variable "alb_controller_chart_version" {
+  description = "Chart version for the AWS Load Balancer Controller."
+  type        = string
+  default     = "1.8.1"
+}
+
+# ── TLS + DNS (optional) ────────────────────────────────────────────────────────
+variable "domain_name" {
+  description = "Public hostname for this environment (e.g. dev.example.com). Empty = plain HTTP via the ALB's own DNS name."
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_name" {
+  description = "Route53 hosted zone the domain lives in (e.g. example.com). Required when domain_name is set."
+  type        = string
+  default     = ""
+}
+
+variable "external_dns_chart_version" {
+  description = "Chart version for external-dns (manages Route53 records from Ingress hosts)."
+  type        = string
+  default     = "1.15.0"
+}
+{{#if withPostgres}}
+
+# ── RDS (PostgreSQL) ────────────────────────────────────────────────────────────
+variable "db_engine_version" {
+  description = "PostgreSQL engine version. A bare major (e.g. \"17\") lets RDS pick the latest supported minor; the AWS provider prefix-matches it so there's no perpetual diff."
+  type        = string
+  default     = "17"
+}
+
+variable "db_parameter_group_family" {
+  description = "RDS parameter group family."
+  type        = string
+  default     = "postgres17"
+}
+
+variable "db_major_engine_version" {
+  description = "Major engine version for the option group."
+  type        = string
+  default     = "17"
+}
+
+variable "db_instance_class" {
+  description = "RDS instance class."
+  type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "db_allocated_storage" {
+  description = "Initial allocated storage (GiB)."
+  type        = number
+  default     = 20
+}
+
+variable "db_max_allocated_storage" {
+  description = "Storage autoscaling ceiling (GiB)."
+  type        = number
+  default     = 100
+}
+
+variable "db_name" {
+  description = "Initial database name."
+  type        = string
+  default     = "app"
+}
+
+variable "db_username" {
+  description = "Master username. The password is generated and stored in AWS Secrets Manager."
+  type        = string
+  default     = "app"
+}
+
+variable "db_multi_az" {
+  description = "Deploy RDS across multiple AZs (recommended for prod)."
+  type        = bool
+  default     = false
+}
+
+variable "db_backup_retention_period" {
+  description = "Days of automated backups to retain."
+  type        = number
+  default     = 7
+}
+
+variable "db_deletion_protection" {
+  description = "Block accidental deletion of the database."
+  type        = bool
+  default     = false
+}
+
+variable "db_skip_final_snapshot" {
+  description = "Skip the final snapshot on destroy (true is convenient for dev)."
+  type        = bool
+  default     = true
+}
+{{/if}}

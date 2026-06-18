@@ -1,0 +1,52 @@
+output "region" {
+  description = "AWS region the cluster runs in."
+  value       = var.region
+}
+
+output "cluster_name" {
+  description = "EKS cluster name (use with `aws eks update-kubeconfig`)."
+  value       = module.eks.cluster_name
+}
+
+output "cluster_endpoint" {
+  description = "EKS API server endpoint."
+  value       = module.eks.cluster_endpoint
+}
+
+output "ecr_backend_repository_url" {
+  description = "ECR repository URL for the backend image."
+  value       = aws_ecr_repository.backend.repository_url
+}
+
+output "ecr_frontend_repository_url" {
+  description = "ECR repository URL for the frontend image."
+  value       = aws_ecr_repository.frontend.repository_url
+}
+
+output "acm_certificate_arn" {
+  description = "ACM certificate ARN for the app domain (empty when no domain is configured)."
+  value       = var.domain_name == "" ? "" : aws_acm_certificate.app[0].arn
+}
+
+output "app_domain" {
+  description = "Public hostname the app is served on (empty when no domain is configured)."
+  value       = var.domain_name
+}
+{{#if withPostgres}}
+
+output "rds_endpoint" {
+  description = "RDS PostgreSQL connection endpoint (host:port)."
+  value       = module.rds.db_instance_endpoint
+}
+
+output "rds_database_name" {
+  description = "Initial database name."
+  value       = var.db_name
+}
+
+output "database_url" {
+  description = "Full PostgreSQL connection string for the app. `dude iac ship`/`deploy` wires this into the Helm release automatically."
+  value       = "postgresql://${var.db_username}:${random_password.db.result}@${module.rds.db_instance_endpoint}/${var.db_name}"
+  sensitive   = true
+}
+{{/if}}

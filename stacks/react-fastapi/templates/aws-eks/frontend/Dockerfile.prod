@@ -1,0 +1,28 @@
+# Production image for the frontend: build the Vite app, serve the static
+# bundle with nginx. Used by the Helm deployment (port 80). The dev Dockerfile
+# (Vite dev server) is kept for `dude up`.
+#
+# VITE_* values are baked in at build time — pass them as build args:
+#   docker build -f Dockerfile.prod --build-arg VITE_APP_TITLE="My App" -t <ecr>/<proj>-frontend:<tag> .
+
+FROM node:22-alpine AS build
+WORKDIR /app
+
+RUN npm install -g pnpm@9
+
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile || pnpm install
+
+ARG VITE_APP_TITLE=app
+ARG VITE_REACT_QUERY_DEVTOOLS=false
+ENV VITE_APP_TITLE=$VITE_APP_TITLE
+ENV VITE_REACT_QUERY_DEVTOOLS=$VITE_REACT_QUERY_DEVTOOLS
+
+COPY . .
+RUN pnpm build
+
+FROM nginx:1.27-alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

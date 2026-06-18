@@ -10,6 +10,7 @@ import {
 } from './commands/api/index.js'
 import { makemigrationCommand, migrateCommand, rollbackCommand } from './commands/db/index.js'
 import { docsCommand } from './commands/docs/index.js'
+import { iacCommands } from './commands/iac/index.js'
 import { downCommand } from './commands/down/index.js'
 import { formatCommand } from './commands/format/index.js'
 import { lintCommand } from './commands/lint/index.js'
@@ -57,6 +58,13 @@ export default defineStack({
       prompt: 'Add Celery Beat scheduler? (requires Celery — auto-enabled)',
       default: false,
     },
+    {
+      name: 'iac',
+      type: 'select',
+      prompt: 'Infrastructure-as-Code (Terraform + Helm)',
+      choices: ['none', 'aws-eks'],
+      default: 'none',
+    },
   ],
 
   async scaffold(ctx) {
@@ -66,6 +74,7 @@ export default defineStack({
     const withCeleryBeat = Boolean(answers.celeryBeat)
     const withCelery = Boolean(answers.celery) || withCeleryBeat
     const withRedis = withCelery
+    const withIac = answers.iac === 'aws-eks'
 
     const data: Record<string, unknown> = {
       ...answers,
@@ -73,6 +82,7 @@ export default defineStack({
       withCelery,
       withCeleryBeat,
       withRedis,
+      withIac,
       dudeVersion,
       stackVersion,
     }
@@ -97,6 +107,13 @@ export default defineStack({
       await renderTemplateTree({ src: path.join(templates, 'celerybeat'), dest, data })
     }
 
+    // IaC overlay — Terraform (VPC/EKS/ECR/optional RDS) + Helm chart. The
+    // overlay always ships the full chart/modules; the rendered values and
+    // module wiring reflect the other answers (withPostgres/withRedis/withCelery…).
+    if (withIac) {
+      await renderTemplateTree({ src: path.join(templates, 'aws-eks'), dest, data })
+    }
+
     // Generate the typed API client from the openapi.yaml that was just
     // rendered into the destination. This makes `dude api sync` a no-op
     // until the backend routes actually change, and means the frontend
@@ -113,6 +130,7 @@ export default defineStack({
       const name = String(ctx.answers.projectName ?? 'your-project')
       const withPostgres = ctx.answers.database === 'postgres'
       const withCelery = Boolean(ctx.answers.celery) || Boolean(ctx.answers.celeryBeat)
+      const withIac = ctx.answers.iac === 'aws-eks'
 
       ctx.logger.info('Project scaffolded. Next steps:')
       ctx.logger.info('')
@@ -147,6 +165,14 @@ export default defineStack({
       if (withPostgres) {
         ctx.logger.info('    Users:    http://localhost:8000/api/users/')
       }
+      if (withIac) {
+        ctx.logger.info('')
+        ctx.logger.info('  Deploy to AWS EKS (Terraform + Helm) — see iac/README.md:')
+        ctx.logger.info('       dude iac login --env dev')
+        ctx.logger.info('       dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes')
+        ctx.logger.info('       dude iac init --env dev && dude iac apply --env dev')
+        ctx.logger.info('       dude iac kubeconfig --env dev && dude iac ship --env dev')
+      }
     },
   },
 
@@ -176,5 +202,6 @@ export default defineStack({
       migrate: migrateCommand,
       rollback: rollbackCommand,
     },
+    iac: iacCommands,
   },
 })

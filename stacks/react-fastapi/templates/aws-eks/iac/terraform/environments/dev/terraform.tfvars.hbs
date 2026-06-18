@@ -1,0 +1,32 @@
+# dev environment — small, cost-conscious defaults.
+# Copy this folder to add a new environment (e.g. environments/prod) and bump
+# the sizing / durability knobs there.
+
+environment = "dev"
+region      = "eu-west-1"
+
+# TLS + DNS (optional) — uncomment and set to serve HTTPS on your own domain.
+# The hosted zone must already exist in Route53. Terraform then issues an ACM
+# certificate (DNS-validated) and runs external-dns to create the record; the
+# ALB will listen on 443 and redirect HTTP→HTTPS. Leave commented for plain HTTP.
+# domain_name       = "dev.example.com"
+# route53_zone_name = "example.com"
+
+# Network
+single_nat_gateway = true
+
+# EKS
+cluster_version     = "1.36"
+node_instance_types = ["t3.medium"]
+node_min_size       = 2
+node_max_size       = 4
+node_desired_size   = 2
+{{#if withPostgres}}
+
+# RDS (PostgreSQL)
+db_instance_class      = "db.t4g.micro"
+db_allocated_storage   = 20
+db_multi_az            = false
+db_deletion_protection = false
+db_skip_final_snapshot = true
+{{/if}}

@@ -1,0 +1,22 @@
+# Production image for the backend: no --reload, no dev dependencies, app code
+# baked in (no bind mounts in Kubernetes). Migrations run as a Helm pre-upgrade
+# Job (`alembic upgrade head`), not on container start.
+#
+#   docker build -f Dockerfile.prod -t <ecr>/<proj>-backend:<tag> .
+
+FROM python:3.13-slim
+WORKDIR /app
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml .
+RUN uv sync --no-cache --no-dev
+
+COPY app ./app
+{{#if withPostgres}}
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
+{{/if}}
+
+EXPOSE 8000
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

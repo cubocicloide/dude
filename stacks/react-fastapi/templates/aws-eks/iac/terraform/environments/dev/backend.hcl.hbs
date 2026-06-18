@@ -1,0 +1,12 @@
+# Remote state for the `dev` environment.
+# These resources are created once by `iac/terraform/bootstrap` (see the IaC
+# README). The same backend works locally and from CI/CD.
+#
+# Each environment uses a distinct `key`, so adding `staging`/`prod` is just a
+# new folder with its own backend.hcl + terraform.tfvars.
+
+bucket         = "CHANGE-ME-{{projectName}}-tfstate"
+key            = "{{projectName}}/dev/terraform.tfstate"
+region         = "eu-west-1"
+dynamodb_table = "{{projectName}}-tflock"
+encrypt        = true
