@@ -8,17 +8,32 @@ entry point for all development tasks. Run `dude help` for a live overview, and
 
 ## Installation
 
-```bash
-npm install -g @cubocicloide/dude
-# or
-pnpm add -g @cubocicloide/dude
-```
-
-Verify:
+`dude` ships as a **private package** on GitHub Packages. What you install
+globally is the tiny **launcher** (`@cubocicloide/dude-launcher`); it then runs
+each project's *pinned* CLI + stack automatically — no manual version switching.
 
 ```bash
-dude --version
+# 1. One-time machine setup — authenticate the private @cubocicloide registry.
+#    Add these two lines to ~/.npmrc:
+#      @cubocicloide:registry=https://npm.pkg.github.com
+#      //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+#    …and export a GitHub token with the `read:packages` scope:
+export GITHUB_TOKEN=ghp_your_token_here
+
+# 2. Install the launcher globally (the only global install).
+npm install -g @cubocicloide/dude-launcher
 ```
+
+Then, inside this project, provision the pinned toolchain (the launcher would
+also do this on the first `dude` command, but doing it explicitly is clearer):
+
+```bash
+pnpm install      # installs the pinned @cubocicloide/dude CLI + stack
+dude version      # verify the resolved CLI + stack versions
+```
+
+> This project ships an `.npmrc` with the same registry+token lines, so the
+> project-local `pnpm install` works as long as `GITHUB_TOKEN` is exported.
 
 ---
 
