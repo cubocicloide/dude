@@ -3,16 +3,75 @@
 > Cubocicloide's project scaffolding & code-quality CLI.
 > Multi-stack, plugin-based, distributed via GitHub Packages.
 
-**This README is for maintainers of `dude` itself** — people working in this
-monorepo on the CLI runtime, the launcher, and the stack plugins. It focuses on
-the development workflow and the `make` targets you'll actually use.
+---
 
-> **Using `dude` in a generated project?** You don't need this file. Run
-> **`dude help`** for the live, init-aware command catalog, and **`dude docs`**
-> for the full browsable documentation of the entire `dude` API. Those two
-> commands are the complete end-user reference (authored under
-> [`stacks/react-fastapi/templates/base/docs/`](stacks/react-fastapi/templates/base/docs/)
-> and rendered per project).
+## Using dude
+
+### Prerequisites
+
+- **Docker Desktop** running.
+- **Node.js ≥ 20** and **pnpm**.
+- A GitHub [personal access token](https://github.com/settings/tokens) with
+  `read:packages` — `dude` ships as a private GitHub Package.
+
+  Add to `~/.npmrc`:
+
+  ```ini
+  @cubocicloide:registry=https://npm.pkg.github.com
+  //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+  ```
+
+  Export from your shell profile:
+
+  ```bash
+  export GITHUB_TOKEN=ghp_your_token_here
+  ```
+
+### Scaffold a new project
+
+```bash
+# 1. Install the launcher globally — the only global install.
+npm install -g @cubocicloide/dude-launcher
+
+# 2. Scaffold.
+dude init my-app --stack react-fastapi
+cd my-app
+
+# 3. Provision the pinned toolchain (CLI + stack) from the lockfile.
+pnpm install
+
+# 4. First run — build images and start every service.
+dude up --build
+```
+
+From the second run onward: `dude up`. Stop everything: `dude down`.
+
+### Services (default ports)
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| API | http://localhost:8000 |
+| Swagger UI | http://localhost:8000/api/docs |
+| Docs site | http://localhost:8001 |
+
+### Next
+
+```bash
+dude help          # live command catalog (reflects your dude init choices)
+dude docs          # browse the full docs at http://localhost:8001
+```
+
+The docs site is the primary reference for all commands, workflows, and
+optional features (database, Celery, IaC). Run `dude help --format md` to
+print the full catalog as Markdown.
+
+---
+
+## For maintainers
+
+The rest of this file is for people working in this monorepo on the CLI
+runtime, the launcher, and the stack plugins.
 
 ---
 
