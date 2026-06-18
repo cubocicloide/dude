@@ -10,6 +10,12 @@ export const iacInitCommand: StackCommandDef = {
     if (!requireIac(projectRoot)) process.exit(1)
     const env = requireEnv(projectRoot, args)
     const profile = resolveProfile(projectRoot, args, env)
-    process.exit(tf(projectRoot, ['init', backendConfig(env)], profile))
+    // All environments share one `iac/terraform` directory (and thus one
+    // `.terraform` backend cache), but each has its own remote state (distinct
+    // bucket/key in its backend.hcl). `-reconfigure` repoints the backend at the
+    // requested env's state without trying to migrate the previous env's state
+    // into it — switching envs would otherwise fail with "Backend configuration
+    // changed". State is never shared between envs, so migration is never wanted.
+    process.exit(tf(projectRoot, ['init', '-reconfigure', backendConfig(env)], profile))
   },
 }

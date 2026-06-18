@@ -1,7 +1,8 @@
 # Working with dude
 
 [`dude`](https://github.com/cubocicloide/dude) is the project CLI — a single
-entry point for all development tasks. Run `dude help` for a live overview.
+entry point for all development tasks. Run `dude help` for a live overview, and
+`dude help <command>` (or `dude help <group> <sub>`) for a command's flags.
 
 ---
 
@@ -50,7 +51,8 @@ Once the stack is up, open these URLs:
 | **Swagger UI** | http://localhost:8000/api/docs | Interactive API explorer |
 | **ReDoc** | http://localhost:8000/api/redoc | API reference docs |
 | **Health** | http://localhost:8000/api/health | JSON health check |
-| **Flower** | http://localhost:5555 | Celery task monitor |
+{{#if withCelery}}| **Flower** | http://localhost:5555 | Celery task monitor |
+{{/if}}
 
 ### Hot reload
 
@@ -127,6 +129,31 @@ dude api review
 git add frontend/src/openapi/
 git commit -m "chore(api): sync generated client"
 ```
+{{#if withPostgres}}
+
+---
+
+## Database (migrations)
+
+Schema changes are managed with Alembic. These commands run inside the backend
+container.
+
+| Command | Description |
+|---------|-------------|
+| `dude db makemigration --message "<text>"` | Autogenerate a new migration from model changes |
+| `dude db migrate` | Apply all pending migrations (default target: `head`) |
+| `dude db migrate --revision <rev>` | Migrate up to a specific revision |
+| `dude db rollback` | Downgrade by one revision |
+| `dude db rollback --revision <rev>` | Downgrade to a specific revision |
+
+**Workflow** — after changing a SQLAlchemy model:
+
+```bash
+dude db makemigration --message "add users table"
+dude db migrate
+git add backend/app/migrations/
+```
+{{/if}}
 
 ---
 
@@ -178,6 +205,57 @@ git add security/baseline.json && git commit -m "chore(security): update baselin
     `security/baseline.json` must be committed — it is the source of truth for
     accepted findings. Subsequent scans only flag findings that are **not** in the
     baseline.
+{{#if withIac}}
+
+---
+
+## Deploy (infrastructure as code)
+
+This project can provision cloud infrastructure and release the app with the
+`dude iac` command group. The commands below are the **stable, target-agnostic
+interface** — what each one *means*. For the concrete infrastructure this
+project provisions (the cloud resources, sizing, and the end-to-end runbook),
+see the **Deploy** page.
+
+Every `iac` command is **scoped to one environment via `--env <name>`, which is
+required** (there is no default — this prevents acting on the wrong environment
+by accident). Run any `iac` command **without** `--env` to list the environments
+discovered on disk. Most commands also accept `--profile <name>` to pick the
+cloud credentials profile.
+
+### Lifecycle
+
+| Command | Description |
+|---------|-------------|
+| `dude iac login --env <e>` | Configure/verify cloud credentials for an environment |
+| `dude iac bootstrap --env <e> --state-bucket-prefix <p> --yes` | One-time: create the shared remote-state backend (+ container registries) |
+| `dude iac new-env --env <name> [--from <env>]` | Scaffold a new environment by copying an existing one (default source: `dev`) |
+| `dude iac init --env <e>` | Initialise the infra toolchain for the environment |
+| `dude iac plan --env <e>` | Preview the infrastructure changes |
+| `dude iac apply --env <e> [--yes]` | Create/update the infrastructure |
+| `dude iac output --env <e> [--json]` | Show provisioned values (cluster, registry URLs, DB endpoint…) |
+| `dude iac fmt --env <e>` | Format the infra source files |
+| `dude iac validate --env <e>` | Validate the infra configuration |
+| `dude iac destroy --env <e> [--yes]` | Tear the environment down |
+
+### Release the application
+
+| Command | Description |
+|---------|-------------|
+| `dude iac kubeconfig --env <e>` | Point your local tooling at the provisioned cluster |
+| `dude iac build --env <e> [--tag <t>]` | Build the backend + frontend production images |
+| `dude iac push --env <e> [--tag <t>]` | Push the images to the registry |
+| `dude iac deploy --env <e> [--tag <t>]` | Release the application to the cluster |
+| `dude iac ship --env <e> [--tag <t>]` | Build + push + deploy in one step (the inner loop) |
+| `dude iac status --env <e>` | Show the deployed release status and pods |
+
+> Image tags default to the current git short SHA (with `-dirty` when the working
+> tree has uncommitted changes). Pass `--tag <t>` to override — useful for
+> promoting one already-built image across environments.
+
+See the **Deploy** page for the full first-time runbook, how to add new
+environments, and what gets provisioned.
+{{/if}}
 
 ---
 
@@ -187,6 +265,14 @@ git add security/baseline.json && git commit -m "chore(security): update baselin
 |---------|-------------|
 | `dude docs` | Serve this documentation in dev mode at <http://localhost:8001> |
 | `dude docs --port 9000` | Use a custom port |
+| `dude help --format md` | Print the full command reference as Markdown |
+| `dude help --format json` | Print the same catalog as JSON (for tooling / LLMs) |
+
+The **Command reference** page in this site is auto-generated from the live
+command catalog every time you run `dude docs`, so it always matches your
+project's actual commands — including your `dude init` choices and any
+project-local commands under `.dude/commands/`. (It is gitignored; regenerate it
+any time with `dude docs` or `dude help --format md`.)
 
 The docs site live-reloads when you edit files under `docs/docs/`.
 

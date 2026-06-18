@@ -8,10 +8,16 @@
  */
 import type { StackCommandDef } from '@cubocicloide/dude'
 import { capture, projectName, run } from '../../../../shared.js'
-import { cleanupOrphanedAlbs, emptyVersionedBucket } from '../../lib/aws.js'
+import {
+  cleanupExternalDnsRecords,
+  cleanupOrphanedAlbs,
+  emptyVersionedBucket,
+  releaseClusterVpcEnis,
+} from '../../lib/aws.js'
 import {
   envArg,
   hasIac,
+  listEnvironments,
   readBackend,
   requireEnv, requireIac,
   resolveProfile,
@@ -25,7 +31,7 @@ import {
 export const iacDestroyCommand: StackCommandDef = {
   available: hasIac,
   description:
-    'Tear down everything for an environment: uninstall the Helm release, delete the ALB / target groups / security groups the controller left behind, destroy the Terraform infrastructure, then empty + destroy the state backend (S3 bucket + DynamoDB table). Use --keep-backend to preserve the shared state backend.',
+    'Tear down everything for an environment: uninstall the Helm release, delete the ALB / target groups / security groups the controller left behind, remove the Route53 records external-dns created, destroy the Terraform infrastructure, then empty + destroy the state backend (S3 bucket + DynamoDB table). Use --keep-backend to preserve the shared state backend.',
   args: {
     ...envArg,
     yes: { type: 'boolean', description: 'Skip the interactive approval (-auto-approve).' },
@@ -40,7 +46,7 @@ export const iacDestroyCommand: StackCommandDef = {
     'keep-backend': {
       type: 'boolean',
       description:
-        'Keep the Terraform state backend (S3 bucket + DynamoDB lock table). Use this when other environments still share it; by default destroy also tears the backend down.',
+        'Keep the Terraform state backend (S3 bucket + DynamoDB lock table). It is kept automatically while any other environment still uses the same bucket; pass this to force-keep it even when destroying the last environment.',
     },
     'skip-tf': {
       type: 'boolean',
@@ -109,9 +115,44 @@ export const iacDestroyCommand: StackCommandDef = {
       )
     }
 
+    // ── Step 2.5: remove the Route53 records external-dns left behind ─────────
+    // external-dns runs upsert-only (it never deletes), so without this a torn-
+    // down env orphans its A record — still pointing at the now-deleted ALB
+    // (→ NXDOMAIN) — plus a TXT ownership marker that stops the next deploy from
+    // reusing the hostname. We delete via the AWS API (no cluster needed), keyed
+    // by the env's external-dns owner id (`<project>-<env>`).
+    const zoneName = tfvarsValue(projectRoot, env, 'route53_zone_name')
+    if (zoneName) {
+      const ownerId = `${release}-${env}`
+      process.stdout.write(`  → removing Route53 records owned by external-dns ("${ownerId}")…\n`)
+      const removed = cleanupExternalDnsRecords(zoneName, ownerId, projectRoot, profile)
+      process.stdout.write(
+        removed > 0
+          ? `  ✓  Removed ${removed} DNS record(s).\n\n`
+          : '  ↷  No external-dns records to remove.\n\n',
+      )
+    }
+
     // ── Step 3: destroy the environment's Terraform infrastructure ───────────
     if (!args['skip-tf']) {
-      const code = tf(projectRoot, ['destroy', varFile(env), ...extra], profile)
+      let code = tf(projectRoot, ['destroy', varFile(env), ...extra], profile)
+      if (code !== 0) {
+        // A first destroy commonly fails on `DeleteVpc … DependencyViolation`:
+        // the AWS Load Balancer Controller's shared security groups (e.g.
+        // `k8s-traffic-*`, the node "backend-sg") are attached to the node ENIs,
+        // so the step-2 cleanup can't remove them while the nodes still exist —
+        // and Terraform doesn't manage them, so it can't either. Now that this
+        // destroy has torn the node group/cluster down, the SGs are free: re-run
+        // the cleanup (it'll delete them) and retry the destroy once.
+        process.stderr.write(
+          '\n  ⚠  terraform destroy failed — likely leftover Kubernetes networking blocking\n' +
+            '     the VPC (a load-balancer security group, or a dangling CNI network\n' +
+            '     interface). Cleaning those up and retrying…\n\n',
+        )
+        releaseClusterVpcEnis(projectName(projectRoot), env, region, projectRoot, profile)
+        cleanupOrphanedAlbs(clusterName, region, projectRoot, profile)
+        code = tf(projectRoot, ['destroy', varFile(env), ...extra], profile)
+      }
       if (code !== 0) process.exit(code)
     }
 
@@ -133,6 +174,29 @@ export const iacDestroyCommand: StackCommandDef = {
     if (!stateBucket && !lockTable) {
       process.stdout.write('  ↷  No state backend configured to tear down. Done.\n\n')
       process.exit(0)
+    }
+
+    // Safety guard: the bootstrap owns the project-wide SHARED resources — the
+    // state backend (S3 bucket + DynamoDB lock table) AND the ECR repositories —
+    // used by every environment (they differ only by their state `key`). Tearing
+    // the bootstrap down would wipe the OTHER envs' state and delete the registry
+    // they still deploy from, so if any sibling env still points at this bucket
+    // we keep the bootstrap and stop. Tear those envs down first, or pass
+    // --keep-backend to skip this teardown. (Per-env `terraform destroy` above
+    // never touches ECR — it isn't in the per-env state — so destroying one env
+    // here is always safe for the shared registry.)
+    if (stateBucket) {
+      const sharedWith = listEnvironments(projectRoot).filter(
+        (e) => e !== env && readBackend(projectRoot, e).bucket === stateBucket,
+      )
+      if (sharedWith.length) {
+        process.stdout.write(
+          `  ↷  Keeping the shared backend + ECR — bucket "${stateBucket}" is still\n` +
+            `     used by: ${sharedWith.join(', ')}. Destroying it would wipe their state\n` +
+            `     and registry. Destroy those environments first, or pass --keep-backend. Done.\n\n`,
+        )
+        process.exit(0)
+      }
     }
 
     process.stdout.write(

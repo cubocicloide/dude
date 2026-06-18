@@ -26,3 +26,6 @@ e2e/reports/
 
 # Private / ephemeral workspace (reports, local overrides, scratch files)
 private/
+
+# Generated API reference — rebuilt from the live command catalog by `dude docs`
+docs/docs/api.md
