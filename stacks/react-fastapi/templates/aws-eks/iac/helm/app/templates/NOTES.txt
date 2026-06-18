@@ -9,7 +9,8 @@
 {{- if .Values.database.enabled }}
 
 2. Database: the pre-upgrade migration job runs `alembic upgrade head`.
-   DATABASE_URL comes from the Secret {{ include "app.fullname" . }}-secret.
+   The app reads DATABASE_URL from the Secret {{ include "app.fullname" . }}-secret;
+   `dude iac ship`/`deploy` wires it in automatically from the Terraform output.
 {{- end }}
 {{- if and .Values.celery.enabled .Values.celery.flower.enabled }}
 

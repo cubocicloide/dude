@@ -5,6 +5,8 @@ node_modules/
 # Build output
 dist/
 build/
+# Allow the `build` command folder inside iac providers (named after the dude command, not a build artifact)
+!stacks/react-fastapi/src/commands/iac/providers/*/commands/build/
 *.tsbuildinfo
 
 # Turbo

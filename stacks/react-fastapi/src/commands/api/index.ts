@@ -254,7 +254,7 @@ export const syncCommand: StackCommandDef = {
     const out = (args.out as string | undefined) ?? 'frontend/src/openapi'
     const outDir = path.join(root, out)
     const utilsDir = path.join(outDir, 'utils')
-    const specUrl = `${url.replace(/\/$/, '')}/openapi.json`
+    const specUrl = `${url.replace(/\/$/, '')}/api/openapi.json`
 
     process.stdout.write(`Fetching spec from ${specUrl}…\n`)
     let spec: OpenAPI3

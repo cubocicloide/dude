@@ -44,18 +44,24 @@ frontend:
       cpu: 200m
       memory: 128Mi
 
-## Non-sensitive configuration → rendered into a ConfigMap.
+## Non-sensitive configuration → rendered verbatim into a ConfigMap and loaded
+## into every app container via envFrom. Each key is the ENV VAR NAME exactly as
+## the backend reads it in app/core/config.py. To add one: add a line here (and
+## the matching field in config.py) — no chart edit needed.
 config:
-  appTitle: {{projectName}}
-  debug: "false"
+  APP_TITLE: {{projectName}}
+  DEBUG: "false"
 
-## Sensitive configuration → rendered into a Secret.
-## In CI, override via --set or a values file sourced from Secrets Manager.
-secrets:
-  ## postgresql://<user>:<password>@<rds-endpoint>:5432/<db>
-  ## RDS endpoint: `dude iac output rds_endpoint`
-  ## Password: AWS Secrets Manager (see rds_master_user_secret_arn).
-  databaseUrl: ""
+## Sensitive configuration → rendered into a Secret (same key = ENV VAR NAME rule).
+## Two ways to supply values, neither uses AWS Secrets Manager:
+##   • Generated/derived by Terraform (e.g. DATABASE_URL): `dude iac ship`/`deploy`
+##     injects it automatically via --set-string from the `database_url` output —
+##     don't put it in any file.
+##   • External/static (e.g. STRIPE_API_KEY): add it under `secrets:` in the
+##     per-environment values-<env>.yaml, which is GITIGNORED (see iac/.gitignore)
+##     precisely so secrets never get committed.
+## Keep this empty ({}) here in the committed defaults.
+secrets: {}
 
 ## PostgreSQL is provided by managed AWS RDS (provisioned by Terraform), not by
 ## the chart. `enabled` only controls whether the app wires DATABASE_URL and runs
@@ -111,10 +117,11 @@ ingress:
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     alb.ingress.kubernetes.io/healthcheck-path: /api/health
-  ## For TLS: request an ACM cert, then set certificateArn and switch listen-ports
-  ## to include {"HTTPS":443}.
+  ## TLS is wired automatically by `dude iac deploy` when the Terraform
+  ## domain_name/route53_zone_name are set: it passes the ACM certificate ARN and
+  ## the host. The chart then makes the ALB listen on 443 and redirect HTTP→HTTPS
+  ## (listen-ports are computed from certificateArn — see templates/ingress.yaml).
   certificateArn: ""
 
 serviceAccount:

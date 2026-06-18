@@ -10,18 +10,7 @@ import {
 } from './commands/api/index.js'
 import { makemigrationCommand, migrateCommand, rollbackCommand } from './commands/db/index.js'
 import { docsCommand } from './commands/docs/index.js'
-import {
-  iacInitCommand,
-  iacPlanCommand,
-  iacApplyCommand,
-  iacDestroyCommand,
-  iacOutputCommand,
-  iacFmtCommand,
-  iacValidateCommand,
-  iacKubeconfigCommand,
-  iacDeployCommand,
-  iacStatusCommand,
-} from './commands/iac/index.js'
+import { iacCommands } from './commands/iac/index.js'
 import { downCommand } from './commands/down/index.js'
 import { formatCommand } from './commands/format/index.js'
 import { lintCommand } from './commands/lint/index.js'
@@ -179,8 +168,10 @@ export default defineStack({
       if (withIac) {
         ctx.logger.info('')
         ctx.logger.info('  Deploy to AWS EKS (Terraform + Helm) — see iac/README.md:')
+        ctx.logger.info('       dude iac login --env dev')
+        ctx.logger.info('       dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes')
         ctx.logger.info('       dude iac init --env dev && dude iac apply --env dev')
-        ctx.logger.info('       dude iac kubeconfig --env dev && dude iac deploy --env dev')
+        ctx.logger.info('       dude iac kubeconfig --env dev && dude iac ship --env dev')
       }
     },
   },
@@ -211,17 +202,6 @@ export default defineStack({
       migrate: migrateCommand,
       rollback: rollbackCommand,
     },
-    iac: {
-      init: iacInitCommand,
-      plan: iacPlanCommand,
-      apply: iacApplyCommand,
-      destroy: iacDestroyCommand,
-      output: iacOutputCommand,
-      fmt: iacFmtCommand,
-      validate: iacValidateCommand,
-      kubeconfig: iacKubeconfigCommand,
-      deploy: iacDeployCommand,
-      status: iacStatusCommand,
-    },
+    iac: iacCommands,
   },
 })

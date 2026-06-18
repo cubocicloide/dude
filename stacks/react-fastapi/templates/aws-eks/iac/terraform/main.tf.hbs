@@ -131,9 +131,119 @@ resource "helm_release" "alb_controller" {
 
   depends_on = [module.eks]
 }
+
+# ── TLS + DNS (optional — enabled when var.domain_name is set) ───────────────────
+# When you provide a domain whose hosted zone lives in Route53, Terraform:
+#   1. issues a regional ACM certificate for it (validated automatically via DNS), and
+#   2. runs external-dns, which creates/updates the Route53 record pointing the
+#      domain at the ALB that the Ingress provisions.
+# `dude iac deploy` then wires the cert ARN + host into the Helm release, so the
+# ALB listens on 443 and redirects HTTP→HTTPS. Leave domain_name empty to keep
+# plain HTTP served via the ALB's own DNS name.
+data "aws_route53_zone" "this" {
+  count        = var.domain_name == "" ? 0 : 1
+  name         = var.route53_zone_name
+  private_zone = false
+}
+
+resource "aws_acm_certificate" "app" {
+  count             = var.domain_name == "" ? 0 : 1
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "cert_validation" {
+  for_each = var.domain_name == "" ? {} : {
+    for dvo in aws_acm_certificate.app[0].domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      type   = dvo.resource_record_type
+      record = dvo.resource_record_value
+    }
+  }
+
+  zone_id         = data.aws_route53_zone.this[0].zone_id
+  name            = each.value.name
+  type            = each.value.type
+  records         = [each.value.record]
+  ttl             = 60
+  allow_overwrite = true
+}
+
+resource "aws_acm_certificate_validation" "app" {
+  count                   = var.domain_name == "" ? 0 : 1
+  certificate_arn         = aws_acm_certificate.app[0].arn
+  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+}
+
+# external-dns reconciles Route53 records from Ingress hosts (upsert-only: it
+# never deletes records, so a removed Ingress won't take DNS down with it).
+module "external_dns_irsa" {
+  count   = var.domain_name == "" ? 0 : 1
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.44"
+
+  role_name                     = "${local.name}-external-dns"
+  attach_external_dns_policy    = true
+  external_dns_hosted_zone_arns = [data.aws_route53_zone.this[0].arn]
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:external-dns"]
+    }
+  }
+}
+
+resource "helm_release" "external_dns" {
+  count      = var.domain_name == "" ? 0 : 1
+  name       = "external-dns"
+  repository = "https://kubernetes-sigs.github.io/external-dns"
+  chart      = "external-dns"
+  namespace  = "kube-system"
+  version    = var.external_dns_chart_version
+
+  set {
+    name  = "provider"
+    value = "aws"
+  }
+  set {
+    name  = "policy"
+    value = "upsert-only"
+  }
+  set {
+    name  = "txtOwnerId"
+    value = local.name
+  }
+  set {
+    name  = "domainFilters[0]"
+    value = var.route53_zone_name
+  }
+  set {
+    name  = "serviceAccount.name"
+    value = "external-dns"
+  }
+  set {
+    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = module.external_dns_irsa[0].iam_role_arn
+  }
+
+  depends_on = [module.eks]
+}
 {{#if withPostgres}}
 
 # ── RDS (PostgreSQL) ────────────────────────────────────────────────────────────
+# Master password is generated here and surfaced through the `database_url`
+# output (sensitive) — we do NOT use AWS Secrets Manager. `special = false`
+# keeps it URL- and `helm --set`-safe (no characters that need escaping).
+resource "random_password" "db" {
+  length  = 32
+  special = false
+}
+
 resource "aws_security_group" "rds" {
   name_prefix = "${local.name}-rds-"
   description = "Allow PostgreSQL from within the VPC"
@@ -176,10 +286,11 @@ module "rds" {
 
   db_name  = var.db_name
   username = var.db_username
+  password = random_password.db.result
   port     = 5432
 
-  # Generate the master password and store it in AWS Secrets Manager.
-  manage_master_user_password = true
+  # Manage the password ourselves via random_password (above) — not Secrets Manager.
+  manage_master_user_password = false
 
   multi_az               = var.db_multi_az
   create_db_subnet_group = true

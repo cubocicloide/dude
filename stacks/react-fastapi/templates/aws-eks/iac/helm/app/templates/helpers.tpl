@@ -57,36 +57,19 @@ redis://{{ include "app.fullname" . }}-redis:{{ .Values.redis.port }}/0
 {{- end -}}
 
 {{/*
-Shared application environment, used by the backend, the Celery worker/beat and
-the migration job. DATABASE_URL is sourced from the Secret only when a managed
-database is wired; the Redis URLs point at the in-cluster Redis service.
+Every app container (backend, Celery worker/beat, Flower) loads its full
+environment from the ConfigMap (non-sensitive config + the in-cluster Redis URLs)
+and the Secret (sensitive values). Adding a variable is therefore just a new key
+under `.Values.config` / `.Values.secrets` plus the matching field in
+backend/app/core/config.py — no chart edit needed. The secretRef is optional so
+deployments without any secret still start.
 */}}
-{{- define "app.env" -}}
-- name: APP_TITLE
-  valueFrom:
-    configMapKeyRef:
-      name: {{ include "app.fullname" . }}-config
-      key: APP_TITLE
-- name: DEBUG
-  valueFrom:
-    configMapKeyRef:
-      name: {{ include "app.fullname" . }}-config
-      key: DEBUG
-{{- if .Values.database.enabled }}
-- name: DATABASE_URL
-  valueFrom:
-    secretKeyRef:
-      name: {{ include "app.fullname" . }}-secret
-      key: DATABASE_URL
-{{- end }}
-{{- if .Values.redis.enabled }}
-- name: CELERY_BROKER_URL
-  value: {{ include "app.redisUrl" . | quote }}
-- name: CELERY_RESULT_BACKEND
-  value: {{ include "app.redisUrl" . | quote }}
-- name: REDIS_URL
-  value: {{ include "app.redisUrl" . | quote }}
-{{- end }}
+{{- define "app.envFrom" -}}
+- configMapRef:
+    name: {{ include "app.fullname" . }}-config
+- secretRef:
+    name: {{ include "app.fullname" . }}-secret
+    optional: true
 {{- end -}}
 
 {{- define "app.ingressPaths" -}}

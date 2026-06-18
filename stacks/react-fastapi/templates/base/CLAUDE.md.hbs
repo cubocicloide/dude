@@ -165,11 +165,14 @@ Docs are live-reload: edit any `.md` file under `docs/docs/` and the browser ref
 This project ships Terraform + a Helm chart under `iac/` to deploy to AWS EKS.
 Terraform owns the infrastructure (VPC, EKS, ECR, ALB controller{{#if withPostgres}}, RDS{{/if}});
 Helm owns the application release. All commands are environment-scoped via
-`--env` (default `dev`) and use S3 remote state, so they run the same locally
-and in CI. See `iac/README.md` for the full workflow.
+`--env` (**required** — no default, to avoid acting on the wrong environment).
+Available environments are auto-discovered from `iac/terraform/environments/*`;
+run any command without `--env` to list them. State lives in S3, so commands run
+the same locally and in CI. See `iac/README.md` for the full workflow.
 
 | Command                 | What it does                                                  |
 |-------------------------|---------------------------------------------------------------|
+| `dude iac new-env --env <name>` | Scaffold a new environment (copies `dev` by default)  |
 | `dude iac init`         | `terraform init` (configures the S3 backend for the env)      |
 | `dude iac plan`         | `terraform plan`                                              |
 | `dude iac apply`        | Provision/update infrastructure (`--yes` to auto-approve)     |

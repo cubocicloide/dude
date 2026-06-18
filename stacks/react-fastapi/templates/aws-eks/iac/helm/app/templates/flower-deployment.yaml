@@ -23,7 +23,6 @@ spec:
           image: mher/flower:2.0
           ports:
             - containerPort: {{ .Values.celery.flower.port }}
-          env:
-            - name: CELERY_BROKER_URL
-              value: {{ include "app.redisUrl" . | quote }}
+          envFrom:
+            {{- include "app.envFrom" . | nindent 12 }}
 {{- end }}

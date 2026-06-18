@@ -19,10 +19,22 @@ terraform {
 
 provider "aws" {
   region = var.region
+
+  # Pin to the standard public endpoints — the AWS provider 5.x enables
+  # endpoint discovery by default for DynamoDB, which can return a
+  # VPC-endpoint-scoped URL that doesn't resolve from a local machine.
+  endpoints {
+    dynamodb = "https://dynamodb.${var.region}.amazonaws.com"
+    s3       = "https://s3.${var.region}.amazonaws.com"
+  }
 }
 
 resource "aws_s3_bucket" "state" {
   bucket = "${var.state_bucket_prefix}-${var.project_name}-tfstate"
+
+  # Allow `dude iac destroy` to remove the bucket even though versioning keeps
+  # old object versions around (the command also empties it first).
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_versioning" "state" {

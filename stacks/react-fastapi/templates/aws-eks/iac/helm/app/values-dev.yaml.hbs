@@ -1,5 +1,8 @@
-## dev environment overrides.
-## Copy to values-<env>.yaml for new environments and scale the knobs up.
+## dev environment overrides — applied by `dude iac ship`/`deploy` on top of values.yaml.
+##
+## ⚠️  This file is GITIGNORED (see iac/.gitignore): it's the right place for both
+## per-env tuning AND secrets (API keys, …), which must never be committed. Copy it
+## to values-<env>.yaml for new environments and scale the knobs up.
 
 backend:
   replicas: 1
@@ -10,7 +13,15 @@ frontend:
   replicas: 1
 
 config:
-  debug: "true"
+  DEBUG: "true"
+  ## Add non-sensitive env vars here (key = ENV VAR NAME), e.g.:
+  # LOG_LEVEL: "debug"
+
+secrets: {}
+  ## External/static secrets go here (key = ENV VAR NAME). They land in the
+  ## Secret and are loaded into every app container via envFrom, e.g.:
+  # STRIPE_API_KEY: "sk_live_…"
+  ## DATABASE_URL is injected automatically from Terraform — do NOT set it here.
 
 {{#if withCelery}}
 celery:

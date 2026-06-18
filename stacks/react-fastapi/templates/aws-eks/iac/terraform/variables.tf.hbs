@@ -51,9 +51,9 @@ variable "single_nat_gateway" {
 
 # ── EKS ───────────────────────────────────────────────────────────────────────
 variable "cluster_version" {
-  description = "Kubernetes version for the EKS control plane."
+  description = "Kubernetes version for the EKS control plane (use a version in standard support to avoid extended-support fees)."
   type        = string
-  default     = "1.31"
+  default     = "1.36"
 }
 
 variable "node_instance_types" {
@@ -85,13 +85,32 @@ variable "alb_controller_chart_version" {
   type        = string
   default     = "1.8.1"
 }
+
+# ── TLS + DNS (optional) ────────────────────────────────────────────────────────
+variable "domain_name" {
+  description = "Public hostname for this environment (e.g. dev.example.com). Empty = plain HTTP via the ALB's own DNS name."
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_name" {
+  description = "Route53 hosted zone the domain lives in (e.g. example.com). Required when domain_name is set."
+  type        = string
+  default     = ""
+}
+
+variable "external_dns_chart_version" {
+  description = "Chart version for external-dns (manages Route53 records from Ingress hosts)."
+  type        = string
+  default     = "1.15.0"
+}
 {{#if withPostgres}}
 
 # ── RDS (PostgreSQL) ────────────────────────────────────────────────────────────
 variable "db_engine_version" {
-  description = "PostgreSQL engine version."
+  description = "PostgreSQL engine version. A bare major (e.g. \"17\") lets RDS pick the latest supported minor; the AWS provider prefix-matches it so there's no perpetual diff."
   type        = string
-  default     = "17.2"
+  default     = "17"
 }
 
 variable "db_parameter_group_family" {

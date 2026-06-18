@@ -11,7 +11,16 @@ from app.routers import (
 {{/if}}
 )
 
-app = FastAPI(title="{{projectName}} backend")
+# Serve the docs + OpenAPI schema under /api so they reach the backend through
+# the ALB Ingress (which routes /api → backend, everything else → frontend). This
+# keeps a single backend prefix and works identically in local dev (the Vite
+# proxy forwards /api) and in the cluster.
+app = FastAPI(
+    title="{{projectName}} backend",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+)
 
 app.add_middleware(
     CORSMiddleware,

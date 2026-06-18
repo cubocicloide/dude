@@ -24,8 +24,8 @@ spec:
           image: {{ include "app.backendImage" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["uv", "run", "celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info"]
-          env:
-            {{- include "app.env" . | nindent 12 }}
+          envFrom:
+            {{- include "app.envFrom" . | nindent 12 }}
           resources:
             {{- toYaml .Values.celery.worker.resources | nindent 12 }}
 {{- end }}

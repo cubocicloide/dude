@@ -12,7 +12,7 @@ ARGS  ?=
 # Override to test a subset: make dev-init STACK_OPTS="--database postgres"
 STACK      ?= react-fastapi
 OUT        ?= test-local
-STACK_OPTS ?= --database postgres --celery --celerybeat
+STACK_OPTS ?= --database postgres --celery --celerybeat --iac aws-eks
 
 # ---------------------------------------------------------------------------
 # Help

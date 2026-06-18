@@ -19,12 +19,20 @@ spec:
         app.kubernetes.io/component: migrate
     spec:
       restartPolicy: Never
-      serviceAccountName: {{ include "app.serviceAccountName" . }}
+      # Intentionally uses the namespace's `default` ServiceAccount, not the app
+      # SA: this is a pre-install/pre-upgrade hook that runs BEFORE the chart's
+      # ServiceAccount resource is created, and migrations only reach RDS over the
+      # network (DATABASE_URL) — they make no AWS API calls that would need IRSA.
       containers:
         - name: migrate
           image: {{ include "app.backendImage" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["uv", "run", "alembic", "upgrade", "head"]
           env:
-            {{- include "app.env" . | nindent 12 }}
+            # This hook runs before the chart's ConfigMap/Secret exist, so source
+            # DATABASE_URL directly from values (deploy injects it via --set-string)
+            # rather than via secretKeyRef. Migrations need only the DB connection;
+            # every other setting has a default in app/core/config.py.
+            - name: DATABASE_URL
+              value: {{ .Values.secrets.DATABASE_URL | quote }}
 {{- end }}
