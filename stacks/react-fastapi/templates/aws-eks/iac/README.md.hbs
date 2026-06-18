@@ -191,12 +191,15 @@ dude iac new-env --env prod          # copies dev by default; use --from <env> t
 This scaffolds `iac/terraform/environments/prod/{backend.hcl,terraform.tfvars}`,
 setting `environment = "prod"` and a per-env state `key` (the S3 bucket + lock
 table **and the ECR repos** are **shared** across environments, so you don't
-bootstrap again unless this is the first env on a brand-new backend). After
+bootstrap again unless this is the first env on a brand-new backend). It also
+copies the source env's gitignored `iac/helm/app/values-<from>.yaml` to
+`values-prod.yaml` when present, so the new env starts from the same Helm
+overrides + secrets instead of the bare `values.yaml` defaults. After
 scaffolding, run `dude iac init --env prod` then `apply`.
 
-Then edit `environments/prod/terraform.tfvars` (bigger nodes,{{#if withPostgres}} `db_multi_az = true`, `db_deletion_protection = true`,{{/if}} domain, …),
-optionally create a gitignored `iac/helm/app/values-prod.yaml` for prod overrides
-+ secrets, and run every command with `--env prod`:
+Then edit `environments/prod/terraform.tfvars` (bigger nodes,{{#if withPostgres}} `db_multi_az = true`, `db_deletion_protection = true`,{{/if}} domain, …)
+and `iac/helm/app/values-prod.yaml` (replicas, autoscaling, secrets, …), and run
+every command with `--env prod`:
 
 ```bash
 dude iac init --env prod && dude iac apply --env prod && dude iac ship --env prod

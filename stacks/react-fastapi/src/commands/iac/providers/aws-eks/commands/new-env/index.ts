@@ -1,9 +1,15 @@
 /** `dude iac new-env` — scaffold a new environment by copying an existing one. */
-import { cpSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'pathe'
 import type { StackCommandDef } from '@cubocicloide/dude'
 import { projectName } from '../../../../shared.js'
-import { TF_ENVIRONMENTS_DIR, hasIac, listEnvironments, requireIac } from '../../lib/terraform.js'
+import {
+  HELM_CHART,
+  TF_ENVIRONMENTS_DIR,
+  hasIac,
+  listEnvironments,
+  requireIac,
+} from '../../lib/terraform.js'
 
 export const iacNewEnvCommand: StackCommandDef = {
   available: hasIac,
@@ -73,11 +79,29 @@ export const iacNewEnvCommand: StackCommandDef = {
       ),
     )
 
+    // Carry over the per-env Helm values too (replicas, config, secrets). The file
+    // is gitignored and optional at deploy time, but copying it makes new-env
+    // scaffold a *complete* environment — otherwise the new env would silently
+    // deploy with the base values.yaml defaults instead of <from>'s overrides.
+    // Only when the source env actually has one on disk (it may not after a clone).
+    const fromValues = path.join(projectRoot, HELM_CHART, `values-${from}.yaml`)
+    const copiedValues = existsSync(fromValues)
+    if (copiedValues) {
+      cpSync(fromValues, path.join(projectRoot, HELM_CHART, `values-${name}.yaml`))
+    }
+
+    const valuesLine = copiedValues
+      ? `     ${HELM_CHART}/values-${name}.yaml (per-env Helm overrides + secrets — gitignored)\n`
+      : `     (no ${HELM_CHART}/values-${from}.yaml on disk — the new env will use the base\n` +
+        `      values.yaml; create ${HELM_CHART}/values-${name}.yaml for per-env overrides)\n`
+
     process.stdout.write(
       `\n  ✓  Created environment "${name}" (copied from "${from}").\n` +
-        `     iac/terraform/environments/${name}/{backend.hcl,terraform.tfvars}\n\n` +
-        `  Next:\n` +
-        `     1. Review iac/terraform/environments/${name}/terraform.tfvars (sizing, domain, …).\n` +
+        `     iac/terraform/environments/${name}/{backend.hcl,terraform.tfvars}\n` +
+        valuesLine +
+        `\n  Next:\n` +
+        `     1. Review iac/terraform/environments/${name}/terraform.tfvars (sizing, domain, …)` +
+        (copiedValues ? ` and\n        ${HELM_CHART}/values-${name}.yaml (replicas, secrets, …).\n` : `.\n`) +
         `     2. First env on a brand-new state backend? Run:\n` +
         `        dude iac bootstrap --env ${name} --state-bucket-prefix <prefix>\n` +
         `        Otherwise it reuses the existing bucket — skip bootstrap.\n` +

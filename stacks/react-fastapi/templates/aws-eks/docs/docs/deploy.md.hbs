@@ -62,13 +62,15 @@ their Terraform state `key`. So adding `staging` does **not** require another
 `bootstrap`; you scaffold the env folder, adjust its knobs, then init + apply.
 
 ```bash
-# 1. Scaffold environments/staging/ by copying an existing env (default: dev)
+# 1. Scaffold environments/staging/ by copying an existing env (default: dev).
+#    Also copies its gitignored helm/app/values-<from>.yaml → values-staging.yaml.
 dude iac new-env --env staging            # or --from prod to copy a different one
 
 # 2. Review the new env's settings — set its domain and bump sizing for the tier.
 #    Edit iac/terraform/environments/staging/terraform.tfvars:
 #      domain_name = "staging.example.com"   # (optional) its own hostname
 #      node_desired_size / db_instance_class / … to taste
+#    …and iac/helm/app/values-staging.yaml (replicas, autoscaling, secrets, …).
 
 # 3. Authenticate, initialise, and provision — same flow as the first env,
 #    minus bootstrap (the backend + ECR already exist).

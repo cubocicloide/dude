@@ -1,8 +1,9 @@
 ## dev environment overrides — applied by `dude iac ship`/`deploy` on top of values.yaml.
 ##
 ## ⚠️  This file is GITIGNORED (see iac/.gitignore): it's the right place for both
-## per-env tuning AND secrets (API keys, …), which must never be committed. Copy it
-## to values-<env>.yaml for new environments and scale the knobs up.
+## per-env tuning AND secrets (API keys, …), which must never be committed.
+## `dude iac new-env --from dev` copies this to values-<env>.yaml for you — then
+## scale the knobs up per environment.
 
 backend:
   replicas: 1
