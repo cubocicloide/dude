@@ -1,6 +1,6 @@
 {
   "name": "@cubocicloide/stack-react-fastapi",
-  "version": "8.1.0",
+  "version": "9.0.0",
   "description": "React (Vite) + FastAPI stack plugin for the dude CLI.",
   "type": "module",
   "main": "./dist/index.js",
