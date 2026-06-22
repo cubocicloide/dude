@@ -273,10 +273,12 @@ Flags for finer control:
 > bucket + DynamoDB lock table) **and** the ECR repos — used by every environment
 > (they differ only by their state `key`). To protect the other environments'
 > state *and registry*, `destroy` automatically **keeps** the bootstrap whenever
-> another environment still points at the same bucket, and only tears it down
-> when you're destroying the **last** environment. Pass `--keep-backend` to
-> force-keep it even then. (A per-env `destroy` never deletes the shared ECR —
-> the repos aren't in the per-env state.)
+> another environment is **still provisioned**, and only tears it down when
+> you're destroying the **last** one. Whether a sibling is "still provisioned" is
+> read from its remote Terraform state (empty after a destroy), not from its
+> folder on disk — so a leftover env folder you already destroyed won't keep the
+> backend alive. Pass `--keep-backend` to force-keep it even then. (A per-env
+> `destroy` never deletes the shared ECR — the repos aren't in the per-env state.)
 
 ## Commands
 

@@ -148,9 +148,12 @@ ALB / target groups / security groups the controller created, removes the Route5
 records external-dns created for the env, and runs `terraform destroy`.
 
 The **shared bootstrap** — the S3 state backend, the DynamoDB lock table, and the
-ECR repositories — is torn down **only when no other environment still uses it**
-(i.e. when you destroy the last one). Destroying a non-last environment never
-touches another env's state or the shared registry. Pass `--keep-backend` to keep
-the bootstrap even when destroying the last environment.
+ECR repositories — is torn down **only when no other environment is still
+provisioned** (i.e. when you destroy the last one). "Still provisioned" is judged
+from each sibling's remote Terraform state, not its folder on disk — so a
+leftover `staging/` folder whose infrastructure you already destroyed won't keep
+the backend alive. Destroying a non-last environment never touches another env's
+state or the shared registry. Pass `--keep-backend` to keep the bootstrap even
+when destroying the last environment.
 
 See `iac/README.md` for the full command reference and flags.

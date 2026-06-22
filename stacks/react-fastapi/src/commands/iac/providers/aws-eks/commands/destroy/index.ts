@@ -13,6 +13,7 @@ import {
   cleanupExternalDnsRecords,
   cleanupOrphanedAlbs,
   emptyVersionedBucket,
+  envStateLiveness,
   releaseClusterVpcEnis,
 } from '../../lib/aws.js'
 import {
@@ -184,20 +185,42 @@ export const iacDestroyCommand: StackCommandDef = {
     // state backend (S3 bucket + DynamoDB lock table) AND the ECR repositories —
     // used by every environment (they differ only by their state `key`). Tearing
     // the bootstrap down would wipe the OTHER envs' state and delete the registry
-    // they still deploy from, so if any sibling env still points at this bucket
-    // we keep the bootstrap and stop. Tear those envs down first, or pass
-    // --keep-backend to skip this teardown. (Per-env `terraform destroy` above
-    // never touches ECR — it isn't in the per-env state — so destroying one env
-    // here is always safe for the shared registry.)
+    // they still deploy from, so if any sibling env is STILL PROVISIONED we keep
+    // the bootstrap and stop.
+    //
+    // Liveness is read from each sibling's remote *state* — NOT from the presence
+    // of its folder on disk: a folder (backend.hcl + terraform.tfvars) survives a
+    // `terraform destroy`, so a disk-based check would see an already-torn-down
+    // `staging` and refuse to ever tear the backend down (the reported bug). The
+    // state object, by contrast, is empty (`resources: []`) once the env is
+    // destroyed. (Per-env `terraform destroy` above never touches ECR — it isn't
+    // in the per-env state — so destroying one env here is always safe for the
+    // shared registry.)
     if (stateBucket) {
-      const sharedWith = listEnvironments(projectRoot).filter(
+      const siblings = listEnvironments(projectRoot).filter(
         (e) => e !== env && readBackend(projectRoot, e).bucket === stateBucket,
       )
-      if (sharedWith.length) {
+      const live: string[] = []
+      if (siblings.length) {
+        process.stdout.write(`  → checking sibling environments on this backend…\n`)
+        for (const e of siblings) {
+          const b = readBackend(projectRoot, e)
+          const { live: isLive, reason } = envStateLiveness(
+            b.bucket,
+            b.key,
+            b.region || region,
+            projectRoot,
+            profile,
+          )
+          process.stdout.write(`     • ${e}: ${isLive ? 'still live' : 'not live'} — ${reason}\n`)
+          if (isLive) live.push(e)
+        }
+      }
+      if (live.length) {
         process.stdout.write(
-          `  ↷  Keeping the shared backend + ECR — bucket "${stateBucket}" is still\n` +
-            `     used by: ${sharedWith.join(', ')}. Destroying it would wipe their state\n` +
-            `     and registry. Destroy those environments first, or pass --keep-backend. Done.\n\n`,
+          `\n  ↷  Keeping the shared backend + ECR — still used by: ${live.join(', ')}.\n` +
+            `     Destroying it would wipe their state and registry. Destroy those\n` +
+            `     environments first, or pass --keep-backend. Done.\n\n`,
         )
         process.exit(0)
       }

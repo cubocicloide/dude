@@ -365,3 +365,36 @@ export function emptyVersionedBucket(
     )
   }
 }
+
+/**
+ * Whether an environment's Terraform remote state still describes live
+ * infrastructure. After `terraform destroy` the state object stays in S3 but
+ * with an empty `resources` array — so this, not the presence of the env's
+ * folder on disk (which persists after a destroy), is the authoritative signal
+ * for "is this env still provisioned". Returns `{ live, reason }` so the caller
+ * can explain its backend-teardown decision. An unreadable-but-present state is
+ * treated as live, so a transient read glitch never wipes a sibling's backend.
+ */
+export function envStateLiveness(
+  bucket: string,
+  key: string,
+  region: string,
+  projectRoot: string,
+  profile?: string,
+): { live: boolean; reason: string } {
+  if (!bucket || !key) return { live: false, reason: 'no remote state configured' }
+  const regionFlag = region ? ['--region', region] : []
+  const r = capture('aws', ['s3', 'cp', `s3://${bucket}/${key}`, '-', ...regionFlag], projectRoot, profile)
+  if (r.status !== 0) {
+    return { live: false, reason: 'no state object (never applied, or already removed)' }
+  }
+  try {
+    const state = JSON.parse(r.stdout) as { resources?: unknown[] }
+    const n = Array.isArray(state.resources) ? state.resources.length : 0
+    return n > 0
+      ? { live: true, reason: `${n} resource(s) still in state` }
+      : { live: false, reason: 'state is empty (already destroyed)' }
+  } catch {
+    return { live: true, reason: 'state present but unreadable — keeping to be safe' }
+  }
+}
