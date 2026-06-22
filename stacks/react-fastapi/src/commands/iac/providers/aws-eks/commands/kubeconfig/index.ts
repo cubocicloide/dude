@@ -1,6 +1,6 @@
 /** `dude iac kubeconfig` — point kubectl at the provisioned EKS cluster. */
 import type { StackCommandDef } from '@cubocicloide/dude'
-import { capture, run } from '../../../../shared.js'
+import { capture, run } from '../../lib/exec.js'
 import { TF_DIR, envArg, hasIac, requireEnv, requireIac, resolveProfile } from '../../lib/terraform.js'
 
 export const iacKubeconfigCommand: StackCommandDef = {

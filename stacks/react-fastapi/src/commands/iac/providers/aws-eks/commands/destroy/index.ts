@@ -7,7 +7,8 @@
  * (S3 + DynamoDB) lives outside the per-env Terraform and is torn down last.
  */
 import type { StackCommandDef } from '@cubocicloide/dude'
-import { capture, projectName, run } from '../../../../shared.js'
+import { projectName } from '../../../../shared.js'
+import { capture, run } from '../../lib/exec.js'
 import {
   cleanupExternalDnsRecords,
   cleanupOrphanedAlbs,

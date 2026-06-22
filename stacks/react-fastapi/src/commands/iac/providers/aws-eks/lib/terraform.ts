@@ -1,7 +1,8 @@
 /** Terraform / project plumbing for the AWS EKS provider. */
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'pathe'
-import { capture, hclScalar, projectName, run, type CaptureResult } from '../../../shared.js'
+import { hclScalar, projectName } from '../../../shared.js'
+import { capture, run, type CaptureResult } from './exec.js'
 
 export const TF_DIR = path.join('iac', 'terraform')
 export const TF_BOOTSTRAP_DIR = path.join(TF_DIR, 'bootstrap')

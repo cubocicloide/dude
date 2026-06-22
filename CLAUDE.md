@@ -252,7 +252,16 @@ default)** — run any without `--env` to list the environments discovered under
 | `dude iac deploy` | `--env`, `--tag`, `--namespace <n>` | `helm upgrade --install` (auto-wires ECR registry + image tag). |
 | `dude iac ship` | `--env`, `--tag`, `--platform`, `--namespace` | build + push + deploy in one step. |
 | `dude iac status` | `--env`, `--namespace` | Release status + pods. |
+| `dude iac shell` | `--env` | Interactive shell inside the IaC runner container (terraform, kubectl, helm, k9s, aws), scoped to the env. |
 | `dude iac destroy` | `--env`, `--yes`, `--namespace`, `--skip-helm`, `--skip-tf`, `--keep-backend` | Tear down the env (helm uninstall → ALB cleanup → Route53 cleanup → `terraform destroy`). The shared bootstrap (backend + ECR) is torn down only when no other env still uses it, unless `--keep-backend`. |
+
+> **IaC runner (Docker).** `dude iac *` runs terraform/kubectl/helm/k9s inside a
+> container built from the scaffold's `iac/runner/Dockerfile` (image tagged by a
+> hash of that file). `aws` and `docker build/push` stay on the host; `login`
+> stays on the host (SSO browser). Routing lives in
+> `providers/aws-eks/lib/exec.ts` (wraps the generic `run`/`capture`) +
+> `lib/runner.ts`. `~/.aws` + `~/.kube` are mounted in. Override with
+> `DUDE_IAC_RUNNER=host`; falls back to native tools when Docker is absent.
 
 ---
 

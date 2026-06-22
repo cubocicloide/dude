@@ -1,6 +1,7 @@
 /** `dude iac status` — show the deployed release status and pods. */
 import type { StackCommandDef } from '@cubocicloide/dude'
-import { projectName, run } from '../../../../shared.js'
+import { projectName } from '../../../../shared.js'
+import { run } from '../../lib/exec.js'
 import { envArg, hasIac, requireEnv, requireIac, resolveProfile } from '../../lib/terraform.js'
 
 export const iacStatusCommand: StackCommandDef = {

@@ -23,6 +23,7 @@ import { iacNewEnvCommand } from './commands/new-env/index.js'
 import { iacOutputCommand } from './commands/output/index.js'
 import { iacPlanCommand } from './commands/plan/index.js'
 import { iacPushCommand } from './commands/push/index.js'
+import { iacShellCommand } from './commands/shell/index.js'
 import { iacShipCommand } from './commands/ship/index.js'
 import { iacStatusCommand } from './commands/status/index.js'
 import { iacValidateCommand } from './commands/validate/index.js'
@@ -49,5 +50,6 @@ export const awsEksProvider: IacProvider = {
     deploy: iacDeployCommand,
     ship: iacShipCommand,
     status: iacStatusCommand,
+    shell: iacShellCommand,
   },
 }
