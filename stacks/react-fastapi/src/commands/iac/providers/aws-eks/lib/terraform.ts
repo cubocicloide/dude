@@ -119,7 +119,7 @@ export function tfvarsValue(projectRoot: string, env: string, key: string): stri
 export function readBackend(
   projectRoot: string,
   env: string,
-): { bucket: string; table: string; region: string } {
+): { bucket: string; key: string; table: string; region: string } {
   try {
     const txt = readFileSync(
       path.join(projectRoot, TF_DIR, 'environments', env, 'backend.hcl'),
@@ -127,11 +127,12 @@ export function readBackend(
     )
     return {
       bucket: hclScalar(txt, 'bucket'),
+      key: hclScalar(txt, 'key'),
       table: hclScalar(txt, 'dynamodb_table'),
       region: hclScalar(txt, 'region'),
     }
   } catch {
-    return { bucket: '', table: '', region: '' }
+    return { bucket: '', key: '', table: '', region: '' }
   }
 }
 
