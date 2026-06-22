@@ -125,21 +125,11 @@ function baseDockerArgs(cwd: string, profile: string | undefined, tty: boolean):
   return args
 }
 
-/**
- * Wrap a containerized tool invocation into a full `docker run …` argv. Builds
- * the image first when needed. Returns the args to pass to spawnSync('docker').
- */
-export function dockerRunArgs(
-  cmd: string,
-  toolArgs: string[],
-  cwd: string,
-  profile: string | undefined,
-  opts: { tty?: boolean } = {},
-): string[] {
-  const dockerfile = findDockerfile(cwd)
-  const tag = imageTag(dockerfile)
-  ensureImage(dockerfile, tag)
-  return [...baseDockerArgs(cwd, profile, !!opts.tty), tag, cmd, ...toolArgs]
+/** The cluster a kube tool (kubectl/helm/k9s) should target inside the runner. */
+export interface KubeTarget {
+  cluster: string
+  region: string
+  namespace: string
 }
 
 /** Single-quote a value for safe interpolation into a bash command. */
@@ -148,26 +138,56 @@ function shq(value: string): string {
 }
 
 /**
- * Bash prelude run before the interactive shell starts. It builds a *dedicated*
- * kubeconfig for this env's cluster (via `aws eks update-kubeconfig` against the
- * mounted credentials) and selects the env's namespace — so the shell never
- * silently inherits the host's current-context, which may point at a different
- * cluster. If the cluster can't be reached (not provisioned yet, wrong creds),
- * it unsets KUBECONFIG and falls back to the mounted ~/.kube as-is.
+ * Bash lines that build a *dedicated* kubeconfig for the target cluster (via
+ * `aws eks update-kubeconfig` against the mounted credentials) and select its
+ * namespace — so a containerized kube tool targets exactly the env's cluster
+ * rather than silently inheriting the host's current-context (which may point at
+ * a different cluster). On failure (cluster not provisioned, bad creds) it
+ * unsets KUBECONFIG and falls back to the mounted ~/.kube. `verbose` prints a
+ * friendly banner for the interactive shell; one-shot commands stay quiet on
+ * stdout (so `capture` output isn't polluted) and only warn on stderr.
  */
-function shellPrelude(cluster: string, region: string, namespace: string): string {
-  return [
+function kubeSetupLines(t: KubeTarget, verbose: boolean): string[] {
+  const lines = [
     'export KUBECONFIG=/tmp/dude-kubeconfig',
-    `if aws eks update-kubeconfig --name ${shq(cluster)} --region ${shq(region)} >/dev/null 2>&1; then`,
-    `  kubectl config set-context --current --namespace=${shq(namespace)} >/dev/null 2>&1`,
-    `  echo "  ✓  context → ${cluster}   namespace → ${namespace}"; echo`,
-    'else',
-    '  unset KUBECONFIG',
-    `  echo "  ⚠  couldn't reach cluster ${cluster} — using your mounted ~/.kube as-is."`,
-    '  echo "     (run \\"dude iac apply\\" if the cluster is not provisioned yet)"; echo',
-    'fi',
-    'exec bash',
-  ].join('\n')
+    `if aws eks update-kubeconfig --name ${shq(t.cluster)} --region ${shq(t.region)} >/dev/null 2>&1; then`,
+    `  kubectl config set-context --current --namespace=${shq(t.namespace)} >/dev/null 2>&1`,
+  ]
+  if (verbose) lines.push(`  echo "  ✓  context → ${t.cluster}   namespace → ${t.namespace}"; echo`)
+  lines.push('else', '  unset KUBECONFIG')
+  lines.push(
+    verbose
+      ? `  echo "  ⚠  couldn't reach cluster ${t.cluster} — using your mounted ~/.kube as-is."; echo`
+      : `  echo "dude: couldn't target cluster ${t.cluster}; using the mounted kubeconfig as-is." >&2`,
+  )
+  lines.push('fi')
+  return lines
+}
+
+/**
+ * Wrap a containerized tool invocation into a full `docker run …` argv. Builds
+ * the image first when needed. When `opts.kube` is supplied (only for kube
+ * tools), the tool runs behind a prelude that pins the kubeconfig to that
+ * cluster + namespace; otherwise it's invoked directly.
+ */
+export function dockerRunArgs(
+  cmd: string,
+  toolArgs: string[],
+  cwd: string,
+  profile: string | undefined,
+  opts: { tty?: boolean; kube?: KubeTarget } = {},
+): string[] {
+  const dockerfile = findDockerfile(cwd)
+  const tag = imageTag(dockerfile)
+  ensureImage(dockerfile, tag)
+  const base = baseDockerArgs(cwd, profile, !!opts.tty)
+  if (opts.kube?.cluster && opts.kube?.region) {
+    // `bash -c <script> bash <toolArgs…>` → $0=bash, $@=toolArgs; the script
+    // sets up the kubeconfig then `exec`s the real tool with those args.
+    const script = [...kubeSetupLines(opts.kube, false), `exec ${cmd} "$@"`].join('\n')
+    return [...base, tag, 'bash', '-c', script, 'bash', ...toolArgs]
+  }
+  return [...base, tag, cmd, ...toolArgs]
 }
 
 /**
@@ -179,14 +199,15 @@ function shellPrelude(cluster: string, region: string, namespace: string): strin
 export function dockerShellArgs(
   projectRoot: string,
   profile: string | undefined,
-  kube?: { cluster: string; region: string; namespace: string },
+  kube?: KubeTarget,
 ): string[] {
   const dockerfile = findDockerfile(projectRoot)
   const tag = imageTag(dockerfile)
   ensureImage(dockerfile, tag)
   const base = baseDockerArgs(projectRoot, profile, true)
   if (kube?.cluster && kube?.region) {
-    return [...base, tag, 'bash', '-c', shellPrelude(kube.cluster, kube.region, kube.namespace)]
+    const script = [...kubeSetupLines(kube, true), 'exec bash'].join('\n')
+    return [...base, tag, 'bash', '-c', script]
   }
   return [...base, tag, 'bash']
 }

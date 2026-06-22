@@ -18,6 +18,7 @@ import {
 import {
   envArg,
   hasIac,
+  kubeTarget,
   listEnvironments,
   readBackend,
   requireEnv, requireIac,
@@ -61,14 +62,15 @@ export const iacDestroyCommand: StackCommandDef = {
     const profile = resolveProfile(projectRoot, args, env)
     const ns = String(args.namespace ?? env)
     const release = projectName(projectRoot)
+    const kube = kubeTarget(projectRoot, env, ns)
     const extra = args.yes ? ['-auto-approve'] : []
 
     // ── Step 1: uninstall the Helm release ───────────────────────────────────
     if (!args['skip-helm']) {
-      const helmCheck = capture('helm', ['status', release, '--namespace', ns], projectRoot, profile)
+      const helmCheck = capture('helm', ['status', release, '--namespace', ns], projectRoot, profile, kube)
       if (helmCheck.status === 0) {
         process.stdout.write(`\n  → uninstalling Helm release "${release}" from namespace "${ns}"…\n`)
-        const code = run('helm', ['uninstall', release, '--namespace', ns], projectRoot, profile)
+        const code = run('helm', ['uninstall', release, '--namespace', ns], projectRoot, profile, kube)
         if (code !== 0) {
           process.stderr.write(
             '\n  ✗  Helm uninstall failed. Retry or re-run with --skip-helm if you removed it manually.\n\n',
@@ -83,6 +85,7 @@ export const iacDestroyCommand: StackCommandDef = {
           ['wait', '--for=delete', `ingress/${release}`, '--namespace', ns, '--timeout=3m'],
           projectRoot,
           profile,
+          kube,
         )
       } else {
         process.stdout.write(

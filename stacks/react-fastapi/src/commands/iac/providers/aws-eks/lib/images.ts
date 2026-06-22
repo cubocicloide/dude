@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs'
 import path from 'pathe'
 import { childEnv, projectName } from '../../../shared.js'
 import { capture, run } from './exec.js'
-import { HELM_CHART, TF_DIR } from './terraform.js'
+import { HELM_CHART, TF_DIR, kubeTarget } from './terraform.js'
 
 /** ECR coordinates read from Terraform outputs. */
 export interface EcrRepos {
@@ -241,5 +241,5 @@ export function doDeploy(
   if (repos.databaseUrl) {
     helmArgs.push('--set-string', `secrets.DATABASE_URL=${repos.databaseUrl}`)
   }
-  return run('helm', helmArgs, projectRoot, profile)
+  return run('helm', helmArgs, projectRoot, profile, kubeTarget(projectRoot, env, ns))
 }

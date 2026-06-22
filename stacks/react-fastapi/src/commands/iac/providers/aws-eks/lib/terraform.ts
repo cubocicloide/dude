@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 import { hclScalar, projectName } from '../../../shared.js'
 import { capture, run, type CaptureResult } from './exec.js'
+import type { KubeTarget } from './runner.js'
 
 export const TF_DIR = path.join('iac', 'terraform')
 export const TF_BOOTSTRAP_DIR = path.join(TF_DIR, 'bootstrap')
@@ -79,6 +80,22 @@ export function resolveProfile(
   if (args.profile) return String(args.profile)
   if (process.env.AWS_PROFILE) return process.env.AWS_PROFILE
   return `${projectName(projectRoot)}-${env}`
+}
+
+/**
+ * The cluster a containerized kube tool should target for an environment, by
+ * scaffold convention: cluster `<project>-<env>`, region from the env's tfvars,
+ * namespace as given (defaults to the env). Pass the result as the `kube` arg of
+ * `run`/`capture` so kubectl/helm hit this exact cluster instead of whatever the
+ * host's current-context happens to be. A wrong/empty value degrades to the
+ * mounted ~/.kube rather than silently acting on the wrong cluster.
+ */
+export function kubeTarget(projectRoot: string, env: string, namespace: string): KubeTarget {
+  return {
+    cluster: `${projectName(projectRoot)}-${env}`,
+    region: tfvarsValue(projectRoot, env, 'region'),
+    namespace,
+  }
 }
 
 /** Read a quoted scalar from an environment's terraform.tfvars (best-effort). */
