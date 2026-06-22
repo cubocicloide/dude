@@ -6,8 +6,16 @@
  */
 import { spawnSync } from 'node:child_process'
 import type { StackCommandDef } from '@cubocicloide/dude'
+import { projectName } from '../../../../shared.js'
 import { dockerAvailable, dockerShellArgs, hasRunnerDockerfile } from '../../lib/runner.js'
-import { envArg, hasIac, requireEnv, requireIac, resolveProfile } from '../../lib/terraform.js'
+import {
+  envArg,
+  hasIac,
+  requireEnv,
+  requireIac,
+  resolveProfile,
+  tfvarsValue,
+} from '../../lib/terraform.js'
 
 export const iacShellCommand: StackCommandDef = {
   available: hasIac,
@@ -33,14 +41,24 @@ export const iacShellCommand: StackCommandDef = {
     const env = requireEnv(projectRoot, args)
     const profile = resolveProfile(projectRoot, args, env)
 
+    // Pin the in-container kubeconfig to THIS env's cluster + namespace so the
+    // shell never inherits the host's current-context (which may point at a
+    // different cluster). The cluster name follows the scaffold convention
+    // (`<project>-<env>`); the region comes from the env's tfvars. If either is
+    // off, the prelude reaches a dead cluster and falls back to the mounted
+    // ~/.kube — never silently targeting the wrong one.
+    const cluster = `${projectName(projectRoot)}-${env}`
+    const region = tfvarsValue(projectRoot, env, 'region')
+
     process.stdout.write(
       `\n  →  Entering the IaC runner for env "${env}" (profile "${profile}").\n` +
         `     The project is mounted at /work. Type "exit" to leave.\n\n`,
     )
-    const r = spawnSync('docker', dockerShellArgs(projectRoot, profile), {
-      stdio: 'inherit',
-      cwd: projectRoot,
-    })
+    const r = spawnSync(
+      'docker',
+      dockerShellArgs(projectRoot, profile, { cluster, region, namespace: env }),
+      { stdio: 'inherit', cwd: projectRoot },
+    )
     process.exit(r.status ?? 1)
   },
 }

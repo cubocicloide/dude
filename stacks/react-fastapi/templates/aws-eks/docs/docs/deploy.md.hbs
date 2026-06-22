@@ -13,8 +13,7 @@ State lives in S3 + DynamoDB, so the same commands run locally and in CI.
     **Docker** and the `aws` CLI installed, not the whole toolchain. Your
     `~/.aws` and `~/.kube` are mounted in, so profiles, SSO and the cluster
     context keep working. `dude iac login` stays on the host (it needs a browser
-    for SSO); `dude iac shell --env <env>` drops you into the runner for ad-hoc
-    work. Set `DUDE_IAC_RUNNER=host` to use your local tools instead.
+    for SSO). Set `DUDE_IAC_RUNNER=host` to use your local tools instead.
 
 ## What gets provisioned
 
@@ -108,6 +107,34 @@ route53_zone_name = "example.com"
 Terraform issues a DNS-validated ACM certificate and runs external-dns to create
 the record; `dude iac deploy`/`ship` then makes the ALB listen on 443 and
 redirect HTTP→HTTPS automatically.
+
+## Ad-hoc work with `dude iac shell`
+
+When you need to run commands directly against an environment — inspect state,
+force-unlock a Terraform lock, debug a failing pod, or run a one-off Helm
+operation — drop into the runner:
+
+```bash
+dude iac shell --env dev
+```
+
+This opens an interactive shell inside the Docker runner with the project
+mounted at `/work`, the env's `AWS_PROFILE` set, and `kubectl`/`helm`/`k9s`
+**already pointed at this env's cluster and namespace** — so you don't inherit
+whatever context your host's `kubectl` happened to be on. (If the cluster isn't
+reachable yet, it falls back to your mounted `~/.kube`.) The full toolchain is
+available:
+
+| Tool | Example |
+|------|---------|
+| `terraform` | `terraform state list` · `terraform force-unlock <id>` |
+| `kubectl` | `kubectl get pods -n dev` · `kubectl logs <pod> -n dev -f` · `kubectl describe ingress -n dev` |
+| `helm` | `helm get values {{projectName}} -n dev` · `helm history {{projectName}} -n dev` |
+| `k9s` | `k9s` — full interactive cluster UI |
+| `aws` | `aws eks list-clusters` · `aws s3 ls` |
+
+The project root is `/work` — relative paths in Terraform and Helm configs
+resolve correctly from there. Type `exit` (or Ctrl-D) to leave the runner.
 
 ## Tear down
 

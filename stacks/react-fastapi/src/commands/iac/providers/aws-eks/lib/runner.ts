@@ -142,12 +142,53 @@ export function dockerRunArgs(
   return [...baseDockerArgs(cwd, profile, !!opts.tty), tag, cmd, ...toolArgs]
 }
 
-/** Build the `docker run …` argv for an interactive shell inside the runner. */
-export function dockerShellArgs(projectRoot: string, profile: string | undefined): string[] {
+/** Single-quote a value for safe interpolation into a bash command. */
+function shq(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`
+}
+
+/**
+ * Bash prelude run before the interactive shell starts. It builds a *dedicated*
+ * kubeconfig for this env's cluster (via `aws eks update-kubeconfig` against the
+ * mounted credentials) and selects the env's namespace — so the shell never
+ * silently inherits the host's current-context, which may point at a different
+ * cluster. If the cluster can't be reached (not provisioned yet, wrong creds),
+ * it unsets KUBECONFIG and falls back to the mounted ~/.kube as-is.
+ */
+function shellPrelude(cluster: string, region: string, namespace: string): string {
+  return [
+    'export KUBECONFIG=/tmp/dude-kubeconfig',
+    `if aws eks update-kubeconfig --name ${shq(cluster)} --region ${shq(region)} >/dev/null 2>&1; then`,
+    `  kubectl config set-context --current --namespace=${shq(namespace)} >/dev/null 2>&1`,
+    `  echo "  ✓  context → ${cluster}   namespace → ${namespace}"; echo`,
+    'else',
+    '  unset KUBECONFIG',
+    `  echo "  ⚠  couldn't reach cluster ${cluster} — using your mounted ~/.kube as-is."`,
+    '  echo "     (run \\"dude iac apply\\" if the cluster is not provisioned yet)"; echo',
+    'fi',
+    'exec bash',
+  ].join('\n')
+}
+
+/**
+ * Build the `docker run …` argv for an interactive shell inside the runner. When
+ * `kube` (the env's cluster + region + namespace) is supplied, the shell opens
+ * with kubectl/helm/k9s already pointed at that exact cluster and namespace;
+ * otherwise it drops into a plain shell using the mounted ~/.kube.
+ */
+export function dockerShellArgs(
+  projectRoot: string,
+  profile: string | undefined,
+  kube?: { cluster: string; region: string; namespace: string },
+): string[] {
   const dockerfile = findDockerfile(projectRoot)
   const tag = imageTag(dockerfile)
   ensureImage(dockerfile, tag)
-  return [...baseDockerArgs(projectRoot, profile, true), tag, 'bash']
+  const base = baseDockerArgs(projectRoot, profile, true)
+  if (kube?.cluster && kube?.region) {
+    return [...base, tag, 'bash', '-c', shellPrelude(kube.cluster, kube.region, kube.namespace)]
+  }
+  return [...base, tag, 'bash']
 }
 
 /** True when the scaffold ships a runner Dockerfile reachable from `cwd`. */
