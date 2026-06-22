@@ -2,7 +2,14 @@
 import type { StackCommandDef } from '@cubocicloide/dude'
 import { projectName } from '../../../../shared.js'
 import { run } from '../../lib/exec.js'
-import { envArg, hasIac, requireEnv, requireIac, resolveProfile } from '../../lib/terraform.js'
+import {
+  envArg,
+  hasIac,
+  kubeTarget,
+  requireEnv,
+  requireIac,
+  resolveProfile,
+} from '../../lib/terraform.js'
 
 export const iacStatusCommand: StackCommandDef = {
   available: hasIac,
@@ -17,8 +24,9 @@ export const iacStatusCommand: StackCommandDef = {
     const profile = resolveProfile(projectRoot, args, env)
     const ns = String(args.namespace ?? env)
     const release = projectName(projectRoot)
-    const s = run('helm', ['status', release, '--namespace', ns], projectRoot, profile)
-    run('kubectl', ['get', 'pods', '--namespace', ns], projectRoot, profile)
+    const kube = kubeTarget(projectRoot, env, ns)
+    const s = run('helm', ['status', release, '--namespace', ns], projectRoot, profile, kube)
+    run('kubectl', ['get', 'pods', '--namespace', ns], projectRoot, profile, kube)
     process.exit(s)
   },
 }
