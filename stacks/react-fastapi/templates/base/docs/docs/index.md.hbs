@@ -23,14 +23,14 @@ npm install -g @cubocicloide/dude-launcher
 
 # 3. Scaffold the project (how {{projectName}} was created). Already inside it
 #    or cloned it? Skip this and go straight to `pnpm install`.
-dude init {{projectName}} --stack react-fastapi
+dude init {{projectName}}
 cd {{projectName}}
 
 # 4. Provision the project's pinned toolchain (CLI + stack) from the lockfile.
 pnpm install
 
 # 5. Build the images and start every service (first run).
-dude up --build
+dude up
 ```
 
 From then on, `dude up` starts everything and `dude down` stops it. See

@@ -34,26 +34,26 @@
 npm install -g @cubocicloide/dude-launcher
 
 # 2. Scaffold.
-dude init my-app --stack react-fastapi
+dude init my-app
 cd my-app
 
 # 3. Provision the pinned toolchain (CLI + stack) from the lockfile.
 pnpm install
 
 # 4. First run — build images and start every service.
-dude up --build
+dude up
 ```
 
 From the second run onward: `dude up`. Stop everything: `dude down`.
 
 ### Services (default ports)
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:5173 |
-| API | http://localhost:8000 |
+| Service    | URL                            |
+| ---------- | ------------------------------ |
+| Frontend   | http://localhost:5173          |
+| API        | http://localhost:8000          |
 | Swagger UI | http://localhost:8000/api/docs |
-| Docs site | http://localhost:8001 |
+| Docs site  | http://localhost:8001          |
 
 ### Next
 
@@ -77,7 +77,7 @@ runtime, the launcher, and the stack plugins.
 
 ## What's in here
 
-| Directory                 | npm name                            | Role                                                            |
+| Directory                 | npm name                            | Role                                                           |
 | ------------------------- | ----------------------------------- | -------------------------------------------------------------- |
 | `packages/dude/`          | `@cubocicloide/dude`                | CLI runtime — `init`, `upgrade`, `help`, and command dispatch  |
 | `packages/dude-launcher/` | `@cubocicloide/dude-launcher`       | Tiny global shim; runs each project's pinned CLI + stack       |
@@ -197,19 +197,19 @@ make dev-run ARGS="iac destroy    --env dev --yes"
 The Makefile is self-documenting — **`make help`** lists every target grouped by
 section. The ones you'll reach for most:
 
-| Target            | What it does                                                       |
-| ----------------- | ----------------------------------------------------------------- |
-| `make install`    | Install all workspace dependencies                                 |
-| `make build`      | Build every package via turbo                                      |
-| `make dev`        | Watch + rebuild all packages (keep running for HMR)                |
+| Target            | What it does                                                         |
+| ----------------- | -------------------------------------------------------------------- |
+| `make install`    | Install all workspace dependencies                                   |
+| `make build`      | Build every package via turbo                                        |
+| `make dev`        | Watch + rebuild all packages (keep running for HMR)                  |
 | `make cli ARGS=…` | Run the local CLI, e.g. `make cli ARGS="init --stack react-fastapi"` |
-| `make dev-init`   | Tear down + re-scaffold + relink `private/examples/test-local/`    |
-| `make dev-run`    | Run a command inside the scaffold, e.g. `ARGS="lint"`             |
-| `make test`       | Run every suite (CLI runtime + stack)                             |
-| `make test-stack` | Test the stack package only                                       |
-| `make check`      | `lint + typecheck + test` — the CI pre-flight                     |
-| `make changeset`  | Record a changeset for the next release                           |
-| `make clean`      | Remove `dist/`, `node_modules/`, `.turbo/`                        |
+| `make dev-init`   | Tear down + re-scaffold + relink `private/examples/test-local/`      |
+| `make dev-run`    | Run a command inside the scaffold, e.g. `ARGS="lint"`                |
+| `make test`       | Run every suite (CLI runtime + stack)                                |
+| `make test-stack` | Test the stack package only                                          |
+| `make check`      | `lint + typecheck + test` — the CI pre-flight                        |
+| `make changeset`  | Record a changeset for the next release                              |
+| `make clean`      | Remove `dist/`, `node_modules/`, `.turbo/`                           |
 
 ---
 
@@ -246,7 +246,7 @@ normal path.
 
 ## End-user documentation lives in the templates
 
-The documentation that ships *inside generated projects* — the full `dude` API
+The documentation that ships _inside generated projects_ — the full `dude` API
 reference your users read via `dude docs` — is authored under
 [`stacks/react-fastapi/templates/base/docs/`](stacks/react-fastapi/templates/base/docs/)
 (plus [`stacks/react-fastapi/templates/aws-eks/docs/`](stacks/react-fastapi/templates/aws-eks/docs/)
