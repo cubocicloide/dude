@@ -2,7 +2,8 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'pathe'
-import { capture, childEnv, projectName, run } from '../../../shared.js'
+import { childEnv, projectName } from '../../../shared.js'
+import { capture, run } from './exec.js'
 import { HELM_CHART, TF_DIR } from './terraform.js'
 
 /** ECR coordinates read from Terraform outputs. */

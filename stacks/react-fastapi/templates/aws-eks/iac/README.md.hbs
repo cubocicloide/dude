@@ -36,8 +36,35 @@ The application itself (backend, frontend,{{#if withCelery}} Celery worker{{#if 
 
 ## Prerequisites
 
-- `terraform` ≥ 1.6, `kubectl`, `helm`, and the `aws` CLI on your PATH.
+- **Docker** running, plus the `aws` CLI on your PATH.
 - AWS credentials configured (`aws configure` or environment variables / SSO).
+
+You do **not** need terraform, kubectl, helm or k9s installed — `dude iac` runs
+them inside a container (see below). The `aws` CLI is still needed on the host
+because `dude iac login` opens a browser for SSO.
+
+## The IaC runner (Docker)
+
+`dude iac *` runs terraform / kubectl / helm / k9s inside a pinned container so
+you don't have to install or version-match any of them locally. The image is
+built on first use from `iac/runner/Dockerfile` — **which is yours to edit**
+(bump a tool version, add a CLI). The image is tagged by a hash of that file, so
+any change rebuilds automatically on the next command.
+
+- **Credentials** are never copied in: your `~/.aws` is mounted read-only and
+  the environment's `AWS_PROFILE` is passed through, so named profiles and SSO
+  keep working. `~/.kube` is mounted too, so `kubeconfig`/`status`/`deploy`
+  share the cluster context.
+- **`dude iac login`** is the one command that stays on the host (it needs a
+  browser for SSO); it writes the SSO token the container then reads.
+- **`dude iac build`/`push`** use the host Docker daemon (they build app images);
+  everything else runs in the container.
+- **Escape hatch**: set `DUDE_IAC_RUNNER=host` to run the tools natively from
+  your PATH instead (the legacy behaviour). If Docker isn't running, `dude iac`
+  falls back to native tools automatically.
+- **`dude iac shell --env <env>`** drops you into the runner with all tools +
+  k9s, the env's profile and kubeconfig already wired — handy for ad-hoc
+  inspection or changes.
 
 ## Credentials per environment
 
@@ -271,6 +298,7 @@ Flags for finer control:
 | `dude iac deploy`    | `helm upgrade --install` (auto-sets registry + tag + TLS cert/host) |
 | `dude iac ship`      | `build` + `push` + `deploy` |
 | `dude iac status`    | `helm status` + `kubectl get pods` |
+| `dude iac shell`     | interactive shell in the IaC runner container (terraform, kubectl, helm, k9s, aws) |
 
 All commands take `--env <name>` (**required**; autodiscovered from
 `environments/*`) and `--profile <name>` (AWS profile override; defaults to
