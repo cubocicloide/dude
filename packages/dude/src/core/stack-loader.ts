@@ -19,6 +19,21 @@ interface LoadedStack {
 }
 
 /**
+ * Describes how a stack root was resolved — used to tailor error messages.
+ *
+ * - `node`      : resolved via Node's require.resolve (installed package)
+ * - `workspace` : found by scanning a pnpm-workspace.yaml (source checkout)
+ * - `cache`     : downloaded into ~/.dude/cache/stacks/
+ * - `path`      : caller supplied an explicit filesystem path
+ */
+type ResolutionSource = 'node' | 'workspace' | 'cache' | 'path'
+
+interface ResolvedRoot {
+  root: string
+  source: ResolutionSource
+}
+
+/**
  * Resolve a stack identifier into a loaded plugin.
  *
  * Supported forms in this bootstrap phase:
@@ -30,7 +45,7 @@ interface LoadedStack {
  * later phase; the contract here is forward-compatible.
  */
 export async function loadStack(spec: string, cwd: string, version?: string): Promise<LoadedStack> {
-  const root = await resolveStackRoot(spec, cwd, version)
+  const { root, source } = await resolveStackRoot(spec, cwd, version)
   const pkgJsonPath = resolvePath(root, 'package.json')
   if (!existsSync(pkgJsonPath)) {
     throw new Error(`Stack at "${root}" is missing a package.json`)
@@ -38,19 +53,18 @@ export async function loadStack(spec: string, cwd: string, version?: string): Pr
 
   const pkgJson = JSON.parse(await readFile(pkgJsonPath, 'utf8')) as {
     version?: string
+    name?: string
     main?: string
     module?: string
     exports?: unknown
   }
   const resolvedVersion = pkgJson.version ?? 'unknown'
+  const pkgName = pkgJson.name ?? spec
   const entry = pkgJson.module ?? pkgJson.main ?? 'dist/index.js'
   const entryPath = resolvePath(root, entry)
 
   if (!existsSync(entryPath)) {
-    throw new Error(
-      `Stack entry point not found: ${entryPath}\n` +
-        `Did you build the stack package? Try \`make build\`.`,
-    )
+    throw new Error(buildMissingEntryError(entryPath, pkgName, source))
   }
 
   const mod = (await import(pathToFileURL(entryPath).href)) as {
@@ -66,16 +80,76 @@ export async function loadStack(spec: string, cwd: string, version?: string): Pr
   return { definition: mod.default, root, version: resolvedVersion }
 }
 
-async function resolveStackRoot(spec: string, cwd: string, version?: string): Promise<string> {
+/**
+ * Build a human-readable error for a missing stack entry point, with
+ * context-sensitive remediation steps based on how the stack was resolved.
+ *
+ * - workspace checkout: show both `pnpm --filter <pkg> build` and `make build`
+ * - installed package / cache: suggest reinstalling or clearing the cache
+ * - explicit path: show the path and the generic build hint
+ */
+function buildMissingEntryError(
+  entryPath: string,
+  pkgName: string,
+  source: ResolutionSource,
+): string {
+  const lines: string[] = [`Stack entry point not found: ${entryPath}`, '']
+
+  if (source === 'workspace') {
+    lines.push(
+      'This stack was resolved from a local source-checkout (pnpm workspace).',
+      'The package has not been built yet. Run one of the following to compile it:',
+      '',
+      `  pnpm --filter ${pkgName} build   # build only this stack`,
+      '  make build                        # build the entire monorepo',
+      '',
+      'After building, re-run your dude command.',
+    )
+  } else if (source === 'node') {
+    lines.push(
+      'The installed stack package appears to be missing its compiled output.',
+      'Try reinstalling your project dependencies:',
+      '',
+      '  pnpm install   # or: npm install / yarn install',
+      '',
+      `If the problem persists, remove node_modules and reinstall, or upgrade`,
+      `the stack pin with: dude upgrade --stack`,
+    )
+  } else if (source === 'cache') {
+    lines.push(
+      'The cached stack package is missing its compiled output.',
+      'Clear the dude stack cache and let it re-download:',
+      '',
+      '  rm -rf ~/.dude/cache/stacks',
+      '',
+      'Then re-run your dude command.',
+    )
+  } else {
+    // path
+    lines.push(
+      'Did you build the stack package?',
+      '',
+      `  pnpm --filter ${pkgName} build   # or: make build`,
+    )
+  }
+
+  return lines.join('\n')
+}
+
+async function resolveStackRoot(
+  spec: string,
+  cwd: string,
+  version?: string,
+): Promise<ResolvedRoot> {
   // Filesystem path?
   if (spec.startsWith('.') || spec.startsWith('/') || isAbsolute(spec)) {
-    return resolvePath(cwd, spec)
+    return { root: resolvePath(cwd, spec), source: 'path' }
   }
 
   // Try standard Node resolution first (works for installed packages).
   try {
     const pkgJsonPath = require.resolve(`${spec}/package.json`, { paths: [cwd] })
-    return resolvePath(pkgJsonPath, '..')
+    return { root: resolvePath(pkgJsonPath, '..'), source: 'node' }
   } catch {
     // fall through to workspace scan
   }
@@ -83,11 +157,12 @@ async function resolveStackRoot(spec: string, cwd: string, version?: string): Pr
   // Dev fallback: walk up from `cwd` or from this module's own location
   // looking for a pnpm workspace, then scan its declared globs for a
   // package.json whose `name` matches `spec`.
-  const workspaceMatch = findInPnpmWorkspace(cwd, spec) ?? findInPnpmWorkspace(selfDir, spec)
-  if (workspaceMatch) return workspaceMatch
+  const workspaceMatch =
+    findInPnpmWorkspace(cwd, spec) ?? findInPnpmWorkspace(selfDir, spec)
+  if (workspaceMatch) return { root: workspaceMatch, source: 'workspace' }
 
   // Last resort: install from the registry into the dude cache dir.
-  return installStack(spec, version)
+  return { root: installStack(spec, version), source: 'cache' }
 }
 
 /**
