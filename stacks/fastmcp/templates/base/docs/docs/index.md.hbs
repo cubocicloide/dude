@@ -1,0 +1,81 @@
+# Welcome
+
+This is the documentation for **{{projectName}}** — a [FastMCP](https://gofastmcp.com)
+server scaffolded with [`dude`](https://github.com/cubocicloide/dude). It exposes
+MCP **tools**, **resources** (incl. templates), and **prompts** to any MCP client
+(Claude Desktop, Claude Code, the MCP Inspector, …).
+
+---
+
+## Getting started
+
+`dude` is the project CLI. It ships as a **private package** on GitHub Packages,
+so first authenticate the registry, then install the global launcher, then
+provision and start the server.
+
+```bash
+# 1. One-time machine setup — authenticate the private @cubocicloide registry.
+#    Add to ~/.npmrc:
+#      @cubocicloide:registry=https://npm.pkg.github.com
+#      //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+#    …and export a GitHub token with the `read:packages` scope:
+export GITHUB_TOKEN=ghp_your_token_here
+
+# 2. Install the dude launcher globally (the only global install).
+npm install -g @cubocicloide/dude-launcher
+
+# 3. Provision the project's pinned toolchain (CLI + stack).
+pnpm install
+
+# 4. Build the image and start the server (streamable HTTP).
+dude up --build
+```
+
+The server is now serving MCP over HTTP at <http://localhost:8000/mcp/>.
+
+---
+
+## Try it
+
+```bash
+# Explore the server with the official MCP Inspector (dev profile):
+docker compose --profile dev up --build
+# → open http://localhost:6274 → Transport "Streamable HTTP" → http://fastmcp:8000/mcp/
+```
+
+To **chat** with the server through an LLM, register it in Claude Desktop or
+Claude Code — see [Connecting a client](connect.md).
+
+---
+
+## Contents
+
+- [Working with dude](dude.md) — CLI reference: start the server, run tests, lint, scan.
+- [Connecting a client](connect.md) — Inspector, Claude Desktop, Claude Code.
+- [Architecture](architecture.md) — the modular-monolith layout and the MCP rules.
+- [Command reference](api.md) — auto-generated list of every command in this project.
+- [Writing docs](mkdocs.md) — how to add pages to this site.
+
+---
+
+## Quick links
+
+| Resource | URL |
+|----------|-----|
+| MCP endpoint (HTTP) | <http://localhost:8000/mcp/> |
+| MCP Inspector (dev) | <http://localhost:6274> |
+| This docs site | <http://localhost:8001> |
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Server | FastMCP 3, Python ≥ 3.13, uv |
+| Validation | Pydantic v2 |
+| Testing | pytest (unit + in-memory MCP integration) |
+| Quality | ruff · mypy (strict) · `dude lint` (MCP rules) |
+| Security | Bandit · Semgrep · Trivy |
+| Infra | Docker Compose |
+| Docs | MkDocs Material |

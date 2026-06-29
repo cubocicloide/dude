@@ -1,0 +1,85 @@
+# Architecture
+
+**{{projectName}}** is a **modular monolith of FastMCP feature sub-servers**. The
+shape is mechanically enforced by `dude lint` (the `MCP` rules), so the codebase
+stays consistent as it grows.
+
+---
+
+## Layout
+
+```
+fastmcp/                         # the service (analogue of a backend/)
+├── Dockerfile · start.sh · pyproject.toml
+└── app/
+    ├── __main__.py              # `python -m app` — wires transport from settings
+    ├── server.py                # create_server(): discover + mount feature sub-servers
+    ├── config.py                # Settings(BaseSettings) — the ONLY env reader
+    ├── core/errors.py           # DomainError (service) → ToolError (client-facing)
+    ├── schemas/                 # pydantic models; module name = class prefix
+    ├── utils/                   # global helpers (discovery.import_submodules, …)
+    ├── features/
+    │   └── <feature>/
+    │       ├── __init__.py      # exports `server`; auto-imports components
+    │       ├── _server.py       # server = FastMCP(name="<feature>")
+    │       ├── tools/           # ONE @server.tool per module
+    │       ├── resources/       # ONE @server.resource per module
+    │       ├── prompts/         # ONE @server.prompt per module
+    │       └── utils/           # service.py (pure logic) + helpers
+    └── tests/                   # mirrors app/ 1:1
+```
+
+## Principles
+
+- **Each bounded context is a feature package** under `app/features/<name>/`
+  owning a self-contained `FastMCP` sub-server. `server.create_server()`
+  auto-discovers every feature and `mount()`s it into one flat namespace.
+- **One tool/resource/prompt per module**, named after the file
+  (`tools/add.py` → tool `add`). Component packages auto-import their modules, so
+  dropping a file in registers it — no list to maintain.
+- **The binding layer is thin**: component modules adapt MCP calls to the
+  feature's `utils/service.py` (pure logic). Logic is unit-tested directly; the
+  MCP surface is integration-tested via FastMCP's in-memory client.
+- **Schemas** live in `app/schemas/` with one PascalCase prefix per module;
+  **config** is read only in `config.py`; **client errors** are always `ToolError`.
+
+---
+
+## Lint rules (MCP001–MCP017)
+
+`dude lint` runs these deterministic, AST/structure-level checks. Each has a
+prose description under `.claude/rules/MCP/`.
+
+| ID | Rule |
+|----|------|
+| MCP001 | Required project structure (`app/` + mirrored `tests/`) |
+| MCP002 | Feature package shape (`__init__`, `_server`, a component pkg, `utils/`) |
+| MCP003 | Sub-server contract (`server = FastMCP(name="<folder>")`, re-export + register) |
+| MCP004 | Component placement & purity (decorators only in their package) |
+| MCP005 | One component per module, named after the module |
+| MCP006 | Docstring required on every component |
+| MCP007 | Full type annotations (params + return) |
+| MCP008 | Thin binding layer (no I/O imports, no classes, delegate to utils/) |
+| MCP009 | Context convention (`ctx: Context`, async when used) |
+| MCP010 | Resource URI ↔ params consistency |
+| MCP011 | Schema module conventions (BaseModel + filename prefix) |
+| MCP012 | snake_case naming (functions, modules, folders) |
+| MCP013 | No duplicate tool/prompt names or resource URIs |
+| MCP014 | Centralised configuration (`os.environ` only in `config.py`) |
+| MCP015 | No `print` (it corrupts the stdio transport) |
+| MCP016 | Client-facing errors are `ToolError` |
+| MCP017 | 1-to-1 test coverage |
+
+---
+
+## Adding a feature
+
+1. `mkdir -p fastmcp/app/features/widgets/{tools,resources,utils}`
+2. `_server.py`: `server = FastMCP(name="widgets")`
+3. `utils/service.py`: pure logic.
+4. `tools/<name>.py`: one `@server.tool` named `<name>`, delegating to the service.
+5. `__init__.py`: `from ._server import server` + `import_submodules(__name__, __path__)`.
+6. `app/schemas/<entity>.py`: pydantic models (classes prefixed `<Entity>`).
+7. `app/tests/features/widgets/tools/test_<name>.py` (+ `utils/test_service.py`).
+
+Then `dude lint && dude test`.

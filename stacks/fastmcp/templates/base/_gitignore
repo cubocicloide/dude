@@ -1,0 +1,24 @@
+# Node / dude toolchain
+node_modules/
+*.tsbuildinfo
+
+# Python
+fastmcp/.venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Security scan reports / scratch
+private/
+
+# OS
+.DS_Store

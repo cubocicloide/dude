@@ -1,0 +1,40 @@
+[project]
+name = "{{projectName}}"
+version = "0.0.1"
+description = "FastMCP server ({{projectName}})"
+requires-python = ">=3.13"
+dependencies = [
+    "fastmcp>=3.4,<4",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.7.0",
+    "mypy>=1.13.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "S", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/tests/**" = ["S101"]  # asserts are the point of a test
+
+[tool.mypy]
+strict = true
+files = ["app"]
+
+[[tool.mypy.overrides]]
+# Production code is fully strict; tests need not annotate pytest fixtures.
+module = "app.tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false

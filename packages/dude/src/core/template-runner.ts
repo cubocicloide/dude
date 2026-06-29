@@ -44,8 +44,9 @@ async function walk(
     // Files prefixed with a single `_` followed by a non-`_` char are
     // renamed to `.` so that dotfiles can be shipped inside the template/
     // directory without confusing npm or git. Python `__init__.py` is left
-    // alone because it starts with `__`.
-    if (/^_[^_]/.test(targetName)) {
+    // alone because it starts with `__`; `.py` files (e.g. a private
+    // `_server.py` module) are left alone too, since dotfiles never end in `.py`.
+    if (/^_[^_]/.test(targetName) && !targetName.endsWith('.py')) {
       targetName = `.${targetName.slice(1)}`
     }
     const destPath = path.join(dest, targetName)

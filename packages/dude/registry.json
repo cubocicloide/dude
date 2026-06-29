@@ -3,6 +3,10 @@
     "react-fastapi": {
       "package": "@cubocicloide/stack-react-fastapi",
       "minimumSupported": "0.1.0"
+    },
+    "fastmcp": {
+      "package": "@cubocicloide/stack-fastmcp",
+      "minimumSupported": "0.1.0"
     }
   }
 }
