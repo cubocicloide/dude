@@ -71,6 +71,32 @@ pnpm --filter @cubocicloide/stack-react-fastapi build
 
 > Never edit anything under `dist/`. Always rebuild after source changes.
 
+### Stack resolution in a source checkout
+
+When the globally installed `@cubocicloide/dude-launcher` is used from within
+the repo clone itself (e.g. running `dude init` inside `/path/to/dude`), the
+stack-loader's workspace-scan fallback will locate `stacks/<name>/` but
+`dist/index.js` will be absent in a fresh checkout. The CLI detects this and
+emits an explicit error:
+
+```
+Stack entry point not found: <path>/dist/index.js
+
+This stack was resolved from a local source-checkout (pnpm workspace).
+The package has not been built yet. Run one of the following to compile it:
+
+  pnpm --filter <pkg-name> build   # build only this stack
+  make build                        # build the entire monorepo
+
+After building, re-run your dude command.
+```
+
+**Resolution order** (`loadStack`):
+1. Explicit filesystem path (spec starts with `.` or `/`).
+2. Node's `require.resolve` — finds the package in project `node_modules` (normal installed use).
+3. pnpm-workspace scan — walks up from `cwd` and from the CLI package dir looking for `pnpm-workspace.yaml`, then matches by `package.json` `name`. This is the source-checkout path.
+4. Cache install — downloads the package to `~/.dude/cache/stacks/` via npm.
+
 ---
 
 ## Template system
