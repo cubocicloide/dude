@@ -1,0 +1,13 @@
+# FastMCP server settings (read only by fastmcp/app/config.py).
+# Copy to .env and adjust. All keys are prefixed MCP_.
+
+# Transport: "stdio" for local desktop/IDE clients, "http" to serve over HTTP.
+MCP_TRANSPORT=http
+MCP_HOST=0.0.0.0
+MCP_PORT=8000
+
+# Host port docker-compose maps the server to (override to avoid clashes).
+MCP_HOST_PORT=8000
+
+# Display name advertised by the server.
+MCP_SERVER_NAME={{projectName}}

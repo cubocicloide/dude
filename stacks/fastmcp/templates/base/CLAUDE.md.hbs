@@ -1,0 +1,68 @@
+# CLAUDE.md — {{projectName}}
+
+Context for Claude when working in this **FastMCP** server. Read it before making
+changes.
+
+## What this is
+
+A FastMCP (Python ≥ 3.13) server scaffolded with `dude`. It is a **modular
+monolith of feature sub-servers**: each bounded context lives under
+`fastmcp/app/features/<name>/` and exposes MCP tools/resources/prompts. The root
+`server.create_server()` auto-discovers and `mount()`s every feature into one
+flat namespace.
+
+## Where things live
+
+```
+fastmcp/app/
+├── __main__.py        # entry point; wires the transport from settings
+├── server.py          # create_server() — discovers + mounts features
+├── config.py          # Settings(BaseSettings) — the ONLY place env vars are read
+├── core/errors.py     # DomainError (service-side) → ToolError (client-facing)
+├── schemas/           # pydantic models; filename = PascalCase class prefix
+├── utils/             # global helpers (discovery.import_submodules, …)
+├── features/<f>/
+│   ├── _server.py     # server = FastMCP(name="<f>")
+│   ├── tools/         # ONE @server.tool per module, fn named after the module
+│   ├── resources/     # ONE @server.resource per module
+│   ├── prompts/       # ONE @server.prompt per module
+│   └── utils/         # service.py (pure logic) + helpers
+└── tests/             # mirrors app/ 1:1 (one test module per source module)
+```
+
+## Hard rules (enforced by `dude lint` — see `.claude/rules/MCP/`)
+
+- **One component per module**, function named after the file
+  (`tools/add.py` → `def add`). Decorators only in their package: `@server.tool`
+  in `tools/`, `@server.resource` in `resources/`, `@server.prompt` in `prompts/`.
+- **Thin binding layer**: components delegate to `features/<f>/utils/service.py`.
+  No I/O libraries or classes in component modules; logic lives in `utils/`.
+- **Schemas** go in `app/schemas/<m>.py`, every class prefixed with the
+  PascalCase of the filename, extending `BaseModel`.
+- **Config** is read only in `config.py` (no `os.getenv`/`os.environ` elsewhere).
+- **Errors**: services raise `DomainError`; components catch it and raise
+  `ToolError`. Never `print` (it corrupts the stdio transport) — use `ctx` or the
+  stdlib logger. Context params are named `ctx: Context` and their function is
+  `async`.
+- **Every source module has a 1-to-1 test** under the mirrored `tests/` path.
+
+## Workflow
+
+```bash
+dude up --build      # start the server (HTTP on :8000/mcp/)
+dude lint            # structural checks — must be clean
+dude test            # pytest (unit + in-memory MCP integration)
+dude review          # lint + ruff + mypy --strict
+dude format          # ruff format + import sort
+```
+
+After adding/changing a tool, resource, prompt, schema, or service, run
+`dude lint && dude test` before committing.
+
+## Adding a feature
+
+See `docs/docs/architecture.md` → "Adding a feature". In short: create
+`features/<name>/` with `_server.py`, a component package, and `utils/service.py`;
+add `__init__.py` that re-exports `server` and calls
+`import_submodules(__name__, __path__)`; add schemas and 1-to-1 tests. No edit to
+`server.py` is ever needed — the loader finds everything.

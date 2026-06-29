@@ -1,0 +1,48 @@
+services:
+  fastmcp:
+    build:
+      context: ./fastmcp
+      dockerfile: Dockerfile
+    ports:
+      # Host port is overridable (MCP_HOST_PORT) to avoid local clashes.
+      - "${MCP_HOST_PORT:-8000}:8000"
+    restart: unless-stopped
+    environment:
+      # Serve over streamable HTTP in the container (stdio is for local clients).
+      MCP_TRANSPORT: ${MCP_TRANSPORT:-http}
+      MCP_HOST: ${MCP_HOST:-0.0.0.0}
+      MCP_PORT: ${MCP_PORT:-8000}
+      MCP_SERVER_NAME: "{{projectName}}"
+    volumes:
+      # Live-reload the source the same way a backend service would.
+      - ./fastmcp/app:/app/app
+
+  # MCP Inspector — the official protocol debugger (dev only). It is NOT a chat:
+  # it's a web UI to manually list/call tools, read resources, render prompts and
+  # see the raw MCP traffic — no LLM, no API key needed.
+  #
+  # Open http://localhost:6274, pick Transport "Streamable HTTP" and connect
+  # to  http://fastmcp:8000/mcp/  (the proxy reaches fastmcp over the compose
+  # network). To chat with the server through an LLM, register it in Claude
+  # Desktop / Claude Code as a stdio server instead — see docs/.
+  inspector:
+    image: node:22-alpine
+    profiles: ["dev"]
+    command: ["npx", "-y", "@modelcontextprotocol/inspector@0.22.0"]
+    environment:
+      HOST: 0.0.0.0                    # bind all interfaces inside the container
+      CLIENT_PORT: 6274                # web UI
+      SERVER_PORT: 6277                # proxy the UI connects through
+      DANGEROUSLY_OMIT_AUTH: "true"    # local dev: skip the proxy session token
+      MCP_AUTO_OPEN_ENABLED: "false"   # don't try to open a browser in the container
+      ALLOWED_ORIGINS: "http://localhost:6274"
+    ports:
+      - "6274:6274"
+      - "6277:6277"
+    depends_on:
+      - fastmcp
+    volumes:
+      - inspector_npm:/root/.npm       # cache the npx download across restarts
+
+volumes:
+  inspector_npm:

@@ -1,0 +1,57 @@
+# {{projectName}}
+
+A [FastMCP](https://gofastmcp.com) server scaffolded with
+[`dude`](https://github.com/cubocicloide/dude). It exposes MCP **tools**,
+**resources** (incl. templates), and **prompts** to any MCP client.
+
+## Quick start
+
+```bash
+# 1. Authenticate the private registry + install the launcher (one-time, global)
+export GITHUB_TOKEN=ghp_your_token_here
+npm install -g @cubocicloide/dude-launcher
+
+# 2. Provision the pinned toolchain
+pnpm install
+
+# 3. Build + start the server (streamable HTTP on http://localhost:8000/mcp/)
+dude up --build
+```
+
+## Try it
+
+```bash
+# MCP Inspector (protocol debugger, no LLM):
+docker compose --profile dev up --build
+# → http://localhost:6274 → "Streamable HTTP" → http://fastmcp:8000/mcp/
+```
+
+To chat with the server through an LLM (Claude Desktop / Claude Code), see
+`docs/docs/connect.md`.
+
+## Common commands
+
+| Command | What it does |
+|---------|--------------|
+| `dude up` / `dude down` | Start / stop the server |
+| `dude logs` / `dude shell` | Follow logs / open a shell in the container |
+| `dude lint` | Structural MCP checks (see `.claude/rules/MCP/`) |
+| `dude format` | `ruff` format + import sort |
+| `dude review` | lint + `ruff check` + `mypy --strict` |
+| `dude test` | pytest (unit + in-memory MCP integration) |
+| `dude security scan` | Bandit + Semgrep + Trivy |
+| `dude docs` | Serve the docs at http://localhost:8001 |
+
+Run `dude help` for the live, full catalog.
+
+## Layout
+
+```
+{{projectName}}/
+├── docker-compose.yml      # fastmcp service + MCP Inspector (dev profile)
+└── fastmcp/                # the service
+    ├── Dockerfile · pyproject.toml · start.sh
+    └── app/                # server.py, config.py, schemas/, utils/, features/, tests/
+```
+
+See `docs/docs/architecture.md` for the architecture and the full rule list.

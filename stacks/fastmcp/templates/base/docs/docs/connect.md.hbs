@@ -1,0 +1,88 @@
+# Connecting a client
+
+The server speaks two transports. Pick by **who** is connecting:
+
+| Transport | Who uses it | How it's launched |
+|-----------|-------------|-------------------|
+| **streamable HTTP** | MCP Inspector, remote clients | the container (`dude up`) serves it on `:8000/mcp/` |
+| **stdio** | Claude Desktop, Claude Code | the client spawns `python -m app` itself |
+
+---
+
+## MCP Inspector (debugger, no LLM)
+
+The official protocol debugger — list/call tools, read resources, render prompts,
+watch raw MCP traffic. No API key.
+
+```bash
+docker compose --profile dev up --build
+```
+
+Open <http://localhost:6274>, choose Transport **"Streamable HTTP"**, and connect to:
+
+```
+http://fastmcp:8000/mcp/
+```
+
+(The Inspector proxy reaches the server over the compose network by its service
+name, `fastmcp`.)
+
+---
+
+## Claude Desktop (chat, stdio)
+
+Claude Desktop spawns the server itself over **stdio**, so it does not use the
+running container — it runs the Python package directly. Provision the venv once:
+
+```bash
+cd fastmcp && uv sync
+```
+
+Then add the server to
+`~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "{{projectName}}": {
+      "command": "<ABSOLUTE_PATH>/fastmcp/.venv/bin/python",
+      "args": ["-m", "app"],
+      "env": {
+        "MCP_TRANSPORT": "stdio",
+        "PYTHONPATH": "<ABSOLUTE_PATH>/fastmcp"
+      }
+    }
+  }
+}
+```
+
+Replace `<ABSOLUTE_PATH>` with the absolute path to this project. Restart Claude
+Desktop; the tools appear under the 🔧 icon.
+
+!!! warning "Use the venv's Python, not `uv run`"
+    Claude Desktop does not honour a `cwd`, so `uv run` resolves the wrong
+    interpreter and you get `No module named app`. Point `command` straight at
+    `fastmcp/.venv/bin/python` and set `PYTHONPATH` to the `fastmcp/` folder.
+
+!!! note "Local stdio servers need `command`, not `url`"
+    The `{"url": "…"}` form is only for remote servers added via claude.ai. A
+    locally-run server must be configured as a `command` (stdio) entry.
+
+---
+
+## Claude Code (chat, stdio or HTTP)
+
+stdio (spawns the package):
+
+```bash
+claude mcp add {{projectName}} \
+  --env MCP_TRANSPORT=stdio \
+  --env PYTHONPATH="$PWD/fastmcp" \
+  -- "$PWD/fastmcp/.venv/bin/python" -m app
+```
+
+or HTTP (against the running container — `dude up` first):
+
+```bash
+claude mcp add {{projectName}} --transport http http://localhost:8000/mcp/
+```

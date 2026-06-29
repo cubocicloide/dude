@@ -1,0 +1,119 @@
+# Working with dude
+
+[`dude`](https://github.com/cubocicloide/dude) is the project CLI — a single
+entry point for all development tasks. Run `dude help` for a live overview, and
+`dude help <command>` (or `dude help <group> <sub>`) for a command's flags.
+
+---
+
+## Installation
+
+`dude` ships as a **private package** on GitHub Packages. What you install
+globally is the tiny **launcher** (`@cubocicloide/dude-launcher`); it then runs
+each project's *pinned* CLI + stack automatically — no manual version switching.
+
+```bash
+# 1. One-time machine setup — authenticate the private @cubocicloide registry.
+#    Add these two lines to ~/.npmrc:
+#      @cubocicloide:registry=https://npm.pkg.github.com
+#      //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+#    …and export a GitHub token with the `read:packages` scope:
+export GITHUB_TOKEN=ghp_your_token_here
+
+# 2. Install the launcher globally (the only global install).
+npm install -g @cubocicloide/dude-launcher
+```
+
+Then, inside this project:
+
+```bash
+pnpm install      # installs the pinned @cubocicloide/dude CLI + stack
+dude version      # verify the resolved CLI + stack versions
+```
+
+---
+
+## Running the server
+
+All of these wrap `docker compose`. The `docker-compose.yml` at the project root
+defines the `fastmcp` service (and the Inspector behind the `dev` profile).
+
+| Command | Description |
+|---------|-------------|
+| `dude up --build` | Build the image and start the server (streamable HTTP on `:8000`) |
+| `dude up` | Start the server (detached) |
+| `dude down` | Stop and remove containers |
+| `dude logs` | Follow logs for all services |
+| `dude logs fastmcp` | Follow logs for the server |
+| `dude shell` | Open a shell in the `fastmcp` container (default service) |
+
+Re-run `dude up --build` whenever you change the `Dockerfile` or `pyproject.toml`.
+
+To connect a client (Inspector, Claude Desktop, Claude Code), see
+[Connecting a client](connect.md).
+
+---
+
+## Code quality
+
+| Command | Description |
+|---------|-------------|
+| `dude lint` | Run all structural MCP checks (layout, component placement, naming, …) |
+| `dude format` | Format the server with `ruff` (format + import sort) |
+| `dude review` | Run `dude lint` + `ruff check` + `mypy --strict` in one pass |
+| `dude upgrade` | Update the pinned `dude` CLI and stack versions for this project |
+
+The MCP rules enforced by `dude lint` are documented in
+[Architecture](architecture.md) and in `.claude/rules/MCP/`.
+
+---
+
+## Testing
+
+| Command | Description |
+|---------|-------------|
+| `dude test` | Run the pytest suite (unit + in-memory MCP integration) |
+| `dude test --k <expr>` | Only run tests matching a pytest `-k` expression |
+
+Tests run inside the `fastmcp` container when it's up, otherwise against a local
+`uv` virtualenv.
+
+---
+
+## Security scanning
+
+All scanners run inside Docker — no host-level tool installation required.
+Results are written to `private/sast-reports/latest/`.
+
+| Command | Description |
+|---------|-------------|
+| `dude security scan` | Run all scanners; exit 1 if new findings ≥ HIGH |
+| `dude security scan --only bandit,semgrep` | Run a subset of scanners |
+| `dude security scan --fail-on CRITICAL` | Raise the failure threshold |
+| `dude security accept` | Re-scan and absorb all findings into the baseline |
+| `dude security verify --rule-id B105` | Confirm a specific finding has been fixed |
+
+| Scanner | What it checks |
+|---------|---------------|
+| `bandit` | Python AST — common security anti-patterns |
+| `semgrep` | Python + Dockerfile security rules |
+| `trivy-fs` | Filesystem: vulnerabilities, IaC misconfigs, secrets |
+| `trivy-image` | Container image CVEs (requires built image) |
+
+!!! note "Baseline"
+    `security/baseline.json` must be committed — it is the source of truth for
+    accepted findings. Subsequent scans only flag findings **not** in the baseline.
+
+---
+
+## Documentation
+
+| Command | Description |
+|---------|-------------|
+| `dude docs` | Serve this documentation in dev mode at <http://localhost:8001> |
+| `dude docs --port 9000` | Use a custom port |
+| `dude help --format md` | Print the full command reference as Markdown |
+| `dude help --format json` | Print the same catalog as JSON (for tooling / LLMs) |
+
+The **Command reference** page is regenerated from the live command catalog every
+time you run `dude docs`.
