@@ -1,0 +1,25 @@
+# Production image — self-contained (no bind mounts), runtime deps only,
+# non-root. Built and pushed to ECR by `dude iac build` / `dude iac ship`.
+FROM python:3.13-slim
+WORKDIR /app
+
+# Install uv (fast Python package manager)
+RUN pip install --no-cache-dir uv
+
+# Runtime dependencies only (no pytest/ruff/mypy in the production image).
+COPY pyproject.toml .
+RUN uv sync --no-cache --no-dev
+
+# Bake the application in — unlike the dev image, nothing is bind-mounted.
+COPY app/ ./app/
+
+RUN useradd --system --create-home appuser
+USER appuser
+
+# Serve over streamable HTTP; ECS/compose can still override any MCP_* var.
+ENV MCP_TRANSPORT=http \
+    MCP_HOST=0.0.0.0 \
+    MCP_PORT=8000
+
+EXPOSE 8000
+CMD ["/app/.venv/bin/python", "-m", "app"]

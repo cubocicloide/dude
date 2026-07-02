@@ -11,6 +11,8 @@ import importlib
 import pkgutil
 
 from fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 
 from app import features
 from app.config import settings
@@ -41,4 +43,12 @@ def create_server() -> FastMCP:
     app = FastMCP(name=settings.server_name, instructions=settings.instructions)
     for feature_server in discover_feature_servers():
         app.mount(feature_server)
+
+    # Plain-HTTP liveness probe (NOT an MCP endpoint): load balancers and
+    # orchestrators need a route that answers 200 without MCP headers or a
+    # session. Only served on the HTTP transports; inert over stdio.
+    @app.custom_route("/health", methods=["GET"])
+    async def health(_: Request) -> PlainTextResponse:
+        return PlainTextResponse("ok")
+
     return app

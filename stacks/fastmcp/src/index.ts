@@ -3,6 +3,7 @@ import { defineStack, renderTemplateTree } from '@cubocicloide/dude'
 import { docsCommand } from './commands/docs/index.js'
 import { downCommand } from './commands/down/index.js'
 import { formatCommand } from './commands/format/index.js'
+import { iacCommands } from './commands/iac/index.js'
 import { lintCommand } from './commands/lint/index.js'
 import { logsCommand } from './commands/logs/index.js'
 import { reviewCommand } from './commands/review/index.js'
@@ -29,27 +30,44 @@ export default defineStack({
       pattern: '^[a-z][a-z0-9-]*$',
       default: 'my-mcp',
     },
+    {
+      name: 'iac',
+      type: 'select',
+      prompt: 'Infrastructure-as-Code (Terraform, AWS ECS Fargate)',
+      choices: ['none', 'aws-ecs'],
+      default: 'none',
+    },
   ],
 
   async scaffold(ctx) {
     const { answers, dest, stackRoot, dudeVersion, stackVersion } = ctx
 
+    const withIac = answers.iac === 'aws-ecs'
+
     const data: Record<string, unknown> = {
       ...answers,
+      withIac,
       dudeVersion,
       stackVersion,
     }
 
     const templates = path.join(stackRoot, 'templates')
 
-    // Base template — always rendered. This stack ships a single Python service,
-    // so there are no conditional overlays (unlike react-fastapi).
+    // Base template — always rendered. The stack ships a single Python service,
+    // so the only conditional overlay is the IaC one.
     await renderTemplateTree({ src: path.join(templates, 'base'), dest, data })
+
+    // IaC overlay — Terraform for ECS Fargate + ALB, the production Dockerfile,
+    // the IaC runner and the deploy docs page.
+    if (withIac) {
+      await renderTemplateTree({ src: path.join(templates, 'aws-ecs'), dest, data })
+    }
   },
 
   hooks: {
     async postInit(ctx) {
       const name = String(ctx.answers.projectName ?? 'your-project')
+      const withIac = ctx.answers.iac === 'aws-ecs'
 
       ctx.logger.info('Project scaffolded. Next steps:')
       ctx.logger.info('')
@@ -70,6 +88,14 @@ export default defineStack({
       ctx.logger.info('')
       ctx.logger.info('  Endpoints:')
       ctx.logger.info('    MCP server: http://localhost:8000/mcp/')
+      if (withIac) {
+        ctx.logger.info('')
+        ctx.logger.info('  Deploy to AWS ECS Fargate (Terraform) — see iac/README.md:')
+        ctx.logger.info('       dude iac login --env dev')
+        ctx.logger.info('       dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes')
+        ctx.logger.info('       dude iac init --env dev && dude iac apply --env dev')
+        ctx.logger.info('       dude iac ship --env dev')
+      }
     },
   },
 
@@ -90,5 +116,6 @@ export default defineStack({
       accept: securityAcceptCommand,
       verify: securityVerifyCommand,
     },
+    iac: iacCommands,
   },
 })

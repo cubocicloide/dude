@@ -1,0 +1,91 @@
+# Bootstrap — creates the project-wide shared resources: the S3 bucket +
+# DynamoDB table that hold Terraform remote state for every environment, and the
+# ECR repository the server image is pushed to. These are SHARED across all
+# environments (one image, promoted dev → staging → prod by tag), so they have a
+# single owner here rather than being recreated by each per-env config — which
+# would otherwise collide (RepositoryAlreadyExistsException) and let one env's
+# `destroy` delete another env's registry. Run ONCE per project, with LOCAL state
+# (this config has no remote backend on purpose), then paste the outputs into
+# each environment's backend.hcl.
+#
+#   cd iac/terraform/bootstrap
+#   terraform init
+#   terraform apply -var project_name={{projectName}} -var region=eu-west-1
+
+terraform {
+  required_version = ">= 1.6.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.60"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.region
+
+  # Pin to the standard public endpoints — the AWS provider 5.x enables
+  # endpoint discovery by default for DynamoDB, which can return a
+  # VPC-endpoint-scoped URL that doesn't resolve from a local machine.
+  endpoints {
+    dynamodb = "https://dynamodb.${var.region}.amazonaws.com"
+    s3       = "https://s3.${var.region}.amazonaws.com"
+  }
+}
+
+resource "aws_s3_bucket" "state" {
+  bucket = "${var.state_bucket_prefix}-${var.project_name}-tfstate"
+
+  # Allow `dude iac destroy` to remove the bucket even though versioning keeps
+  # old object versions around (the command also empties it first).
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_versioning" "state" {
+  bucket = aws_s3_bucket.state.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
+  bucket = aws_s3_bucket.state.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "state" {
+  bucket                  = aws_s3_bucket.state.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_dynamodb_table" "lock" {
+  name         = "${var.project_name}-tflock"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "LockID"
+
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
+}
+
+# Shared ECR repository — one image, used by every environment. Per-env
+# Terraform reads it by name via a data source; it is created/destroyed only
+# here, with the rest of the shared backend.
+resource "aws_ecr_repository" "server" {
+  name                 = "${var.project_name}-server"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}

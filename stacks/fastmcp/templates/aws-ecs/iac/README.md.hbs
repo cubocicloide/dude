@@ -1,0 +1,120 @@
+# Infrastructure as Code — AWS ECS Fargate (Terraform)
+
+This directory deploys **{{projectName}}** to AWS: one stateless FastMCP
+container on **ECS Fargate**, behind an internet-facing **Application Load
+Balancer**, with the image in a shared **ECR** repository and Terraform state
+in **S3 + DynamoDB**.
+
+Everything is driven through `dude iac <command>` — see `dude help iac`. All
+commands are environment-scoped via `--env <name>` (required, no default); run
+any of them without it to list the environments found under
+`terraform/environments/`.
+
+> **No auth ships with the scaffold.** Anything that can reach the ALB can call
+> your MCP tools. Restrict `allowed_cidrs` in `terraform.tfvars` (or add a
+> FastMCP auth provider) before exposing the endpoint beyond your org.
+
+## Layout
+
+```
+iac/
+├── runner/Dockerfile          # container the IaC toolchain runs in (yours to edit)
+└── terraform/
+    ├── main.tf                # VPC, ALB, ECS cluster/service, TLS+DNS (optional)
+    ├── variables.tf           # all knobs, documented
+    ├── outputs.tf             # mcp_url, ECR URL, cluster/service names, log group
+    ├── bootstrap/             # ONCE per project: S3 state + DynamoDB lock + ECR
+    └── environments/
+        └── dev/
+            ├── backend.hcl        # where this env's remote state lives
+            └── terraform.tfvars   # this env's knobs (sizing, domain, image tag)
+```
+
+- **`bootstrap/`** owns the project-wide shared resources (state bucket, lock
+  table, ECR repository). It runs with **local state**, once, via
+  `dude iac bootstrap`. Every environment then shares them, differing only by
+  its state `key`.
+- **`environments/<env>/`** is what makes an environment exist. Adding one =
+  adding a folder with those two files (`dude iac new-env` does it for you).
+
+## The IaC runner
+
+`dude iac *` runs terraform inside a Docker container built from
+`runner/Dockerfile`, so you don't install or version-match it locally. The
+image is tagged by a hash of the Dockerfile — edit the file and the next
+command rebuilds automatically. `~/.aws` is mounted read-only (profiles + SSO
+keep working); `aws` and `docker build/push` run on the host. Set
+`DUDE_IAC_RUNNER=host` to bypass the runner entirely.
+
+## Command reference
+
+| Command | What it does |
+|---------|--------------|
+| `dude iac login --env <e>` | Configure/verify AWS credentials (maps `--env` → profile `{{projectName}}-<env>`, or `$AWS_PROFILE`). |
+| `dude iac bootstrap --state-bucket-prefix <p> --env <e>` | ONCE per project: create S3 state bucket + DynamoDB lock + ECR repo, then wire `backend.hcl`. |
+| `dude iac new-env --env <name> [--from <e>]` | Scaffold a new environment folder by copying an existing one. |
+| `dude iac init --env <e>` | `terraform init` against the env's remote backend. |
+| `dude iac plan --env <e>` | `terraform plan`. |
+| `dude iac apply --env <e> [--yes]` | Provision/update the infrastructure. |
+| `dude iac build --env <e> [--tag <t>] [--platform <p>]` | Build the production image (`fastmcp/Dockerfile.prod`), tagged for ECR. |
+| `dude iac push --env <e> [--tag <t>]` | ECR login + push. |
+| `dude iac deploy --env <e> [--tag <t>]` | Record the tag in `terraform.tfvars` and roll the ECS service onto it. |
+| `dude iac ship --env <e> [--tag <t>]` | build + push + deploy in one step. |
+| `dude iac status --env <e>` | Service state, running tasks, recent deployment events. |
+| `dude iac logs --env <e> [--since 15m] [--follow]` | Tail the service's CloudWatch logs. |
+| `dude iac output --env <e> [--json]` | Terraform outputs (`mcp_url`, ECR URL, …). |
+| `dude iac fmt` / `dude iac validate` | `terraform fmt -recursive` / `terraform validate`. |
+| `dude iac shell --env <e>` | Interactive shell in the runner container (terraform + aws). |
+| `dude iac destroy --env <e> [--keep-backend] [--skip-tf]` | Tear the env down; the shared backend + ECR go only with the last live env. |
+
+## First deploy
+
+```bash
+dude iac login --env dev
+dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes
+dude iac init --env dev
+dude iac apply --env dev     # first apply: tasks fail to pull until the first push — expected
+dude iac ship --env dev
+dude iac status --env dev
+```
+
+The MCP endpoint is the `mcp_url` Terraform output
+(`http(s)://<alb-or-domain>/mcp/`, streamable HTTP). The ALB health-checks the
+server's plain `/health` route.
+
+## Image tags and deploys
+
+`dude iac build` tags images with the **git short SHA** (suffixed `-dirty` when
+the tree has uncommitted changes) unless you pass `--tag`. `deploy` writes that
+tag into `environments/<env>/terraform.tfvars` (`image_tag = "…"`), then runs a
+targeted `terraform apply` — so the tfvars file is always the source of truth
+for what each env runs, and a plain `dude iac apply` never silently changes the
+deployed version. Default build platform is `linux/amd64` (Fargate x86); pass
+`--platform` to override.
+
+## Costs (rough, eu-west-1, always-on dev)
+
+| Item | ~$/month |
+|------|----------|
+| Fargate task (0.25 vCPU / 0.5 GB) | ~9 |
+| Application Load Balancer | ~20 |
+| ECR / S3 / DynamoDB / CloudWatch | ~1 |
+
+No NAT gateways (~$65/month saved): tasks live in public subnets with a public
+IP, but their security group only admits traffic from the ALB. Move them to
+private subnets + NAT if compliance requires it.
+
+## Troubleshooting
+
+- **Tasks keep stopping with `CannotPullContainerError`** — no image at the
+  configured tag yet. Run `dude iac ship --env <e>`.
+- **ALB target unhealthy** — check `dude iac logs --env <e>`; the target group
+  probes `GET /health` and expects a 200 (the scaffold serves it next to
+  `/mcp/`).
+- **MCP client disconnects mid-stream** — check `alb_idle_timeout` in
+  `variables.tf` (default 3600s); every idle SSE stream longer than that is
+  severed.
+- **`terraform init` fails with a backend error** — the backend.hcl still has
+  the `CHANGE-ME` placeholder: run `dude iac bootstrap` first.
+- **State lock stuck** — `dude iac shell --env <e>`, then
+  `terraform -chdir=terraform force-unlock <id>`.
