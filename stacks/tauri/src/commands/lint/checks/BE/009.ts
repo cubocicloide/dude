@@ -39,6 +39,16 @@ export default function check(root: string): RawDiagnostic[] {
       severity: 'error',
       message: `Bundle identifier "${identifier || '(empty)'}" is a placeholder — set a real reverse-domain identifier (e.g. com.acme.myapp).`,
     })
+  } else if (/[^a-zA-Z0-9.]/.test(identifier)) {
+    // Android package names forbid dashes; Apple bundle IDs forbid underscores.
+    // Alphanumeric dot-separated segments are the portable intersection.
+    diagnostics.push({
+      file: rel,
+      line: 1,
+      col: 1,
+      severity: 'warning',
+      message: `Bundle identifier "${identifier}" is not mobile-portable — Android forbids dashes and Apple forbids underscores. Use alphanumeric dot-separated segments (e.g. com.acme.myapp) before running \`dude android|ios init\`.`,
+    })
   }
 
   const app = (conf.app ?? {}) as Record<string, unknown>

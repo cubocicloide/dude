@@ -70,6 +70,15 @@ Command modules keep query logic in plain functions over `&Connection`, so the
 unit tests run the real schema against an in-memory database.
 
 {{/if}}
+## One codebase, five platforms
+
+Everything above is platform-agnostic: `main.rs` is a thin desktop shim
+(BE002) and `run()` in `lib.rs` carries
+`#[cfg_attr(mobile, tauri::mobile_entry_point)]` (BE012), so the identical
+commands/state/events serve macOS, Windows, Linux, iOS and Android. The native
+mobile projects live under `src-tauri/gen/` after `dude android|ios init` —
+see [Mobile](mobile.md).
+
 ## Security: capabilities & CSP
 
 `src-tauri/capabilities/default.json` grants the main window exactly the

@@ -1,0 +1,98 @@
+# Distributing the desktop app
+
+`dude build` produces installers under `src-tauri/target/release/bundle/`
+(`.dmg`/`.app` on macOS, `.msi`/`.exe` on Windows, `.deb`/`.AppImage`/`.rpm`
+on Linux). Building the binary is only half the story: to hand it to someone
+else without friction you also need to **sign** (and on macOS **notarize**)
+it. This page explains why, and how.
+
+## The symptom: "{{projectName}} is damaged and can't be opened"
+
+If a colleague downloads your `.dmg` and macOS says the app *is damaged and
+can't be opened — move it to the Bin*, **the app is not corrupt.** This is
+Gatekeeper rejecting an app that is not signed with an Apple Developer ID and
+not notarized.
+
+What happens:
+
+1. By default `dude build` produces an **ad-hoc signed** app (no Developer ID).
+   That is enough to run on the machine that built it, but nowhere else.
+2. When the file is downloaded / AirDropped / sent over the internet, macOS
+   tags it with the `com.apple.quarantine` attribute.
+3. On the recipient's Mac, Gatekeeper sees "quarantined + not a valid
+   Developer ID + not notarized" and blocks it. On Apple Silicon this shows up
+   as the misleading *"damaged"* message.
+
+### Unblock a build without signing (dev / internal only)
+
+The recipient can strip the quarantine attribute manually:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/{{projectName}}.app
+```
+
+(The usual right-click → **Open** does **not** clear the *"damaged"* message —
+`xattr` is required.) This is fine for a teammate testing a build; it is **not**
+an acceptable experience for real distribution. For that, sign and notarize.
+
+## macOS: Developer ID signing + notarization
+
+Requires a paid [Apple Developer](https://developer.apple.com/programs/)
+account. Tauri signs and notarizes during `dude build` when you provide the
+credentials.
+
+1. Add your Developer ID and (recommended) hardened-runtime entitlements to
+   `src-tauri/tauri.conf.json`:
+
+   ```json
+   {
+     "bundle": {
+       "macOS": {
+         "signingIdentity": "Developer ID Application: Your Name (TEAMID)",
+         "entitlements": "entitlements.plist"
+       }
+     }
+   }
+   ```
+
+2. Export the notarization credentials as environment variables before
+   building (use an app-specific password **or** an App Store Connect API key,
+   not your real Apple ID password):
+
+   ```bash
+   export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+   # notarization — either the Apple ID trio…
+   export APPLE_ID="you@example.com"
+   export APPLE_PASSWORD="app-specific-password"
+   export APPLE_TEAM_ID="TEAMID"
+   # …or an API key:
+   # export APPLE_API_ISSUER=… APPLE_API_KEY=… APPLE_API_KEY_PATH=…
+
+   dude build
+   ```
+
+Tauri signs the bundle, submits it to Apple for notarization, and staples the
+ticket to the `.dmg`. The result opens with a double-click on any Mac.
+
+Full reference: [Tauri — macOS code signing](https://tauri.app/distribute/sign/macos/).
+
+## Windows: signing to avoid SmartScreen
+
+Unsigned Windows installers trigger a **SmartScreen** "unknown publisher"
+warning. Sign the installer with a code-signing certificate (an OV certificate
+still warns until reputation builds; an **EV** certificate is trusted
+immediately). Configure `bundle.windows.certificateThumbprint` (or use the
+Azure Trusted Signing / `signCommand` options) in `tauri.conf.json`. See
+[Tauri — Windows code signing](https://tauri.app/distribute/sign/windows/).
+
+## Linux
+
+`.AppImage` and `.deb`/`.rpm` don't require signing to run, but sign your
+`.deb`/`.rpm` (GPG) if you publish through a repository so package managers can
+verify integrity.
+
+## CI
+
+Signing secrets should live in your CI provider's secret store, exported as the
+same environment variables shown above, so release builds are signed
+automatically. Never commit certificates or credentials to the repo.

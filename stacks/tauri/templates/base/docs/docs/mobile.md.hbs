@@ -1,0 +1,70 @@
+# Mobile (iOS / Android)
+
+The same codebase — React frontend, Rust commands, state, events — also builds
+native mobile apps. `lib.rs` carries the mobile entry point
+(`#[cfg_attr(mobile, tauri::mobile_entry_point)]`, rule BE012), so no code
+changes are needed to go mobile.
+
+## Prerequisites
+
+Run `dude doctor` — the "(mobile)" rows tell you what is missing.
+
+- **Android** (any OS): Android Studio with SDK + NDK, `ANDROID_HOME` and
+  `NDK_HOME` exported, a Java runtime. See the
+  [Tauri prerequisites](https://tauri.app/start/prerequisites/#android).
+- **iOS** (macOS only): full Xcode (the Command Line Tools alone are not
+  enough) and CocoaPods (`brew install cocoapods`).
+
+The Rust cross-compilation targets are installed automatically by
+`dude android init` / `dude ios init`.
+
+## One-time setup per platform
+
+```bash
+dude android init   # generates src-tauri/gen/android + installs Rust targets
+dude ios init       # generates src-tauri/gen/apple  + installs Rust targets
+```
+
+Both commands also refresh the app icons into the generated native project
+(from `app-icon.png`). **Commit `src-tauri/gen/`** — the native projects are
+scaffolded once and version-controlled; you edit them for native-level
+customisation (permissions in `AndroidManifest.xml`, `Info.plist`, signing).
+
+## Development
+
+```bash
+dude android dev            # emulator (or Android Studio via --open)
+dude ios dev                # simulator (or Xcode via --open)
+
+dude android dev --host     # physical device on the same network
+dude ios dev --host
+```
+
+`--host` exposes the Vite dev server on your LAN IP (wired through
+`TAURI_DEV_HOST` in `vite.config.ts`) so the device can reach it. Hot-reload
+works on device.
+
+## Release builds
+
+```bash
+dude android build --aab                  # Play Store bundle
+dude android build --apk --target aarch64 # sideloadable APK, one ABI
+dude ios build                            # IPA (App Store Connect export)
+dude ios build --export-method debugging  # ad-hoc/dev IPA
+```
+
+Signing is configured in the native projects: keystore setup for Android in
+`src-tauri/gen/android`, certificates/profiles for iOS via Xcode in
+`src-tauri/gen/apple`. See the
+[Tauri distribution guide](https://tauri.app/distribute/) for store-specific
+steps.
+
+## Caveats
+
+- The `identifier` in `tauri.conf.json` must stay alphanumeric-dot-separated
+  (rule BE009): Android forbids dashes, Apple forbids underscores.
+- Plugin support differs per platform — check each plugin's platform table
+  before relying on it in mobile builds (log and opener both support mobile).
+- The window size settings in `tauri.conf.json` are ignored on mobile; the
+  webview fills the screen. Test responsive layouts (the antd grid used on the
+  Home page already adapts).

@@ -1,7 +1,8 @@
 # {{projectName}}
 
-A cross-platform desktop app built with [Tauri 2](https://tauri.app) — React +
-Ant Design frontend, Rust backend. Scaffolded with
+A cross-platform app built with [Tauri 2](https://tauri.app) — React +
+Ant Design frontend, Rust backend — targeting desktop (macOS, Windows, Linux)
+and mobile (iOS, Android) from the same codebase. Scaffolded with
 [dude](https://github.com/cubocicloide/dude) (`tauri` stack).
 
 ## Quick start
@@ -15,17 +16,27 @@ dude dev      # run the desktop app with hot-reload
 
 ## Everyday commands
 
-| Command       | What it does                                                  |
-| ------------- | ------------------------------------------------------------- |
-| `dude dev`    | Run the app in development mode (Vite + Rust hot-reload).     |
-| `dude build`  | Build the distributable installers (`src-tauri/target/…`).    |
-| `dude lint`   | Structural checks — FE (React) + BE (Rust/Tauri) conventions. |
-| `dude format` | prettier (frontend) + cargo fmt (backend).                    |
-| `dude review` | lint + ESLint + tsc + cargo fmt --check + cargo clippy.       |
-| `dude test`   | cargo test (unit tests live next to each command module).     |
-| `dude docs`   | Serve the project docs (MkDocs) at http://localhost:8001.     |
-| `dude icon`   | Regenerate the app icon set from `app-icon.png`.              |
-| `dude help`   | Live catalog of every available command.                      |
+| Command              | What it does                                                     |
+| -------------------- | ---------------------------------------------------------------- |
+| `dude dev`           | Run the desktop app in development mode (Vite + Rust hot-reload).|
+| `dude build`         | Build the distributable installers (`src-tauri/target/…`).† |
+| `dude android init`  | One-time Android setup (Rust targets + native project).          |
+| `dude android dev`   | Run on an Android emulator/device (`--host` for real devices).   |
+| `dude android build` | Build the APK/AAB.                                               |
+| `dude ios init`      | One-time iOS setup (macOS only).                                 |
+| `dude ios dev`       | Run on an iOS simulator/device.                                  |
+| `dude ios build`     | Build the IPA.                                                   |
+| `dude lint`          | Structural checks — FE (React) + BE (Rust/Tauri) conventions.    |
+| `dude format`        | prettier (frontend) + cargo fmt (backend).                       |
+| `dude review`        | lint + ESLint + tsc + cargo fmt --check + cargo clippy.          |
+| `dude test`          | cargo test (unit tests live next to each command module).        |
+| `dude docs`          | Serve the project docs (MkDocs) at http://localhost:8001.        |
+| `dude icon`          | Regenerate the app icon set from `app-icon.png`.                 |
+| `dude help`          | Live catalog of every available command.                         |
+
+† Installers are ad-hoc signed by default (they run locally but show
+"damaged"/SmartScreen elsewhere). See `docs/docs/distribute.md` for Developer
+ID signing + notarization.
 
 ## Where things live
 
