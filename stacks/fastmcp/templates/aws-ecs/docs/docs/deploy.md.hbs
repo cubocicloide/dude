@@ -1,0 +1,155 @@
+# Deploy — AWS ECS Fargate (Terraform)
+
+This project was scaffolded with the **AWS ECS** IaC target. The server is a
+single stateless container, so it runs on **ECS Fargate behind an Application
+Load Balancer** — no Kubernetes control plane to pay for, no Helm, just
+Terraform. Every command is scoped per environment via `--env`, which is
+**required** (no default) — run a command without it to list the environments
+discovered under `iac/terraform/environments/`. Add a new one with
+`dude iac new-env --env <name>`. State lives in S3 + DynamoDB, so the same
+commands run locally and in CI.
+
+!!! info "The IaC runner (Docker)"
+    `dude iac *` runs terraform inside a pinned container built from
+    `iac/runner/Dockerfile` (yours to edit) — so you only need **Docker** and
+    the `aws` CLI installed. Your `~/.aws` is mounted read-only, so profiles
+    and SSO keep working. `dude iac login` stays on the host (it needs a
+    browser for SSO). Set `DUDE_IAC_RUNNER=host` to use your local tools
+    instead.
+
+!!! warning "The scaffolded server has no authentication"
+    Anything that can reach the ALB can call your MCP tools. Until you add
+    auth (e.g. a FastMCP auth provider), restrict `allowed_cidrs` in
+    `terraform.tfvars` to your org's networks.
+
+## Why ECS Fargate (and not EKS / App Runner / Lambda)
+
+| Option | Verdict |
+|--------|---------|
+| **ECS Fargate + ALB** | ✅ Serverless containers, native SSE support, ~the cheapest way to run one always-on container behind TLS |
+| EKS | Control plane alone (~$73/month) + node group + Helm complexity for a single stateless container |
+| App Runner | Simpler, but buffers responses — breaks the long-lived SSE streams MCP's streamable-HTTP transport uses |
+| Lambda | MCP sessions live in process memory; ephemeral instances break them |
+
+## What gets provisioned
+
+| Layer | Resource | Notes |
+|-------|----------|-------|
+| Network | VPC + 2 public subnets | no NAT gateways — tasks get a public IP, but their security group only admits the ALB |
+| Compute | ECS cluster + Fargate service | `task_cpu`/`task_memory`/`desired_count` in `terraform.tfvars` |
+| Ingress | Application Load Balancer | health-checks the scaffold's `/health` route; `idle_timeout` raised for SSE |
+| Registry | 1× ECR repository | `{{projectName}}-server` — **shared** across envs, created once by `dude iac bootstrap` |
+| TLS / DNS *(optional)* | ACM certificate + Route53 record | set `domain_name`/`route53_zone_name` to serve HTTPS on your domain |
+| Logs | CloudWatch log group | `dude iac logs --env <env>` tails it |
+| State backend | S3 bucket (versioned) + DynamoDB lock table | created once by `dude iac bootstrap` |
+
+## Deploy, in order
+
+```bash
+# 1. Authenticate to AWS for this environment (maps --env → an AWS profile)
+dude iac login --env dev
+
+# 2. One-time per project: create the shared backend (S3 state + DynamoDB lock)
+#    and the shared ECR repo, then wire backend.hcl. The prefix must be globally
+#    unique (e.g. your org slug). You do NOT repeat this for additional envs.
+dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes
+
+# 3. Initialise Terraform against the remote backend
+dude iac init --env dev
+
+# 4. Provision the infrastructure (VPC, ALB, ECS service; ECR comes from bootstrap).
+#    The service starts with no image pushed yet, so its tasks fail to pull until
+#    step 5 — that's expected on the very first deploy.
+dude iac apply --env dev
+
+# 5. Build, push and deploy the server in one step. This tags the image with the
+#    git SHA, pushes it to ECR, records the tag in terraform.tfvars and rolls the
+#    ECS service onto it.
+dude iac ship --env dev
+```
+
+Check what's running:
+
+```bash
+dude iac status --env dev          # service state, running tasks, recent events
+dude iac logs   --env dev          # tail the CloudWatch logs
+dude iac output --env dev          # mcp_url, ECR URL, cluster/service names…
+```
+
+Then connect any MCP client (or the Inspector) to the `mcp_url` output —
+`http(s)://<host>/mcp/` over streamable HTTP.
+
+## Add another environment (staging, prod, …)
+
+Environments are independent infrastructure (their own VPC, ALB, service) that
+**share one backend and one ECR repository** — they differ only by their
+Terraform state `key`. So adding `staging` does **not** require another
+`bootstrap`; you scaffold the env folder, adjust its knobs, then init + apply.
+
+```bash
+dude iac new-env --env staging            # or --from prod to copy a different one
+
+# Review iac/terraform/environments/staging/terraform.tfvars (sizing, domain, …)
+
+dude iac login --env staging
+dude iac init  --env staging
+dude iac apply --env staging
+dude iac ship  --env staging
+```
+
+> **Promoting an image.** Because the ECR repo is shared, you can deploy the
+> exact image already built for one env to another instead of rebuilding:
+> `dude iac deploy --env staging --tag <sha>` (use the tag recorded in
+> `environments/dev/terraform.tfvars`).
+
+## HTTPS on a custom domain *(optional)*
+
+Set these in `iac/terraform/environments/dev/terraform.tfvars` (the Route53
+hosted zone must already exist), then re-run `dude iac apply --env dev`:
+
+```hcl
+domain_name       = "mcp.example.com"
+route53_zone_name = "example.com"
+```
+
+Terraform issues a DNS-validated ACM certificate, points the domain at the ALB,
+and switches the ALB to 443 with an HTTP→HTTPS redirect.
+
+## Scaling beyond one task
+
+`desired_count` defaults to **1** on purpose: MCP sessions (streamable HTTP)
+live in the task's memory, so with multiple tasks behind the ALB a client's
+follow-up requests can land on a task that doesn't know its session. Before
+raising it, run the server stateless (see the FastMCP docs on
+`stateless_http`) so any task can serve any request.
+
+## Debugging
+
+```bash
+dude iac logs  --env dev --follow       # live CloudWatch tail
+dude iac shell --env dev                # shell in the runner (terraform + aws)
+```
+
+The ECS service has **ECS Exec** enabled, so you can also open a shell inside
+the running container:
+
+```bash
+aws ecs execute-command --cluster {{projectName}}-dev \
+  --task <task-id> --container fastmcp --interactive --command /bin/bash
+```
+
+## Tear down
+
+```bash
+dude iac destroy --env staging        # destroy non-last envs first
+dude iac destroy --env dev            # the last env also removes the shared backend + ECR
+```
+
+`destroy` runs `terraform destroy` for the environment. The **shared
+bootstrap** — the S3 state backend, the DynamoDB lock table, and the ECR
+repository — is torn down **only when no other environment is still
+provisioned** (judged from each sibling's remote Terraform state, not its
+folder on disk). Pass `--keep-backend` to keep the bootstrap even when
+destroying the last environment.
+
+See `iac/README.md` for the full command reference and flags.

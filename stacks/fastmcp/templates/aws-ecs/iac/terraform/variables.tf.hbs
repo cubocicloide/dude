@@ -1,0 +1,69 @@
+variable "project_name" {
+  description = "Project slug — prefixes every resource name."
+  type        = string
+  default     = "{{projectName}}"
+}
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod, …)."
+  type        = string
+}
+
+variable "region" {
+  description = "AWS region for this environment."
+  type        = string
+}
+
+variable "image_tag" {
+  description = "Tag of the server image to run. `dude iac deploy` keeps this line in terraform.tfvars up to date, so a plain `dude iac apply` re-deploys the same build."
+  type        = string
+  default     = "latest"
+}
+
+variable "task_cpu" {
+  description = "Fargate CPU units (256 = 0.25 vCPU)."
+  type        = number
+  default     = 256
+}
+
+variable "task_memory" {
+  description = "Fargate memory (MiB) — must be a valid pairing with task_cpu."
+  type        = number
+  default     = 512
+}
+
+variable "desired_count" {
+  description = "Number of Fargate tasks. NOTE: MCP sessions live in the task's memory, so with more than one task a client's requests can land on a task that doesn't know its session. Keep 1 unless the server runs in stateless mode."
+  type        = number
+  default     = 1
+}
+
+variable "allowed_cidrs" {
+  description = "CIDR blocks allowed to reach the ALB. The scaffolded MCP server ships with NO authentication — restrict this to your org's networks (or add auth) before widening it."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "domain_name" {
+  description = "Public hostname for the server (e.g. mcp.example.com). Leave empty to serve plain HTTP on the ALB DNS name."
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_name" {
+  description = "Existing Route53 hosted zone the domain lives in (e.g. example.com). Required when domain_name is set."
+  type        = string
+  default     = ""
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch log retention for the service logs."
+  type        = number
+  default     = 30
+}
+
+variable "alb_idle_timeout" {
+  description = "ALB idle timeout in seconds. MCP streamable HTTP holds long-lived SSE streams — the ALB default of 60s would sever them mid-session, so keep this high (max 4000)."
+  type        = number
+  default     = 3600
+}

@@ -1,6 +1,7 @@
 """Smoke tests for the composed root server."""
 
 import pytest
+from starlette.testclient import TestClient
 
 from app.server import discover_feature_servers
 
@@ -23,3 +24,11 @@ async def test_no_duplicate_tool_names(app, make_client) -> None:
     async with make_client(app) as client:
         names = [t.name for t in await client.list_tools()]
     assert len(names) == len(set(names)), "tool name collision across features (MCP010)"
+
+
+def test_health_route(app) -> None:
+    # The liveness probe must answer 200 without MCP headers or a session.
+    with TestClient(app.http_app()) as http:
+        response = http.get("/health")
+    assert response.status_code == 200
+    assert response.text == "ok"
