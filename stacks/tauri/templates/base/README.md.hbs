@@ -1,0 +1,37 @@
+# {{projectName}}
+
+A cross-platform desktop app built with [Tauri 2](https://tauri.app) — React +
+Ant Design frontend, Rust backend. Scaffolded with
+[dude](https://github.com/cubocicloide/dude) (`tauri` stack).
+
+## Quick start
+
+```bash
+export GITHUB_TOKEN=<token with read:packages>   # @cubocicloide registry auth
+pnpm install
+dude doctor   # verify Rust + platform prerequisites
+dude dev      # run the desktop app with hot-reload
+```
+
+## Everyday commands
+
+| Command       | What it does                                                  |
+| ------------- | ------------------------------------------------------------- |
+| `dude dev`    | Run the app in development mode (Vite + Rust hot-reload).     |
+| `dude build`  | Build the distributable installers (`src-tauri/target/…`).    |
+| `dude lint`   | Structural checks — FE (React) + BE (Rust/Tauri) conventions. |
+| `dude format` | prettier (frontend) + cargo fmt (backend).                    |
+| `dude review` | lint + ESLint + tsc + cargo fmt --check + cargo clippy.       |
+| `dude test`   | cargo test (unit tests live next to each command module).     |
+| `dude docs`   | Serve the project docs (MkDocs) at http://localhost:8001.     |
+| `dude icon`   | Regenerate the app icon set from `app-icon.png`.              |
+| `dude help`   | Live catalog of every available command.                      |
+
+## Where things live
+
+- `src/` — React frontend (pages, components, hooks, typed IPC in `src/ipc/`).
+- `src-tauri/` — Rust backend (commands, state, errors, Tauri config).
+- `.claude/rules/` — the conventions `dude lint` enforces, explained.
+- `docs/` — project documentation (`dude docs` to preview).
+
+Read `CLAUDE.md` for the full development guide.

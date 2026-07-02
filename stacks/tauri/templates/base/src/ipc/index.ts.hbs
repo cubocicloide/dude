@@ -1,0 +1,7 @@
+// Barrel for the typed IPC layer — one module per Rust command domain.
+// Pages/components import from '@/ipc', never from a deep path (rule FE011).
+export * from './counter'
+export * from './greet'
+{{#if withSqlite}}
+export * from './notes'
+{{/if}}

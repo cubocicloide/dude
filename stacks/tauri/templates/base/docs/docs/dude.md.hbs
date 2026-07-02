@@ -1,0 +1,50 @@
+# Working with dude
+
+This project pins its own toolchain: the `dude` CLI and the `tauri` stack are
+devDependencies in `package.json`, mirrored in `dude.json`. Everyone who runs
+`pnpm install` gets the exact same versions.
+
+## Installation
+
+Install the launcher once, globally:
+
+```bash
+export GITHUB_TOKEN=<personal access token with read:packages>
+npm install -g @cubocicloide/dude-launcher
+```
+
+The launcher finds the nearest `dude.json`, provisions the pinned toolchain if
+needed, and re-execs the project-local `dude`. Different projects can pin
+different versions — no switching required.
+
+## Everyday commands
+
+```bash
+dude dev       # run the desktop app (hot-reload)
+dude build     # build installers
+dude doctor    # check the toolchain
+dude lint      # structural conventions
+dude format    # prettier + cargo fmt
+dude review    # everything, one pass
+dude test      # cargo test
+dude docs      # this site, live-reload
+dude help      # live command catalog
+```
+
+## Upgrading the toolchain
+
+```bash
+dude upgrade                 # bump CLI + stack pins interactively
+dude upgrade --stack         # stack only
+pnpm install                 # apply the new pins
+```
+
+`dude upgrade` updates `package.json` and `dude.json` in lockstep. It does not
+migrate scaffolded files; roll back by pinning the previous version again.
+
+## Custom commands
+
+Any TypeScript file in `.dude/commands/` becomes a project-local `dude`
+command (loaded with jiti — real TS, project imports allowed). See
+`.dude/commands/README.md` for the contract, and `hello.ts` for a working
+example. Custom commands override stack commands of the same name.

@@ -1,0 +1,7 @@
+{
+  "name": "tauri",
+  "version": "0.1.0",
+  "minDudeVersion": "0.1.0",
+  "entry": "dist/index.js",
+  "tags": ["frontend:react", "backend:rust", "runtime:tauri", "lang:typescript", "lang:rust"]
+}

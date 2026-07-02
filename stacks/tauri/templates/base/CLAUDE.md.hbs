@@ -1,0 +1,155 @@
+# CLAUDE.md — {{projectName}}
+
+This file gives Claude the context it needs to work effectively in this
+project. Read it fully before making changes.
+
+---
+
+## What this project is
+
+**{{projectName}}** is a cross-platform desktop application scaffolded with the
+`dude` CLI (`tauri` stack).
+
+| Layer     | Tech                                                              |
+| --------- | ----------------------------------------------------------------- |
+| Frontend  | React 19 + Vite + TypeScript (strict) + Ant Design (antd 5)       |
+| Backend   | Rust — Tauri 2 (commands, managed state, events, plugins)         |
+| IPC       | Typed wrappers in `src/ipc/` ↔ `#[tauri::command]` modules        |
+{{#if withSqlite}}
+| Database  | SQLite via rusqlite (bundled), stored in the app-data directory   |
+{{/if}}
+| Tooling   | pnpm, prettier + ESLint (FE), cargo fmt + clippy (BE), MkDocs     |
+
+---
+
+## Project layout
+
+```
+{{projectName}}/
+├── src/                       # React frontend
+│   ├── App.tsx                # routes (HashRouter) — 1-to-1 with pages/ (FE004)
+│   ├── pages/<Name>/          # one dir per routed page (FE005)
+│   ├── components/<Name>/     # shared components, barrel-exported (FE001–003)
+│   ├── hooks/use<Name>/       # shared hooks, barrel-exported (FE006–007)
+│   ├── ipc/                   # typed IPC layer — one module per Rust domain (FE009–011)
+│   ├── assets/                # all static assets (FE008)
+│   └── utils/                 # constants, formatters, plain helpers
+├── src-tauri/                 # Rust backend
+│   ├── tauri.conf.json        # window, CSP, bundle config (BE009)
+│   ├── capabilities/          # per-window permission grants (BE010)
+│   └── src/
+│       ├── main.rs            # thin entry — delegates to lib.rs (BE002)
+│       ├── lib.rs             # Builder: plugins, state, generate_handler! (BE005)
+│       ├── error.rs           # shared AppError for all commands (BE006)
+│       ├── state.rs           # managed AppState
+{{#if withSqlite}}
+│       ├── db.rs              # SQLite connection + migrations
+{{/if}}
+│       └── commands/          # one module per command domain (BE003–004)
+├── .claude/rules/             # every lint rule explained (FE/*, BE/*)
+├── .dude/commands/            # project-local dude commands (see its README)
+├── docs/                      # MkDocs site — `dude docs` to preview
+└── dude.json                  # stack + version pins (do not edit by hand)
+```
+
+---
+
+## dude CLI — all available commands
+
+Run `dude help` for the live catalog (it includes `.dude/commands/` too).
+
+### Desktop app
+
+| Command | Meaning |
+| ------- | ------- |
+| `dude dev` | Run the app in development mode (Vite + Rust hot-reload). |
+| `dude build` | Build distributable installers (`--debug`, `--bundles <list>`, `--target <triple>`). |
+| `dude doctor` | Verify Node, Rust and platform prerequisites. |
+| `dude icon` | Regenerate `src-tauri/icons/` from `app-icon.png` (`--source <png>`). |
+
+### Code quality
+
+| Command | Meaning |
+| ------- | ------- |
+| `dude lint` | Structural checks — FE (React) + BE (Rust/Tauri). Exit 1 on errors. |
+| `dude format` | prettier (frontend) + cargo fmt (backend). `--check` to verify only. |
+| `dude review` | lint + ESLint + tsc + cargo fmt --check + cargo clippy. |
+| `dude test` | cargo test (`--filter <substr>` to narrow). |
+
+### Documentation
+
+| Command | Meaning |
+| ------- | ------- |
+| `dude docs` | Serve MkDocs at http://localhost:8001 (requires Docker; `--port <n>`). |
+
+---
+
+## Core Tauri concepts (as wired in this project)
+
+1. **Commands** — Rust functions annotated `#[tauri::command]` in
+   `src-tauri/src/commands/<domain>.rs`, registered in `generate_handler![…]`
+   in `lib.rs`, and called from the frontend **only** through the matching
+   typed wrapper in `src/ipc/<domain>.ts`.
+2. **Managed state** — `AppState` (`state.rs`) registered with `app.manage()`;
+   commands receive `tauri::State<'_, AppState>`. Interior mutability via
+   `Mutex`. Never global statics.
+3. **Events** — the backend broadcasts with `app.emit(EVENT, payload)`; the
+   frontend subscribes with the `useTauriEvent` hook. Event names live as
+   constants in the `src/ipc/` module of the domain that emits them.
+4. **Errors** — every fallible command returns `Result<_, AppError>`
+   (`error.rs`); the frontend receives the serialized message as the promise
+   rejection.
+5. **Capabilities** — permissions per window in `src-tauri/capabilities/`;
+   grant the minimum each window needs.
+{{#if withSqlite}}
+6. **Persistence** — `db.rs` opens SQLite in the app-data dir and applies
+   append-only migrations at startup; command modules keep query logic in
+   plain functions over `&Connection` so tests run in-memory.
+{{/if}}
+
+The Home page (`src/pages/Home/`) is a live demo of 1–4: read it first.
+
+## Adding a feature end-to-end
+
+1. Rust: add `src-tauri/src/commands/<domain>.rs` (logic in plain functions +
+   thin `#[tauri::command]` bindings + `#[cfg(test)]` tests).
+2. Declare it in `commands/mod.rs`; register each command in
+   `generate_handler![…]` in `lib.rs`.
+3. Frontend: add the typed wrapper `src/ipc/<domain>.ts` and its barrel export
+   in `src/ipc/index.ts`.
+4. UI: add `src/pages/<Name>/index.tsx`, route it in `App.tsx`, add the menu
+   entry in `components/Layout/`.
+5. Validate: `dude lint && dude test && dude review`.
+
+---
+
+## Conventions Claude must follow
+
+- **Frontend**: strict TypeScript; antd components; pages/components/hooks
+  layout and barrels per `.claude/rules/FE/`; never call `invoke()` outside
+  `src/ipc/`; never import `@tauri-apps/api/event` outside `src/hooks/`.
+- **Backend**: rules in `.claude/rules/BE/` — thin `main.rs`, commands only
+  under `commands/`, `AppError` everywhere, no `unwrap`/`expect` in commands,
+  `log::…` instead of `println!`, minimal capabilities, unit tests per module.
+- **Always run `dude lint` after structural changes** — it enforces all of the
+  above and the rule files explain every violation.
+- Use `pnpm`, not `npm`/`yarn`.
+
+## What Claude should NOT do
+
+- Do not edit `dude.json` (use `dude upgrade`).
+- Do not edit `src-tauri/target/`, `src-tauri/gen/`, `dist/` (generated).
+- Do not weaken `tauri.conf.json` security (CSP) or widen capabilities beyond
+  what a feature strictly needs.
+- Do not commit anything under `private/`.
+
+## Key files at a glance
+
+| File | Purpose |
+| ---- | ------- |
+| `src/ipc/index.ts` | Barrel of all typed IPC wrappers |
+| `src/hooks/useTauriEvent/` | The only sanctioned way to listen to events |
+| `src-tauri/src/lib.rs` | Plugins, state, `generate_handler![…]` |
+| `src-tauri/src/error.rs` | `AppError` — add variants here, propagate with `?` |
+| `src-tauri/capabilities/default.json` | Permissions of the main window |
+| `.dude/commands/` | Project-local `dude` commands (jiti-loaded TS) |

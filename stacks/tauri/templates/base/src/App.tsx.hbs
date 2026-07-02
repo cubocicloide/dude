@@ -1,0 +1,29 @@
+import { HashRouter, Route, Routes } from 'react-router-dom'
+import { App as AntApp, ConfigProvider } from 'antd'
+
+import Layout from '@/components/Layout'
+import HomePage from '@/pages/Home'
+{{#if withSqlite}}
+import NotesPage from '@/pages/Notes'
+{{/if}}
+
+// HashRouter: inside the packaged app the frontend is served from a custom
+// protocol (tauri://), where history-based routing breaks on reload/deep-link.
+export function App() {
+  return (
+    <ConfigProvider>
+      <AntApp>
+        <HashRouter>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route path="/" element={<HomePage />} />
+{{#if withSqlite}}
+              <Route path="/notes" element={<NotesPage />} />
+{{/if}}
+            </Route>
+          </Routes>
+        </HashRouter>
+      </AntApp>
+    </ConfigProvider>
+  )
+}
