@@ -1,12 +1,17 @@
 {
   "name": "@cubocicloide/stack-tauri",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Tauri 2 desktop app stack plugin (React + Ant Design frontend, Rust backend) for the dude CLI.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "templates", "dude.stack.json", "README.md"],
+  "files": [
+    "dist",
+    "templates",
+    "dude.stack.json",
+    "README.md"
+  ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",
     "access": "restricted"
