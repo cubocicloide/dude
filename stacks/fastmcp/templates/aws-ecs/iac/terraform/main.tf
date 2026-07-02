@@ -71,7 +71,7 @@ resource "aws_route_table_association" "public" {
 
 resource "aws_security_group" "alb" {
   name_prefix = "${local.name}-alb-"
-  description = "ALB — admits HTTP/HTTPS from allowed_cidrs"
+  description = "ALB - admits HTTP/HTTPS from allowed_cidrs"
   vpc_id      = aws_vpc.this.id
 
   ingress {
@@ -104,7 +104,7 @@ resource "aws_security_group" "alb" {
 
 resource "aws_security_group" "service" {
   name_prefix = "${local.name}-svc-"
-  description = "FastMCP tasks — only reachable from the ALB"
+  description = "FastMCP tasks - only reachable from the ALB"
   vpc_id      = aws_vpc.this.id
 
   ingress {
