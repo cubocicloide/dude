@@ -1,5 +1,14 @@
 # @cubocicloide/stack-fastmcp
 
+## 0.3.1
+
+### Patch Changes
+
+- 846c277: Fix `dude iac apply` failing with `InvalidParameterValue: ... Character sets
+beyond ASCII are not supported` for the `aws-ecs` IaC target. The `alb` and
+  `service` security group descriptions used an em-dash, which AWS's
+  `CreateSecurityGroup` API rejects; replaced with a plain hyphen.
+
 ## 0.3.0
 
 ### Minor Changes
