@@ -18,7 +18,7 @@ export default function check(root: string): RawDiagnostic[] {
           file: path.join('src', 'pages', entry.name, child.name),
           line: 1,
           col: 1,
-          severity: 'warning',
+          severity: 'error',
           message: `Unexpected file "${child.name}" in page directory. Allowed: index.tsx, styles.module.css, types.tsx`,
         })
       }

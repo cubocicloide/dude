@@ -20,7 +20,7 @@ export default function check(root: string): RawDiagnostic[] {
           file: path.join('src', 'components', entry.name, child.name),
           line: 1,
           col: 1,
-          severity: 'warning',
+          severity: 'error',
           message: `Unexpected file "${child.name}" in component directory. Allowed: index.tsx, styles.module.css, types.tsx, components/`,
         })
       }

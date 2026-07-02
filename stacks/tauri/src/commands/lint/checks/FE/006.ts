@@ -19,7 +19,7 @@ export default function check(root: string): RawDiagnostic[] {
           file: path.join('src', 'hooks', entry.name, child.name),
           line: 1,
           col: 1,
-          severity: 'warning',
+          severity: 'error',
           message: `Unexpected file "${child.name}" in hook directory. Allowed: index.tsx, types.tsx`,
         })
       }
