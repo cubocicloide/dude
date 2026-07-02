@@ -2,6 +2,12 @@ import { existsSync } from 'node:fs'
 import path from 'pathe'
 import type { StackCommandDef } from '@cubocicloide/dude'
 import { capture, isAvailable, localBin } from '../_exec.js'
+import {
+  ANDROID_TARGETS,
+  IOS_TARGETS,
+  androidSdkRoot,
+  installedRustTargets,
+} from '../_mobile.js'
 
 interface CheckRow {
   label: string
@@ -86,6 +92,75 @@ export const doctorCommand: StackCommandDef = {
         false,
       ),
     )
+
+    // ── Mobile prerequisites (optional — only for `dude android|ios *`) ──────
+    const rustTargets = installedRustTargets()
+
+    const sdk = androidSdkRoot()
+    rows.push(
+      row(
+        'Android SDK (mobile)',
+        sdk != null,
+        sdk ?? 'ANDROID_HOME not set — see https://tauri.app/start/prerequisites/#android',
+        false,
+      ),
+    )
+    rows.push(
+      row(
+        'Android NDK (mobile)',
+        process.env.NDK_HOME != null,
+        process.env.NDK_HOME ?? 'NDK_HOME not set — install the NDK via Android Studio',
+        false,
+      ),
+    )
+    rows.push(
+      row(
+        'Java runtime (mobile)',
+        isAvailable('java'),
+        capture('java', ['--version'])?.split('\n')[0] ?? 'not found — ships with Android Studio',
+        false,
+      ),
+    )
+    rows.push(
+      row(
+        'Rust Android targets (mobile)',
+        ANDROID_TARGETS.every((t) => rustTargets.includes(t)),
+        ANDROID_TARGETS.every((t) => rustTargets.includes(t))
+          ? 'installed'
+          : 'missing — `dude android init` installs them',
+        false,
+      ),
+    )
+
+    if (process.platform === 'darwin') {
+      const xcodebuild = capture('xcodebuild', ['-version'])
+      rows.push(
+        row(
+          'Xcode (mobile iOS)',
+          xcodebuild != null,
+          xcodebuild?.split('\n')[0] ?? 'full Xcode required (CLT alone is not enough)',
+          false,
+        ),
+      )
+      rows.push(
+        row(
+          'CocoaPods (mobile iOS)',
+          isAvailable('pod'),
+          isAvailable('pod') ? 'found' : 'missing — `brew install cocoapods`',
+          false,
+        ),
+      )
+      rows.push(
+        row(
+          'Rust iOS targets (mobile)',
+          IOS_TARGETS.every((t) => rustTargets.includes(t)),
+          IOS_TARGETS.every((t) => rustTargets.includes(t))
+            ? 'installed'
+            : 'missing — `dude ios init` installs them',
+          false,
+        ),
+      )
+    }
 
     // ── Print report ──────────────────────────────────────────────────────────
     const isTTY = process.stdout.isTTY

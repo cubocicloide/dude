@@ -30,6 +30,8 @@ interface Command {
 const COMMANDS: Command[] = [
   { cmd: 'dude dev', desc: 'Run the desktop app with hot-reload' },
   { cmd: 'dude build', desc: 'Build the distributable installers' },
+  { cmd: 'dude android dev', desc: 'Run on Android (init once, then dev)' },
+  { cmd: 'dude ios dev', desc: 'Run on iOS (macOS only; init once, then dev)' },
   {
     cmd: 'dude lint',
     desc: 'Structural checks — React (FE) + Rust/Tauri (BE)',

@@ -12,6 +12,7 @@ project. Read it fully before making changes.
 
 | Layer     | Tech                                                              |
 | --------- | ----------------------------------------------------------------- |
+| Targets   | Desktop (macOS/Windows/Linux) + Mobile (iOS/Android), one codebase|
 | Frontend  | React 19 + Vite + TypeScript (strict) + Ant Design (antd 5)       |
 | Backend   | Rust — Tauri 2 (commands, managed state, events, plugins)         |
 | IPC       | Typed wrappers in `src/ipc/` ↔ `#[tauri::command]` modules        |
@@ -64,8 +65,19 @@ Run `dude help` for the live catalog (it includes `.dude/commands/` too).
 | ------- | ------- |
 | `dude dev` | Run the app in development mode (Vite + Rust hot-reload). |
 | `dude build` | Build distributable installers (`--debug`, `--bundles <list>`, `--target <triple>`). |
-| `dude doctor` | Verify Node, Rust and platform prerequisites. |
+| `dude doctor` | Verify Node, Rust and platform prerequisites (desktop + mobile). |
 | `dude icon` | Regenerate `src-tauri/icons/` from `app-icon.png` (`--source <png>`). |
+
+### Mobile app (same codebase — see docs/docs/mobile.md)
+
+| Command | Meaning |
+| ------- | ------- |
+| `dude android init` | One-time: install Rust targets + generate `src-tauri/gen/android`. |
+| `dude android dev` | Run on emulator/device (`--open` for Android Studio, `--host` for physical devices). |
+| `dude android build` | Build APK/AAB (`--debug`, `--apk`, `--aab`, `--target <abis>`). |
+| `dude ios init` | One-time (macOS): install Rust targets + generate `src-tauri/gen/apple`. |
+| `dude ios dev` | Run on simulator/device (`--open` for Xcode, `--host` for physical devices). |
+| `dude ios build` | Build the IPA (`--debug`, `--export-method <m>`). |
 
 ### Code quality
 
@@ -138,9 +150,14 @@ The Home page (`src/pages/Home/`) is a live demo of 1–4: read it first.
 ## What Claude should NOT do
 
 - Do not edit `dude.json` (use `dude upgrade`).
-- Do not edit `src-tauri/target/`, `src-tauri/gen/`, `dist/` (generated).
+- Do not edit `src-tauri/target/`, `src-tauri/gen/schemas/`, `dist/`
+  (generated). `src-tauri/gen/android` and `src-tauri/gen/apple` are the
+  exception: they are scaffolded once by `dude android|ios init`, committed,
+  and edited deliberately for native customisation (manifests, signing).
 - Do not weaken `tauri.conf.json` security (CSP) or widen capabilities beyond
   what a feature strictly needs.
+- Do not remove the `mobile_entry_point` attribute from `lib.rs` or change
+  `[lib] crate-type` in `Cargo.toml` — mobile builds depend on both (BE012).
 - Do not commit anything under `private/`.
 
 ## Key files at a glance

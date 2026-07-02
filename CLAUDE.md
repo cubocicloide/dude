@@ -15,7 +15,7 @@ monorepo. Read it fully before making changes.
 | `packages/dude-launcher/`| `@cubocicloide/dude-launcher`       | Tiny global shim; runs each project's pinned CLI + stack (the only global install)    |
 | `stacks/react-fastapi/`  | `@cubocicloide/stack-react-fastapi` | A stack plugin that teaches `dude` how to scaffold and lint a React + FastAPI project |
 | `stacks/fastmcp/`        | `@cubocicloide/stack-fastmcp`       | Stack plugin for a FastMCP (Python) server — modular MCP feature sub-servers          |
-| `stacks/tauri/`          | `@cubocicloide/stack-tauri`         | Stack plugin for a Tauri 2 desktop app — React + Ant Design frontend, Rust backend    |
+| `stacks/tauri/`          | `@cubocicloide/stack-tauri`         | Stack plugin for a Tauri 2 app (desktop + iOS/Android) — React + antd, Rust backend   |
 
 Everything is TypeScript + ESM. Toolchain: **pnpm workspaces**, **Turbo**, **tsup**.
 
@@ -50,8 +50,8 @@ dude/
 │           ├── celery/          # overlay — applied when withCelery = true
 │           └── celerybeat/      # overlay — applied when withCeleryBeat = true
 │   ├── fastmcp/                 # Stack plugin for a FastMCP (Python) server
-│   └── tauri/                   # Stack plugin for a Tauri 2 desktop app (React + antd + Rust)
-│       ├── src/commands/        # dev, build, doctor, icon, lint (FE/BE checks), format, review, test, docs
+│   └── tauri/                   # Stack plugin for a Tauri 2 app — desktop + mobile (React + antd + Rust)
+│       ├── src/commands/        # dev, build, android/ios (init|dev|build), doctor, icon, lint, format, review, test, docs
 │       └── templates/           # base/ (always) + sqlite/ (when --database sqlite)
 ├── Makefile                     # top-level developer targets (see below)
 ├── turbo.json

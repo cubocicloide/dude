@@ -1,11 +1,17 @@
 import path from 'pathe'
 import { defineStack, renderTemplateTree } from '@cubocicloide/dude'
+import {
+  androidBuildCommand,
+  androidDevCommand,
+  androidInitCommand,
+} from './commands/android/index.js'
 import { buildCommand } from './commands/build/index.js'
 import { devCommand } from './commands/dev/index.js'
 import { docsCommand } from './commands/docs/index.js'
 import { doctorCommand } from './commands/doctor/index.js'
 import { formatCommand } from './commands/format/index.js'
 import { iconCommand } from './commands/icon/index.js'
+import { iosBuildCommand, iosDevCommand, iosInitCommand } from './commands/ios/index.js'
 import { lintCommand } from './commands/lint/index.js'
 import { reviewCommand } from './commands/review/index.js'
 import { testCommand } from './commands/test/index.js'
@@ -38,9 +44,16 @@ export default defineStack({
 
     const withSqlite = answers.database === 'sqlite'
 
+    // Bundle identifier segments must be alphanumeric on every platform we
+    // target: Android package names forbid dashes, Apple bundle IDs forbid
+    // underscores. Strip anything else from the project name.
+    const safeName = String(answers.projectName ?? 'app').replace(/[^a-zA-Z0-9]/g, '')
+    const bundleIdentifier = `com.${safeName || 'app'}.app`
+
     const data: Record<string, unknown> = {
       ...answers,
       withSqlite,
+      bundleIdentifier,
       dudeVersion,
       stackVersion,
     }
@@ -84,5 +97,15 @@ export default defineStack({
     review: reviewCommand,
     test: testCommand,
     docs: docsCommand,
+    android: {
+      init: androidInitCommand,
+      dev: androidDevCommand,
+      build: androidBuildCommand,
+    },
+    ios: {
+      init: iosInitCommand,
+      dev: iosDevCommand,
+      build: iosBuildCommand,
+    },
   },
 })
