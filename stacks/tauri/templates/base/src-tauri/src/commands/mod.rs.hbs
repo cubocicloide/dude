@@ -1,0 +1,7 @@
+// One module per command domain (lint rule BE004). Every module declared here
+// must exist, and every command file must be declared here.
+pub mod counter;
+pub mod greet;
+{{#if withSqlite}}
+pub mod notes;
+{{/if}}

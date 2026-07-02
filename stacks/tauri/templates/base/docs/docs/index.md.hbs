@@ -1,0 +1,53 @@
+# {{projectName}}
+
+Welcome! **{{projectName}}** is a cross-platform desktop application built
+with [Tauri 2](https://tauri.app): a React + Ant Design frontend rendered in
+the system webview, driven by a Rust backend.
+
+## Getting started
+
+### One-time machine setup
+
+1. **Registry auth** — the `dude` toolchain is published to GitHub Packages:
+
+   ```bash
+   export GITHUB_TOKEN=<personal access token with read:packages>
+   ```
+
+2. **Rust toolchain** — install from [rustup.rs](https://rustup.rs), then
+   verify everything with:
+
+   ```bash
+   dude doctor
+   ```
+
+   On macOS you also need the Xcode Command Line Tools
+   (`xcode-select --install`); on Linux, the webkit2gtk development packages —
+   see the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
+
+### Run the app
+
+```bash
+pnpm install
+dude dev
+```
+
+`dude dev` starts Vite on port 1420 and launches the desktop window; both the
+frontend and the Rust backend hot-reload on change.
+
+### Everyday loop
+
+```bash
+dude lint      # structural conventions (FE + Rust/Tauri)
+dude test      # cargo test
+dude review    # lint + ESLint + tsc + clippy
+dude build     # distributable installers under src-tauri/target/
+```
+
+## Where to go next
+
+- [Architecture](architecture.md) — how commands, state, events and
+  capabilities fit together in this project.
+- [Working with dude](dude.md) — the toolchain, version pins and custom
+  commands.
+- [Command reference](api.md) — every `dude` command and flag.

@@ -1,0 +1,42 @@
+mod commands;
+{{#if withSqlite}}
+mod db;
+{{/if}}
+mod error;
+mod state;
+
+use tauri::Manager;
+
+use crate::state::AppState;
+
+/// Build and run the Tauri application: register plugins, initialise managed
+/// state and expose the invoke handlers. Every command must be listed in
+/// `generate_handler!` below (lint rule BE005) — a missing entry compiles fine
+/// but fails at runtime.
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            app.manage(AppState::default());
+{{#if withSqlite}}
+            let conn = db::init(app.handle())?;
+            app.manage(db::Db(std::sync::Mutex::new(conn)));
+{{/if}}
+            log::info!("application started");
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::greet::greet,
+            commands::counter::get_counter,
+            commands::counter::increment_counter,
+{{#if withSqlite}}
+            commands::notes::list_notes,
+            commands::notes::create_note,
+            commands::notes::delete_note,
+{{/if}}
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

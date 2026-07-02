@@ -1,0 +1,89 @@
+# Architecture
+
+One window, two worlds: the **frontend** (React in the system webview) and the
+**core** (Rust). Everything crossing the boundary goes through Tauri's IPC,
+and this project wraps that boundary with conventions enforced by `dude lint`.
+
+```mermaid
+flowchart LR
+    subgraph Webview [React frontend — src/]
+        P[pages/] --> I[ipc/ typed wrappers]
+        P --> H[hooks/useTauriEvent]
+    end
+    subgraph Core [Rust core — src-tauri/]
+        C[commands/*.rs] --> S[state.rs — AppState]
+{{#if withSqlite}}
+        C --> D[db.rs — SQLite]
+{{/if}}
+        C --> E[error.rs — AppError]
+    end
+    I -- "invoke('cmd', args)" --> C
+    C -- "app.emit(event, payload)" --> H
+```
+
+## Commands (request/response)
+
+A command is a Rust function annotated `#[tauri::command]`, living in
+`src-tauri/src/commands/<domain>.rs` and registered in `generate_handler![…]`
+in `lib.rs`. The frontend calls it only through the matching typed wrapper in
+`src/ipc/<domain>.ts`:
+
+```ts
+// src/ipc/greet.ts
+export async function greet(name: string): Promise<string> {
+  return invoke<string>('greet', { name })
+}
+```
+
+Argument keys are camelCase in TS, snake_case in Rust — Tauri converts.
+Returned structs serialize with `#[serde(rename_all = "camelCase")]` so the TS
+interfaces match verbatim.
+
+## Managed state
+
+`AppState` (`state.rs`) is registered once with `app.manage()` and injected
+into commands as `tauri::State<'_, AppState>`. Commands run concurrently, so
+mutable fields sit behind a `Mutex`. The backend owns the truth; the frontend
+renders it.
+
+## Events (push)
+
+When backend state changes, commands broadcast with
+`app.emit(COUNTER_CHANGED_EVENT, value)`. The frontend subscribes through the
+`useTauriEvent` hook, which owns the subscribe/unsubscribe lifecycle. The Home
+page counter demonstrates the full loop: invoke → state change → event →
+re-render.
+
+## Errors
+
+Every fallible command returns `Result<_, AppError>` (`error.rs`). `AppError`
+implements `Serialize`, so a rejection reaches the frontend as a clean
+message. Add variants (with `#[from]`) per failure domain and propagate with
+`?` — never `unwrap()` in a command.
+
+{{#if withSqlite}}
+## Persistence (SQLite)
+
+`db.rs` opens `app.db` in the platform app-data directory at startup and
+applies append-only migrations. The connection is managed as `Db(Mutex<Connection>)`.
+Command modules keep query logic in plain functions over `&Connection`, so the
+unit tests run the real schema against an in-memory database.
+
+{{/if}}
+## Security: capabilities & CSP
+
+`src-tauri/capabilities/default.json` grants the main window exactly the
+permissions it uses; `tauri.conf.json` sets a strict CSP that Tauri augments
+at runtime. Widen either only when a feature demands it (rules BE009/BE010).
+
+## The conventions, in one table
+
+| Rule | Enforces |
+| ---- | -------- |
+| FE001–FE008 | pages/components/hooks/assets layout and barrels |
+| FE009–FE011 | IPC only via `src/ipc/`, events only via `useTauriEvent` |
+| BE001–BE005 | backend skeleton, thin main.rs, command placement & registration |
+| BE006–BE008 | AppError everywhere, no panics in commands, log crate over print |
+| BE009–BE011 | config/capability hygiene, unit tests per command module |
+
+Every rule is documented in `.claude/rules/` and checked by `dude lint`.

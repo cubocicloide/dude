@@ -7,6 +7,10 @@
     "fastmcp": {
       "package": "@cubocicloide/stack-fastmcp",
       "minimumSupported": "0.1.0"
+    },
+    "tauri": {
+      "package": "@cubocicloide/stack-tauri",
+      "minimumSupported": "0.1.0"
     }
   }
 }

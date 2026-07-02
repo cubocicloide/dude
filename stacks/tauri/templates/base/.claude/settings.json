@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(dude *)",
+      "Bash(node *)",
+      "Bash(pnpm *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(cargo *)",
+      "Bash(rustc *)",
+      "Bash(rustup *)",
+      "Bash(docker *)",
+      "Bash(rm *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(sed *)",
+      "Bash(find *)",
+      "Bash(cat *)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "PushNotification"
+    ]
+  }
+}

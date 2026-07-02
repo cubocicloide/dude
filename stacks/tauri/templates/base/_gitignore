@@ -1,0 +1,19 @@
+# Node / dude toolchain
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Scratch / local
+private/
+
+# OS
+.DS_Store

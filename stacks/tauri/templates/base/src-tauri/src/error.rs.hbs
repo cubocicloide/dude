@@ -1,0 +1,32 @@
+use serde::{Serialize, Serializer};
+
+/// Shared error type returned by every fallible Tauri command (lint rule
+/// BE006). Add a variant per failure domain; `#[from]` lets command bodies
+/// propagate errors with `?` instead of unwrap/expect (lint rule BE007).
+///
+/// Tauri serializes command errors to cross the IPC boundary — the `Serialize`
+/// impl below sends the display message, which the frontend receives as the
+/// promise rejection value.
+#[derive(Debug, thiserror::Error)]
+pub enum AppError {
+    /// The frontend sent a value that fails domain validation.
+    #[error("invalid input: {0}")]
+    InvalidInput(String),
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Tauri(#[from] tauri::Error),
+{{#if withSqlite}}
+
+    #[error(transparent)]
+    Database(#[from] rusqlite::Error),
+{{/if}}
+}
+
+impl Serialize for AppError {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_string())
+    }
+}

@@ -1,0 +1,32 @@
+[package]
+name = "{{projectName}}"
+version = "0.1.0"
+description = "{{projectName}} — a Tauri 2 desktop app"
+edition = "2021"
+
+# Fixed library name so main.rs can call `app_lib::run()` regardless of the
+# project name (which may contain dashes).
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-log = "2"
+tauri-plugin-opener = "2"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+{{#if withSqlite}}
+# `bundled` compiles SQLite into the binary — no system dependency to ship.
+rusqlite = { version = "0.32", features = ["bundled"] }
+{{/if}}
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
