@@ -68,6 +68,11 @@ Run `dude help` for the live catalog (it includes `.dude/commands/` too).
 | `dude doctor` | Verify Node, Rust and platform prerequisites (desktop + mobile). |
 | `dude icon` | Regenerate `src-tauri/icons/` from `app-icon.png` (`--source <png>`). |
 
+> Installers from `dude build` are **ad-hoc signed** by default: they run on
+> the build machine but show *"damaged"* (macOS) or a SmartScreen warning
+> (Windows) elsewhere. To distribute, configure Developer ID signing +
+> notarization — see `docs/docs/distribute.md`.
+
 ### Mobile app (same codebase — see docs/docs/mobile.md)
 
 | Command | Meaning |

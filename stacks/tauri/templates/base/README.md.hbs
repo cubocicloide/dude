@@ -19,7 +19,7 @@ dude dev      # run the desktop app with hot-reload
 | Command              | What it does                                                     |
 | -------------------- | ---------------------------------------------------------------- |
 | `dude dev`           | Run the desktop app in development mode (Vite + Rust hot-reload).|
-| `dude build`         | Build the distributable installers (`src-tauri/target/…`).       |
+| `dude build`         | Build the distributable installers (`src-tauri/target/…`).† |
 | `dude android init`  | One-time Android setup (Rust targets + native project).          |
 | `dude android dev`   | Run on an Android emulator/device (`--host` for real devices).   |
 | `dude android build` | Build the APK/AAB.                                               |
@@ -33,6 +33,10 @@ dude dev      # run the desktop app with hot-reload
 | `dude docs`          | Serve the project docs (MkDocs) at http://localhost:8001.        |
 | `dude icon`          | Regenerate the app icon set from `app-icon.png`.                 |
 | `dude help`          | Live catalog of every available command.                         |
+
+† Installers are ad-hoc signed by default (they run locally but show
+"damaged"/SmartScreen elsewhere). See `docs/docs/distribute.md` for Developer
+ID signing + notarization.
 
 ## Where things live
 
