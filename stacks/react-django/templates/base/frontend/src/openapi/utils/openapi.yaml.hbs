@@ -1,0 +1,129 @@
+openapi: 3.0.3
+info:
+  title: {{projectName}} API
+  version: 1.0.0
+paths:
+  /api/health/:
+    get:
+      operationId: health_retrieve
+      description: Health-check endpoint.
+      tags:
+        - health
+      security:
+        - {}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+          description: ""
+  /api/users/:
+    get:
+      operationId: users_list
+      description: List (paginated) and retrieve users.
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+      tags:
+        - users
+      security:
+        - {}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedUserList"
+          description: ""
+  /api/users/{id}/:
+    get:
+      operationId: users_retrieve
+      description: List (paginated) and retrieve users.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: A unique integer value identifying this user.
+          schema:
+            type: integer
+      tags:
+        - users
+      security:
+        - {}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+          description: ""
+components:
+  schemas:
+    Health:
+      type: object
+      description: Response payload of the health-check endpoint.
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    PaginatedUserList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+      required:
+        - count
+        - results
+    User:
+      type: object
+      description: Public representation of a user.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - date_joined
+        - id
+        - username

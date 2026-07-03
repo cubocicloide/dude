@@ -1,0 +1,302 @@
+# Working with dude
+
+[`dude`](https://github.com/cubocicloide/dude) is the project CLI — a single
+entry point for all development tasks. Run `dude help` for a live overview, and
+`dude help <command>` (or `dude help <group> <sub>`) for a command's flags.
+
+---
+
+## Installation
+
+`dude` ships as a **private package** on GitHub Packages. What you install
+globally is the tiny **launcher** (`@cubocicloide/dude-launcher`); it then runs
+each project's *pinned* CLI + stack automatically — no manual version switching.
+
+```bash
+# 1. One-time machine setup — authenticate the private @cubocicloide registry.
+#    Add these two lines to ~/.npmrc:
+#      @cubocicloide:registry=https://npm.pkg.github.com
+#      //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+#    …and export a GitHub token with the `read:packages` scope:
+export GITHUB_TOKEN=ghp_your_token_here
+
+# 2. Install the launcher globally (the only global install).
+npm install -g @cubocicloide/dude-launcher
+```
+
+Then, inside this project, provision the pinned toolchain (the launcher would
+also do this on the first `dude` command, but doing it explicitly is clearer):
+
+```bash
+pnpm install      # installs the pinned @cubocicloide/dude CLI + stack
+dude version      # verify the resolved CLI + stack versions
+```
+
+> This project ships an `.npmrc` with the same registry+token lines, so the
+> project-local `pnpm install` works as long as `GITHUB_TOKEN` is exported.
+
+---
+
+## Getting started
+
+### First run
+
+```bash
+# Build images and start all services — required the very first time
+dude up
+```
+
+From the second run onward:
+
+```bash
+dude up
+```
+
+Also re-run `dude up --build` whenever you change a `Dockerfile` or
+`pyproject.toml`.
+
+### Services
+
+Once the stack is up, open these URLs:
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| **Frontend** | http://localhost:5173 | React + Vite — HMR active |
+| **API** | http://localhost:8000 | Django REST Framework |
+| **Swagger UI** | http://localhost:8000/api/docs/ | Interactive API explorer (drf-spectacular) |
+| **OpenAPI schema** | http://localhost:8000/api/schema/ | Raw schema (YAML) |
+| **Health** | http://localhost:8000/api/health/ | JSON health check |
+| **Django admin** | http://localhost:8000/admin/ | Create an account with `dude db superuser` |
+{{#if withS3}}| **MinIO console** | http://localhost:9001 | Object-storage UI (minioadmin/minioadmin) |
+{{/if}}
+{{#if withCelery}}| **Flower** | http://localhost:5555 | Celery task monitor |
+{{/if}}
+
+### Hot reload
+
+- **Frontend** — Vite HMR is active. Edit any file under `frontend/src/` and
+  the browser updates instantly without a full page reload.
+- **Backend** — Django's development server auto-reloads. Edit any Python file
+  under `backend/apps/` or `backend/config/` and the API restarts within ~1
+  second. Migrations run automatically when the container boots (`start.sh`).
+
+---
+
+## Infrastructure
+
+All services run in Docker. The `docker-compose.yml` at the project root
+defines every service.
+
+| Command | Description |
+|---------|-------------|
+| `dude up --build` | Build images and start all services |
+| `dude up` | Start all services (detached) |
+| `dude down` | Stop and remove containers |
+| `dude logs` | Follow logs for all services |
+| `dude logs backend` | Follow logs for a specific service |
+| `dude shell backend` | Open an interactive shell inside a running container |
+
+---
+
+## Code quality
+
+| Command | Description |
+|---------|-------------|
+| `dude lint` | Run all structural lint checks (naming, layout conventions) |
+| `dude format` | Format code — `ruff` (backend) + `prettier` (frontend) |
+| `dude upgrade` | Update the pinned `dude` CLI and stack versions for this project |
+| `dude review` | Run lint + ESLint + API contract review in one pass |
+
+### Upgrading pinned versions
+
+`dude upgrade` updates version pins only. It does **not** migrate existing
+project files.
+
+| Command | Description |
+|---------|-------------|
+| `dude upgrade` | Upgrade both the CLI pin in `package.json` and the stack pin in `dude.json` |
+| `dude upgrade --cli` | Upgrade only `@cubocicloide/dude` |
+| `dude upgrade --stack` | Upgrade only the active stack version |
+| `dude upgrade --cli --cli-version 0.6.1` | Pin the CLI to an explicit version |
+| `dude upgrade --stack --stack-version 5.0.5` | Pin the stack to an explicit version |
+
+If a newer version causes issues, roll back by pinning the previous one again:
+
+```bash
+dude upgrade --cli --cli-version 0.6.0
+dude upgrade --stack --stack-version 5.0.4
+pnpm install
+```
+
+---
+
+## API contract (OpenAPI)
+
+The frontend uses a typed API client that is auto-generated from the backend's
+OpenAPI spec. **Never edit files under `frontend/src/openapi/` by hand.**
+
+| Command | Description |
+|---------|-------------|
+| `dude api sync` | Fetch OpenAPI spec from the running backend and regenerate the client |
+| `dude api review` | Validate the generated client against the saved spec |
+
+**Workflow** — every time you change a backend route:
+
+```bash
+dude api sync
+dude api review
+git add frontend/src/openapi/
+git commit -m "chore(api): sync generated client"
+```
+
+---
+
+## Database (migrations)
+
+Schema changes are managed with Django migrations. These commands run inside
+the backend container.
+
+| Command | Description |
+|---------|-------------|
+| `dude db makemigration [--app <app>] [--name <text>]` | Autogenerate a migration from model changes |
+| `dude db migrate` | Apply all pending migrations |
+| `dude db migrate --app <app> --revision <rev>` | Migrate one app to a specific migration |
+| `dude db rollback --app <app> --to <rev>` | Roll one app back (`--to zero` reverts it fully) |
+| `dude db superuser` | Create a Django admin account (interactive) |
+
+**Workflow** — after changing a model:
+
+```bash
+dude db makemigration --app users --name "add nickname"
+dude db migrate
+git add backend/apps/users/migrations/
+```
+
+---
+
+## Testing
+
+| Command | Description |
+|---------|-------------|
+| `dude test` | Run all test suites (backend + e2e) |
+| `dude test --backend` | pytest only |
+| `dude test --e2e` | Playwright + Cucumber only |
+| `dude test --e2e --headed` | E2e in a visible browser window |
+| `dude test --e2e --report` | E2e with HTML + JSON output to `e2e/reports/` |
+
+---
+
+## Security scanning
+
+All scanners run inside Docker — no host-level tool installation required.
+Results are written to `private/sast-reports/latest/`.
+
+| Command | Description |
+|---------|-------------|
+| `dude security scan` | Run all scanners; exit 1 if new findings ≥ HIGH |
+| `dude security scan --only bandit,semgrep` | Run a subset of scanners |
+| `dude security scan --fail-on CRITICAL` | Raise the failure threshold |
+| `dude security accept` | Re-scan and absorb all findings into the baseline |
+| `dude security verify --rule-id B105` | Confirm a specific finding has been fixed |
+| `dude security verify --rule-id B105 --remove-resolved` | Fix confirmed → prune from baseline |
+
+**Scanners**:
+
+| Scanner | What it checks |
+|---------|---------------|
+| `bandit` | Python AST — common security anti-patterns |
+| `semgrep` | Multi-language rules (backend + frontend) |
+| `trivy-fs` | Filesystem: vulnerabilities, IaC misconfigs, secrets |
+| `trivy-image` | Container image CVEs (requires built image) |
+
+**Baseline workflow**:
+
+```bash
+dude security scan          # review new findings
+# triage: fix what matters, accept acceptable risks
+dude security accept        # absorb remaining into security/baseline.json
+git add security/baseline.json && git commit -m "chore(security): update baseline"
+```
+
+!!! note "Baseline"
+    `security/baseline.json` must be committed — it is the source of truth for
+    accepted findings. Subsequent scans only flag findings that are **not** in the
+    baseline.
+{{#if withIac}}
+
+---
+
+## Deploy (infrastructure as code)
+
+This project can provision cloud infrastructure and release the app with the
+`dude iac` command group. The commands below are the **stable, target-agnostic
+interface** — what each one *means*. For the concrete infrastructure this
+project provisions (the cloud resources, sizing, and the end-to-end runbook),
+see the **Deploy** page.
+
+Every `iac` command is **scoped to one environment via `--env <name>`, which is
+required** (there is no default — this prevents acting on the wrong environment
+by accident). Run any `iac` command **without** `--env` to list the environments
+discovered on disk. Most commands also accept `--profile <name>` to pick the
+cloud credentials profile.
+
+### Lifecycle
+
+| Command | Description |
+|---------|-------------|
+| `dude iac login --env <e>` | Configure/verify cloud credentials for an environment |
+| `dude iac bootstrap --env <e> --state-bucket-prefix <p> --yes` | One-time: create the shared remote-state backend (+ container registries) |
+| `dude iac new-env --env <name> [--from <env>]` | Scaffold a new environment by copying an existing one (default source: `dev`) |
+| `dude iac init --env <e>` | Initialise the infra toolchain for the environment |
+| `dude iac plan --env <e>` | Preview the infrastructure changes |
+| `dude iac apply --env <e> [--yes]` | Create/update the infrastructure |
+| `dude iac output --env <e> [--json]` | Show provisioned values (cluster, registry URLs, DB endpoint…) |
+| `dude iac fmt --env <e>` | Format the infra source files |
+| `dude iac validate --env <e>` | Validate the infra configuration |
+| `dude iac destroy --env <e> [--yes]` | Tear the environment down |
+
+### Release the application
+
+| Command | Description |
+|---------|-------------|
+| `dude iac build --env <e> [--tag <t>]` | Build the backend + frontend production images |
+| `dude iac push --env <e> [--tag <t>]` | Push the images to the registry |
+| `dude iac deploy --env <e> [--tag <t>]` | Release the application (new task definitions, rolling deploy) |
+| `dude iac ship --env <e> [--tag <t>]` | Build + push + deploy in one step (the inner loop) |
+| `dude iac migrate --env <e>` | Run Django migrations as a one-off cloud task |
+| `dude iac status --env <e> [--service <s>]` | Show a service's deployment state and events |
+| `dude iac logs --env <e> [--service <s>] [--follow]` | Tail a service's logs |
+
+> Image tags default to the current git short SHA (with `-dirty` when the working
+> tree has uncommitted changes). Pass `--tag <t>` to override — useful for
+> promoting one already-built image across environments.
+
+See the **Deploy** page for the full first-time runbook, how to add new
+environments, and what gets provisioned.
+{{/if}}
+
+---
+
+## Documentation
+
+| Command | Description |
+|---------|-------------|
+| `dude docs` | Serve this documentation in dev mode at <http://localhost:8001> |
+| `dude docs --port 9000` | Use a custom port |
+| `dude help --format md` | Print the full command reference as Markdown |
+| `dude help --format json` | Print the same catalog as JSON (for tooling / LLMs) |
+
+The **Command reference** page in this site is auto-generated from the live
+command catalog every time you run `dude docs`, so it always matches your
+project's actual commands — including your `dude init` choices and any
+project-local commands under `.dude/commands/`. (It is gitignored; regenerate it
+any time with `dude docs` or `dude help --format md`.)
+
+The docs site live-reloads when you edit files under `docs/docs/`.
+
+```bash
+dude docs
+# → open http://localhost:8001
+# → edit docs/docs/*.md
+# → browser refreshes automatically
+```

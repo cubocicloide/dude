@@ -14,6 +14,7 @@ monorepo. Read it fully before making changes.
 | `packages/dude/`         | `@cubocicloide/dude`                | The CLI runtime — `dude init`, `dude lint`, `dude up`, …                              |
 | `packages/dude-launcher/`| `@cubocicloide/dude-launcher`       | Tiny global shim; runs each project's pinned CLI + stack (the only global install)    |
 | `stacks/react-fastapi/`  | `@cubocicloide/stack-react-fastapi` | A stack plugin that teaches `dude` how to scaffold and lint a React + FastAPI project |
+| `stacks/react-django/`   | `@cubocicloide/stack-react-django`  | Stack plugin for React + Django REST Framework (drf-spectacular; optional S3 storage — MinIO locally; Celery); IaC = AWS ECS Fargate (`--iac aws-ecs`) |
 | `stacks/fastmcp/`        | `@cubocicloide/stack-fastmcp`       | Stack plugin for a FastMCP (Python) server — modular MCP feature sub-servers; optional AWS ECS IaC |
 | `stacks/tauri/`          | `@cubocicloide/stack-tauri`         | Stack plugin for a Tauri 2 app (desktop + iOS/Android) — React + antd, Rust backend   |
 

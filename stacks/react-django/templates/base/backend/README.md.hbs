@@ -1,0 +1,90 @@
+# Backend
+
+Django + Django REST Framework service for `{{projectName}}`.
+
+## App structure
+
+```
+backend/
+├── manage.py           # Django CLI entry point
+├── config/             # project package
+│   ├── settings/
+│   │   ├── base.py     # shared settings (apps, DRF, storage, logging)
+│   │   ├── local.py    # development — DEBUG, dev SECRET_KEY fallback
+│   │   └── production.py  # deployed — everything from the environment
+│   ├── urls.py         # root URLconf — mounts every app under api/
+{{#if withCelery}}
+│   ├── celery.py       # Celery application (worker/beat entry point)
+{{/if}}
+│   ├── wsgi.py         # gunicorn entry point
+│   └── asgi.py
+└── apps/               # one Django app per domain
+    ├── core/           # health endpoint, shared plumbing
+    ├── users/          # custom User model (AUTH_USER_MODEL) + read-only API
+{{#if withS3}}
+    ├── files/          # file uploads stored on S3 / MinIO
+{{/if}}
+    └── <your-app>/     # models.py, serializers.py, services.py, views.py,
+                        # urls.py, admin.py, migrations/, tests/
+```
+
+Conventions enforced by `dude lint` (see `.claude/rules/BE/` at the project
+root): explicit serializer `fields`, explicit `permission_classes` on every
+view, ORM **writes only in `services.py`**, every app has migrations and a
+`tests/` package, models define `__str__` + `Meta.ordering`.
+
+## Requirements
+
+- Python 3.13+
+- [uv](https://docs.astral.sh/uv/) (recommended)
+- Docker (recommended for full-stack dev)
+{{#if withPostgres}}
+- PostgreSQL 17 (SQLite is used when `DATABASE_URL` is unset)
+{{/if}}
+{{#if withCelery}}
+- Redis 7
+{{/if}}
+
+## Run with Docker
+
+```bash
+docker compose up --build
+```
+
+Migrations run automatically on container start via `start.sh`.
+
+After changing a model:
+
+```bash
+dude db makemigration --message "describe change"
+dude db migrate
+```
+
+Create an admin account for <http://localhost:8000/admin/>:
+
+```bash
+dude db superuser
+```
+{{#if withCelery}}
+
+Celery worker{{#if withCeleryBeat}}, beat scheduler{{/if}} and Flower monitor are started automatically by docker compose.
+Flower UI: <http://localhost:5555>
+{{/if}}
+
+## Run locally (without Docker)
+
+```bash
+uv sync
+uv run python manage.py migrate
+uv run python manage.py runserver 0.0.0.0:8000
+```
+
+Then open <http://localhost:8000/api/health/> — interactive API docs live at
+<http://localhost:8000/api/docs/> (Swagger UI, served by drf-spectacular) and
+the raw OpenAPI schema at <http://localhost:8000/api/schema/>.
+
+## Tests
+
+```bash
+uv run pytest            # or `dude test --backend` from the project root
+```

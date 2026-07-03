@@ -12,6 +12,7 @@ paths:
 | `packages/dude/`          | `@cubocicloide/dude`                | CLI runtime |
 | `packages/dude-launcher/` | `@cubocicloide/dude-launcher`       | Global shim |
 | `stacks/react-fastapi/`   | `@cubocicloide/stack-react-fastapi` | Stack plugin|
+| `stacks/react-django/`    | `@cubocicloide/stack-react-django`  | Stack plugin|
 | `stacks/fastmcp/`         | `@cubocicloide/stack-fastmcp`       | Stack plugin|
 | `stacks/tauri/`           | `@cubocicloide/stack-tauri`         | Stack plugin|
 

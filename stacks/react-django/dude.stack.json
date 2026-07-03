@@ -1,0 +1,13 @@
+{
+  "name": "react-django",
+  "version": "0.1.0",
+  "minDudeVersion": "0.1.0",
+  "entry": "dist/index.js",
+  "tags": [
+    "frontend:react",
+    "backend:django",
+    "api:drf",
+    "lang:typescript",
+    "lang:python"
+  ]
+}

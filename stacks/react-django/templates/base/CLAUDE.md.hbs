@@ -1,0 +1,391 @@
+# CLAUDE.md — {{projectName}}
+
+This file gives Claude the context it needs to work effectively in this project.
+Read it fully before suggesting changes. Keep it up to date as the project evolves.
+
+---
+
+## What this project is
+
+**{{projectName}}** is a full-stack web application scaffolded by [`dude`](https://github.com/cubocicloide/dude)
+using the `react-django` stack:
+
+| Layer    | Technology                                             |
+|----------|--------------------------------------------------------|
+| Frontend | React 19, Vite, TypeScript (strict)                    |
+| Backend  | Django 5, Django REST Framework, drf-spectacular, uv   |
+{{#if withPostgres}}
+| Database | PostgreSQL (Django migrations)                         |
+{{else}}
+| Database | SQLite in dev (Django migrations)                      |
+{{/if}}
+{{#if withS3}}
+| Storage  | S3 via django-storages/boto3 (MinIO locally)           |
+{{/if}}
+{{#if withCelery}}
+| Async    | Celery + Redis{{#if withCeleryBeat}} + Celery Beat{{/if}} (Flower monitor)          |
+{{/if}}
+| Infra    | Docker Compose (single `docker-compose.yml`)           |
+| Testing  | pytest + pytest-django · Playwright + Cucumber (e2e)   |
+| Security | Bandit · Semgrep · Trivy (all via Docker)              |
+
+---
+
+## Project layout
+
+```
+{{projectName}}/
+├── frontend/               # React + Vite SPA
+│   ├── src/
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── openapi/        # Auto-generated typed API client (never edit by hand)
+│   ├── package.json
+│   └── vite.config.ts
+├── backend/                # Django application (uv-managed)
+│   ├── manage.py
+│   ├── config/             # the Django project
+│   │   ├── settings/       # base.py · local.py (dev) · production.py
+│   │   ├── urls.py         # mounts every app under /api/ + drf-spectacular
+{{#if withCelery}}
+│   │   ├── celery.py       # Celery app (config_from_object, autodiscover)
+{{/if}}
+│   │   └── wsgi.py / asgi.py
+│   ├── apps/               # one Django app per domain
+│   │   ├── core/           # health endpoint{{#if withCelery}} + example tasks{{/if}}
+│   │   ├── users/          # custom User model (AUTH_USER_MODEL) + read-only API
+{{#if withS3}}
+│   │   ├── files/          # uploads on S3/MinIO, presigned download URLs
+{{/if}}
+│   │   └── <app>/          # models, serializers, services, views, urls, admin,
+│   │                       # migrations/, tests/
+│   └── pyproject.toml
+├── e2e/                    # End-to-end tests (Playwright + Cucumber.js)
+├── security/
+│   └── baseline.json       # Accepted security findings (versioned, commit this)
+├── private/                # Gitignored — ephemeral files (reports, scratch)
+├── docs/                   # MkDocs project (served via `dude docs`)
+├── .dude/commands/         # custom `dude` commands (one file = one command)
+{{#if withIac}}
+├── iac/                    # Terraform — AWS ECS Fargate (see iac/README.md)
+{{/if}}
+├── dude.json               # dude project config (stack identifier + answers)
+├── docker-compose.yml
+└── CLAUDE.md               ← you are here
+```
+
+---
+
+## dude CLI — all available commands
+
+> Run `dude help` for a live, merged overview.
+> Run `dude help <command>` or `dude help <group> <sub>` for flags.
+
+> **How `dude` is provided.** The `dude` command comes from the global launcher
+> (`@cubocicloide/dude-launcher`, installed once via `npm i -g`). It resolves the
+> CLI + stack versions **this project pins** in `package.json` (lockfile-enforced)
+> and runs them — so every contributor and CI use identical tooling. `pnpm install`
+> provisions them; the launcher also does it automatically on first run. You can
+> equivalently run `pnpm dude <cmd>` from the project root.
+
+### Infrastructure
+
+| Command                   | What it does                                            |
+|---------------------------|---------------------------------------------------------|
+| `dude up`                 | `docker compose up -d` (start all services)             |
+| `dude up --build`         | Rebuild images before starting                          |
+| `dude down`               | `docker compose down` (stop + remove containers)        |
+| `dude logs [service]`     | Follow logs; omit service to follow all                 |
+| `dude shell <service>`    | Interactive shell inside a running container            |
+
+### Database (Django migrations)
+
+| Command                                        | What it does                                    |
+|------------------------------------------------|-------------------------------------------------|
+| `dude db makemigration [--app <a>] [--name <n>]` | Autogenerate migrations from model changes    |
+| `dude db migrate`                              | Apply all pending migrations                    |
+| `dude db migrate --app <a> --revision <rev>`   | Migrate one app to a specific migration         |
+| `dude db rollback --app <a> --to <rev>`        | Roll one app back (`--to zero` reverts fully)   |
+| `dude db superuser`                            | Create a Django admin account (interactive)     |
+
+Migrations also run automatically when the backend container boots.
+
+### Code quality
+
+| Command                   | What it does                                                          |
+|---------------------------|-----------------------------------------------------------------------|
+| `dude lint`               | Run all stack structural lint checks (see `.claude/rules/`)           |
+| `dude format`             | `ruff format` (backend) + `prettier` (frontend)                       |
+| `dude review`             | Run lint + ESLint + API contract review in one pass                   |
+
+### API contract (OpenAPI / drf-spectacular)
+
+| Command                   | What it does                                                          |
+|---------------------------|-----------------------------------------------------------------------|
+| `dude api sync`           | Fetch the schema from `/api/schema/` → generate the typed client      |
+| `dude api review`         | Validate `frontend/src/openapi/` against the saved spec               |
+
+**Workflow**: always run `dude api sync` after changing backend endpoints, then
+commit the updated `frontend/src/openapi/` alongside the change. Swagger UI is
+served at http://localhost:8000/api/docs/.
+
+### Testing
+
+| Command                           | What it does                                       |
+|-----------------------------------|----------------------------------------------------|
+| `dude test`                       | Run all available suites (backend + e2e)           |
+| `dude test --backend`             | pytest (pytest-django) only                        |
+| `dude test --e2e`                 | Playwright + Cucumber only                         |
+| `dude test --e2e --headed`        | E2e in a visible browser window                    |
+| `dude test --e2e --report`        | E2e with HTML + JSON output to `e2e/reports/`      |
+
+### Security scanning
+
+All scanners run inside Docker — no host-level tool installation required.
+New findings cause a non-zero exit; known/accepted findings (baseline) do not.
+
+| Command                                          | What it does                                                  |
+|--------------------------------------------------|---------------------------------------------------------------|
+| `dude security scan`                             | Run all scanners; exit 1 if new findings ≥ HIGH               |
+| `dude security scan --only bandit,semgrep`       | Run a subset of scanners                                       |
+| `dude security scan --min-severity LOW`          | Lower the reporting threshold (default: MEDIUM)               |
+| `dude security scan --fail-on CRITICAL`          | Raise the failure threshold (default: HIGH)                   |
+| `dude security scan --update-baseline`           | Scan + absorb all findings into the baseline                  |
+| `dude security accept`                           | Equivalent to `scan --update-baseline`; use after triage      |
+| `dude security verify --rule-id B105,CVE-…`     | Confirm a specific finding has been fixed                     |
+| `dude security verify --rule-id B105 --remove-resolved` | Fix confirmed → prune it from the baseline          |
+
+**Scanners**:
+- `bandit` — Python AST (backend only)
+- `semgrep` — multi-language rules incl. `p/django` (backend + frontend)
+- `trivy-fs` — filesystem: vulns, IaC misconfigs, secrets
+- `trivy-image` — container image CVEs (requires built image)
+
+**Baseline workflow**:
+1. `dude security scan` — review new findings
+2. Triage: fix what needs fixing, accept acceptable risks
+3. `dude security accept` — absorbs remaining findings into `security/baseline.json`
+4. `git add security/baseline.json && git commit` — commit the baseline update
+5. Subsequent scans only flag *new* issues not in the baseline
+
+### Documentation
+
+| Command                  | What it does                                                        |
+|--------------------------|---------------------------------------------------------------------|
+| `dude docs`              | Serve `docs/` via MkDocs Material in dev mode at http://localhost:8001 |
+| `dude docs --port 9000`  | Same, on a custom port                                              |
+
+Docs are live-reload: edit any `.md` file under `docs/docs/` and the browser refreshes automatically.
+{{#if withIac}}
+
+### Infrastructure (IaC — AWS ECS Fargate)
+
+This project ships Terraform under `iac/` to deploy to AWS ECS Fargate: an ALB
+that path-routes `/api/*`, `/admin/*`, `/django-static/*` to the Django backend
+and everything else to the nginx frontend, two Fargate services, RDS PostgreSQL
+(credentials in Secrets Manager){{#if withS3}}, an S3 media bucket{{/if}}{{#if withRedis}}, ElastiCache Redis{{/if}}{{#if withCelery}}, a Celery worker service{{/if}}{{#if withCeleryBeat}} and a beat service{{/if}}.
+All commands are environment-scoped via `--env` (**required** — no default, to
+avoid acting on the wrong environment). Run any command without `--env` to list
+environments. State lives in S3, so commands run the same locally and in CI.
+See `iac/README.md` for the full workflow.
+
+| Command                 | What it does                                                  |
+|-------------------------|---------------------------------------------------------------|
+| `dude iac login`        | Configure/verify AWS credentials for an environment           |
+| `dude iac bootstrap`    | One-time: state backend (S3+DynamoDB) + the two ECR repos     |
+| `dude iac new-env --env <name>` | Scaffold a new environment (copies `dev` by default)  |
+| `dude iac init`         | `terraform init` (configures the S3 backend for the env)      |
+| `dude iac plan`         | `terraform plan`                                              |
+| `dude iac apply`        | Provision/update infrastructure (`--yes` to auto-approve)     |
+| `dude iac destroy`      | Tear down infrastructure (`--yes` to auto-approve)            |
+| `dude iac output`       | Show outputs (app URL, ECR URLs, RDS endpoint; `--json`)      |
+| `dude iac build/push/deploy` | Build → push → roll the backend + frontend images        |
+| `dude iac ship`         | build + push + deploy in one step (tag = git short SHA)       |
+| `dude iac migrate`      | Run `manage.py migrate` as a one-off Fargate task             |
+| `dude iac status/logs`  | Service state / CloudWatch logs (`--service backend…`)        |
+
+These commands appear **only** in IaC-enabled projects. Production always runs
+PostgreSQL on RDS regardless of the local database choice.
+{{/if}}
+
+### Project-local custom commands
+
+This project can define its own `dude` commands under `.dude/commands/`. Each
+file becomes a command named after the file (`reset.ts` → `dude reset`); no
+registration step. They appear in `dude help` under **PROJECT COMMANDS** and
+take precedence over stack commands of the same name (so a `.dude/commands/up.ts`
+overrides the default `dude up`). The core commands `init`, `upgrade`, `version`,
+and `help` are reserved.
+
+Commands are loaded with [jiti](https://github.com/unjs/jiti), so they can be
+written in TypeScript and `import` any package added to the project. Use the
+`defineCommand` helper for type-checking:
+
+```ts
+// .dude/commands/reset.ts
+import { defineCommand } from '@cubocicloide/dude'
+
+export default defineCommand({
+  description: 'Reset the database to a clean state.',
+  args: { force: { type: 'boolean', description: 'Skip confirmation.' } },
+  async run({ projectRoot, args }) {
+    // ...
+  },
+})
+```
+
+See `.dude/commands/README.md` (shipped with the scaffold) for the full contract.
+
+---
+
+## Development workflows
+
+### Start the stack (Docker)
+
+```bash
+dude up --build   # first time (migrations run automatically on boot)
+dude up           # subsequent runs
+dude db superuser # optional: admin account for /admin/
+```
+
+### Local development (no Docker)
+
+```bash
+# Backend (terminal 1)
+cd backend
+uv sync
+uv run python manage.py migrate
+uv run python manage.py runserver      # http://localhost:8000
+
+# Frontend (terminal 2)
+cd frontend
+pnpm install
+pnpm dev                               # http://localhost:5173
+```
+
+### After changing backend endpoints
+
+```bash
+dude api sync      # regenerate the typed client from /api/schema/
+dude api review    # sanity-check the generated output
+```
+
+### After changing models
+
+```bash
+dude db makemigration --app <app>   # generate the migration — always commit it
+dude db migrate
+```
+
+---
+
+## Tech stack conventions
+
+### Backend (`backend/`)
+
+- **Language**: Python ≥ 3.13
+- **Package manager / runtime**: `uv` (never use pip directly)
+- **Linter / formatter**: `ruff` — rules `E, F, I, N, UP, B, S, RUF`, line length 100
+- **Tests**: `pytest` + `pytest-django`; each app owns its `tests/` package
+- **Settings**: split modules — `base.py` (shared), `local.py` (dev), `production.py`
+  (deployed); selected via `DJANGO_SETTINGS_MODULE`, values via `django-environ`
+
+**The app pattern** (enforced by `dude lint` — see `.claude/rules/BE/001–014`):
+
+- One Django app per domain under `apps/`, registered in `LOCAL_APPS` (BE001).
+- `serializers.py` — explicit `fields` tuples, never `"__all__"` (BE002).
+- `views.py` — thin orchestration: explicit `permission_classes` (BE003) and
+  `serializer_class`/`@extend_schema` (BE013); **no ORM writes** (BE005).
+- `services.py` — all writes/business logic live here, testable without HTTP.
+- `models.py` — `__str__` + `Meta.ordering` (BE009), no `null=True` on text
+  fields (BE010), explicit `related_name` (BE011); every change ships a
+  committed migration (BE006).
+- `urls.py` — `app_name` + DRF router, mounted under `/api/` in `config/urls.py` (BE008).
+- `tests/` — required for every app (BE014). No raw SQL (BE004), no `print()` (BE012).
+
+### Frontend (`frontend/src/`)
+
+- **Language**: TypeScript (strict mode)
+- **Framework**: React 19 with function components + hooks
+- **Build tool**: Vite
+- **Package manager**: `pnpm`
+- **Formatter**: `prettier` (run via `dude format`)
+- **Linter**: ESLint with `react-hooks` + `react-refresh` plugins
+- **API client**: `frontend/src/openapi/` — **never edit by hand**, always regenerate via `dude api sync`
+
+### Docker Compose
+
+- Service names: `frontend`, `backend`{{#if withPostgres}}, `postgres`{{/if}}{{#if withS3}}, `minio`{{/if}}{{#if withRedis}}, `redis`{{/if}}{{#if withCelery}}, `celery_worker`, `flower`{{/if}}{{#if withCeleryBeat}}, `celery_beat`{{/if}} (use these with `dude logs`, `dude shell`)
+- Hot-reload is enabled in development mode for both frontend and backend
+
+---
+
+## Claude AI assistance
+
+This project ships a set of Claude skills and agents inside `.claude/`.
+Invoke skills from the Claude chat panel with `/skill-name`.
+
+### Skills (slash commands)
+
+| Skill | What it does |
+|-------|--------------|
+| `/create` | Guided scaffolding router — asks route or page, then runs the matching flow |
+| `/create-route` | Scaffold a backend API endpoint (DRF view/serializer/service + migration + tests), enforcing the BE rules |
+| `/create-page` | Scaffold a frontend page (React + antd), wire the route, reuse shared components/hooks, enforcing the FE rules |
+| `/security-scan` | Full SAST scan → parallel fix agents per finding → PR + Jira issues |
+| `/verify-security-fixes` | Re-scan, confirm resolved findings, close Jira issues, update baseline |
+| `/fix-issues` | Fetch open Jira issues → route to `issue-fixer` or `security-fixer` agents → PR |
+| `/create-jira-issue` | Guided Jira issue creation with type/priority/labels |
+| `/clean-branches` | Prune merged and stale local/remote branches |
+| `/draft-email` | Draft a professional email from a brief |
+
+### Agents (autonomous workers)
+
+| Agent | What it does |
+|-------|--------------|
+| `issue-fixer` | Implements a single Jira issue in its own git worktree; opens PR; transitions issue to Done |
+| `security-fixer` | Fixes a single SAST finding in its own worktree; handles suppressions and CVE updates |
+
+Agents run in isolated git worktrees (one branch per task) and can operate in
+parallel when orchestrated by `/fix-issues` or `/security-scan`.
+
+### Saved config (autodiscovery)
+
+Skills read Atlassian/Bitbucket connection details from `.claude/config.json`
+(gitignored). Create it on first use:
+
+```json
+{
+  "jira": { "projectKey": "PROJ" },
+  "bitbucket": { "workspace": "my-org", "repo": "{{projectName}}" }
+}
+```
+
+---
+
+## What Claude should NOT do
+
+- Edit anything under `frontend/src/openapi/` — it is auto-generated. Run `dude api sync` instead.
+- Edit `security/baseline.json` by hand — use `dude security accept` or `dude security verify --remove-resolved`.
+- Hand-edit committed migration files or regenerate them ad hoc — create a new migration instead.
+- Put ORM writes in `views.py` — they belong in `services.py` (lint BE005 will fail).
+- Add files to `private/` to version control — it is gitignored.
+- Use `pip install` — always `uv add <package>` for backend dependencies.
+- Use `npm` or `yarn` — always `pnpm` for frontend dependencies.
+
+---
+
+## Key files at a glance
+
+| File | Purpose |
+|------|---------|
+| `dude.json` | Identifies the stack (`react-django`) + init answers; required for `dude` commands |
+| `docker-compose.yml` | Service definitions for all environments |
+| `security/baseline.json` | Accepted security findings; commit whenever updated |
+| `backend/pyproject.toml` | Python project metadata, deps, ruff/pytest config |
+| `backend/config/settings/` | Split Django settings (base/local/production) |
+| `frontend/package.json` | JS/TS project metadata and dev scripts |
+| `frontend/src/openapi/` | Auto-generated API client — do not edit |
+| `docs/mkdocs.yml` | MkDocs configuration; edit nav here to add new pages |
+| `docs/docs/` | Markdown source for the documentation site |
+| `CLAUDE.md` | This file — project context for Claude |

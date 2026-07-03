@@ -1,0 +1,35 @@
+# ── App ───────────────────────────────────────────────────────────────────────
+APP_TITLE={{projectName}}
+DJANGO_DEBUG=true
+DJANGO_SETTINGS_MODULE=config.settings.local
+
+# ── Frontend (baked in at Docker build time by Vite) ─────────────────────────
+VITE_APP_TITLE={{projectName}}
+# Set to "true" to enable React Query DevTools in the browser
+VITE_REACT_QUERY_DEVTOOLS=true
+{{#if withPostgres}}
+
+# ── Database ──────────────────────────────────────────────────────────────────
+DATABASE_URL=postgres://postgres:postgres@postgres:5432/app
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=app
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+{{/if}}
+{{#if withS3}}
+
+# ── Object storage (MinIO locally, S3 in production) ─────────────────────────
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
+AWS_STORAGE_BUCKET_NAME={{projectName}}-media
+AWS_S3_ENDPOINT_URL=http://minio:9000
+AWS_S3_REGION_NAME=us-east-1
+{{/if}}
+{{#if withRedis}}
+
+# ── Redis / Celery ────────────────────────────────────────────────────────────
+REDIS_URL=redis://redis:6379/0
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+{{/if}}
