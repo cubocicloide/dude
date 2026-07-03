@@ -1,0 +1,22 @@
+"""Root URL configuration for {{projectName}}.
+
+Every API app is mounted under the ``api/`` prefix (lint rule BE008); each app
+declares its own routes (and an ``app_name``) in ``apps/<app>/urls.py``.
+"""
+
+from django.contrib import admin
+from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    # API apps
+    path("api/", include("apps.core.urls")),
+    path("api/", include("apps.users.urls")),
+{{#if withS3}}
+    path("api/", include("apps.files.urls")),
+{{/if}}
+    # OpenAPI schema + interactive docs (drf-spectacular)
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
+]

@@ -1,0 +1,100 @@
+# Welcome
+
+This is the documentation for **{{projectName}}** — a full-stack web application built with React + Django REST Framework, scaffolded with [`dude`](https://github.com/cubocicloide/dude).
+
+---
+
+## Getting started
+
+`dude` is the project CLI. It ships as a **private package** on GitHub Packages,
+so first authenticate the registry, then install the global launcher, then
+provision and start the app.
+
+```bash
+# 1. One-time machine setup — authenticate the private @cubocicloide registry.
+#    Add to ~/.npmrc:
+#      @cubocicloide:registry=https://npm.pkg.github.com
+#      //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+#    …and export a GitHub token with the `read:packages` scope:
+export GITHUB_TOKEN=ghp_your_token_here
+
+# 2. Install the dude launcher globally (the only global install).
+npm install -g @cubocicloide/dude-launcher
+
+# 3. Scaffold the project (how {{projectName}} was created). Already inside it
+#    or cloned it? Skip this and go straight to `pnpm install`.
+dude init {{projectName}}
+cd {{projectName}}
+
+# 4. Provision the project's pinned toolchain (CLI + stack) from the lockfile.
+pnpm install
+
+# 5. Build the images and start every service (first run).
+#    Django migrations are applied automatically on boot.
+dude up
+```
+
+From then on, `dude up` starts everything and `dude down` stops it. See
+[Working with dude](dude.md) for the full command reference and
+[the README](https://github.com/cubocicloide/dude) for prerequisites.
+
+To serve this documentation site:
+
+```bash
+dude docs          # → http://localhost:8001
+```
+
+---
+
+## Contents
+
+- [Working with dude](dude.md) — CLI reference: start the stack, run tests, scan for security issues, and more.
+- [Command reference](api.md) — auto-generated list of every command available in this project.
+- [Writing docs](mkdocs.md) — How to add pages to this documentation site and the Markdown syntax supported.
+{{#if withIac}}
+- [Deploy (AWS ECS)](deploy.md) — provision cloud infrastructure and ship the app.
+{{/if}}
+
+---
+
+## Quick links
+
+| Resource | URL |
+|----------|-----|
+| Frontend (dev) | <http://localhost:5173> |
+| Backend API | <http://localhost:8000> |
+| Swagger UI (drf-spectacular) | <http://localhost:8000/api/docs/> |
+| OpenAPI schema | <http://localhost:8000/api/schema/> |
+| API health | <http://localhost:8000/api/health/> |
+| Django admin | <http://localhost:8000/admin/> |
+{{#if withS3}}
+| MinIO console | <http://localhost:9001> |
+{{/if}}
+{{#if withCelery}}
+| Flower | <http://localhost:5555> |
+{{/if}}
+| This docs site | <http://localhost:8001> |
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, Vite, TypeScript (strict), Ant Design, TanStack Query |
+| Backend | Django 5, Django REST Framework, drf-spectacular, Python ≥ 3.13, uv |
+{{#if withPostgres}}
+| Database | PostgreSQL (Django migrations) |
+{{else}}
+| Database | SQLite (dev default — Django migrations) |
+{{/if}}
+{{#if withS3}}
+| Object storage | S3 via django-storages (MinIO locally) |
+{{/if}}
+{{#if withCelery}}
+| Async jobs | Celery, Redis, Flower |
+{{/if}}
+| Infra | Docker Compose, Dockerfiles for frontend and backend |
+| Testing | pytest + pytest-django · Playwright + Cucumber |
+| Security | Bandit · Semgrep · Trivy |
+| Docs | MkDocs Material |

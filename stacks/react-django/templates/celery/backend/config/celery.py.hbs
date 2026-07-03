@@ -1,0 +1,26 @@
+"""Celery application for {{projectName}}.
+
+Configuration is read from Django settings under the ``CELERY_`` namespace
+(see ``config/settings/base.py``); tasks are auto-discovered from every
+installed app's ``tasks*.py`` modules.
+"""
+
+import os
+
+from celery import Celery
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
+
+app = Celery("config")
+app.config_from_object("django.conf:settings", namespace="CELERY")
+app.autodiscover_tasks()
+{{#if withCeleryBeat}}
+
+# Periodic tasks — executed by the `celery_beat` compose service.
+app.conf.beat_schedule = {
+    "heartbeat-every-minute": {
+        "task": "apps.core.tasks_scheduled.heartbeat",
+        "schedule": 60.0,
+    },
+}
+{{/if}}

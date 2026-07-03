@@ -1,0 +1,54 @@
+# Deploy to AWS
+
+The project ships Terraform for **AWS ECS Fargate** under `iac/`, driven
+entirely by `dude iac …` commands. Architecture:
+
+```
+                        ┌────────────────────────────┐
+        Internet ──────▶│  ALB (HTTP/HTTPS)          │
+                        │   /api/* /admin/*          │
+                        │   /django-static/* ────────┼──▶ ECS backend (gunicorn :8000)
+                        │   everything else ─────────┼──▶ ECS frontend (nginx :80)
+                        └────────────────────────────┘         │
+                                                               ▼
+                             RDS PostgreSQL ◀── Secrets Manager (DATABASE_URL,
+                                                DJANGO_SECRET_KEY)
+{{#if withS3}}                             S3 media bucket ◀── django-storages (uploads)
+{{/if}}{{#if withRedis}}                             ElastiCache Redis ◀── Celery{{#if withCeleryBeat}} (+ beat){{/if}}
+{{/if}}```
+
+Production always runs **PostgreSQL on RDS**, regardless of the local
+database choice — `config/settings/production.py` requires `DATABASE_URL`.
+Static assets are served by whitenoise from the backend image (collected at
+build time); uploads{{#if withS3}} go to the S3 bucket via presigned URLs{{else}} use the default storage{{/if}}.
+
+## Workflow
+
+```bash
+dude iac login --env dev
+dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes
+dude iac init --env dev
+dude iac apply --env dev
+dude iac ship --env dev        # build + push + deploy backend & frontend images
+dude iac migrate --env dev     # one-off Fargate task: manage.py migrate
+```
+
+`dude iac ship` tags both images with the git short SHA (`-dirty` when the
+tree has uncommitted changes), records the tag in the environment's
+`terraform.tfvars`, and lets ECS roll the services with automatic rollback on
+failure.
+
+## Operations
+
+| Task | Command |
+| ---- | ------- |
+| Service health | `dude iac status --env dev --service backend` |
+| Tail logs | `dude iac logs --env dev --service backend --follow` |
+| Terraform outputs | `dude iac output --env dev` |
+| Preview infra changes | `dude iac plan --env dev` |
+| New environment | `dude iac new-env --env staging --from dev` |
+| Interactive toolbox | `dude iac shell --env dev` |
+| Tear down | `dude iac destroy --env dev` |
+
+See `iac/README.md` for the full reference (custom domains, sizing variables,
+state backend details).

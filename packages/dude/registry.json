@@ -11,6 +11,10 @@
     "tauri": {
       "package": "@cubocicloide/stack-tauri",
       "minimumSupported": "0.1.0"
+    },
+    "react-django": {
+      "package": "@cubocicloide/stack-react-django",
+      "minimumSupported": "0.1.0"
     }
   }
 }

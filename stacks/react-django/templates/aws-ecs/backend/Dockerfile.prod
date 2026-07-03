@@ -1,0 +1,34 @@
+# Production image — self-contained (no bind mounts), runtime deps only,
+# non-root, gunicorn. Built and pushed to ECR by `dude iac build` / `dude iac ship`.
+#
+# There is deliberately NO ENTRYPOINT: the one-off ECS tasks (migrate) and the
+# Celery worker/beat services reuse this image and fully replace CMD with their
+# own command (e.g. ["/app/.venv/bin/python", "manage.py", "migrate", "--noinput"]).
+FROM python:3.13-slim
+WORKDIR /app
+
+# Install uv (fast Python package manager)
+RUN pip install --no-cache-dir uv
+
+# Runtime dependencies only (no pytest/ruff/mypy in the production image).
+# pyproject includes gunicorn + whitenoise for production serving.
+COPY pyproject.toml uv.lock* ./
+RUN uv sync --no-cache --no-dev
+
+# Bake the application in — unlike the dev image, nothing is bind-mounted.
+COPY manage.py ./
+COPY config/ ./config/
+COPY apps/ ./apps/
+
+# Collect static assets (admin, DRF) at build time so whitenoise can serve
+# them at /django-static/. The local settings + a dummy SECRET_KEY are only
+# used for this build step — at runtime ECS injects the production settings
+# module and the real key from Secrets Manager.
+RUN DJANGO_SECRET_KEY=build DJANGO_SETTINGS_MODULE=config.settings.local \
+    uv run python manage.py collectstatic --noinput
+
+RUN useradd --system --create-home appuser
+USER appuser
+
+EXPOSE 8000
+CMD ["/app/.venv/bin/gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2"]

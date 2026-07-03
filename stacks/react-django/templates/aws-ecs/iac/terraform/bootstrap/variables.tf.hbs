@@ -1,0 +1,17 @@
+variable "project_name" {
+  description = "Project slug — used to name the state bucket, lock table and ECR repositories."
+  type        = string
+  default     = "{{projectName}}"
+}
+
+variable "region" {
+  description = "AWS region for the state bucket + lock table + ECR repositories."
+  type        = string
+  default     = "eu-west-1"
+}
+
+variable "state_bucket_prefix" {
+  description = "Prefix to make the S3 bucket name globally unique (e.g. your org slug)."
+  type        = string
+  default     = "change-me"
+}

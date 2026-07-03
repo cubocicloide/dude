@@ -1,0 +1,208 @@
+# {{projectName}}
+
+Scaffolded with [`dude`](https://github.com/cubocicloide/dude) using the
+`react-django` stack.
+
+---
+
+## Prerequisites
+
+- **Docker Desktop** — running (the whole stack runs in containers).
+- **Node.js ≥ 20** and **pnpm** — to provision the project toolchain.
+- **Access to the private `@cubocicloide` registry.** The `dude` CLI and its
+  stack ship as **private GitHub Packages**, so you need a GitHub
+  [personal access token](https://github.com/settings/tokens) with the
+  `read:packages` scope.
+
+### One-time machine setup (private registry auth)
+
+Point the `@cubocicloide` scope at GitHub Packages and give it your token. Add
+this to your `~/.npmrc`:
+
+```ini
+@cubocicloide:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+…and export the token from your shell profile (`~/.zshrc`, `~/.bashrc`):
+
+```bash
+export GITHUB_TOKEN=ghp_your_token_here
+```
+
+> This project already ships an `.npmrc` with the same two lines, so the
+> project-local `pnpm install` is covered too — you only need `GITHUB_TOKEN` set.
+
+---
+
+## Getting started
+
+The full lifecycle — install the launcher once, scaffold, provision, run:
+
+```bash
+# 1. Install the dude launcher globally (private package — needs the token above).
+#    This is the ONLY global install. It auto-runs each project's pinned CLI.
+npm install -g @cubocicloide/dude-launcher
+
+# 2. Scaffold the project (this is how {{projectName}} was created).
+dude init {{projectName}} --stack react-django
+cd {{projectName}}
+
+# 3. Provision the project toolchain — installs the pinned `dude` CLI + stack
+#    (and root dev deps) from the lockfile.
+pnpm install
+
+# 4. First run — build the images and start every service.
+#    Django migrations are applied automatically on boot.
+dude up --build
+
+# 5. From the second run onward, just:
+dude up
+
+# 6. Optional: create a Django admin account for /admin/.
+dude db superuser
+```
+
+> **Already have the project?** If you're reading this inside `{{projectName}}`
+> (or you just `git clone`d it), it's already scaffolded — skip step 2 and start
+> at `pnpm install`.
+
+> **How `dude` resolves its version.** `dude` on your `PATH` is the *launcher*.
+> On the first `dude <cmd>` inside a project it provisions the versions pinned in
+> `package.json` (running `pnpm install` for you if `node_modules` is missing),
+> then re-execs the project-local CLI. So step 3 is optional — `dude up --build`
+> would trigger it — but running it explicitly makes the first build faster and
+> surfaces any auth problem up front.
+
+Once the containers are up, open the URLs below.
+
+### Services
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| **Frontend** | http://localhost:5173 | React + Vite — HMR active |
+| **API** | http://localhost:8000 | Django REST Framework |
+| **Swagger UI** | http://localhost:8000/api/docs/ | Interactive API explorer (drf-spectacular) |
+| **OpenAPI schema** | http://localhost:8000/api/schema/ | Raw schema (YAML) |
+| **Health** | http://localhost:8000/api/health/ | JSON health check |
+| **Django admin** | http://localhost:8000/admin/ | Create an account with `dude db superuser` |
+{{#if withS3}}
+| **MinIO console** | http://localhost:9001 | Object-storage UI (minioadmin/minioadmin) |
+{{/if}}
+{{#if withCelery}}
+| **Flower** | http://localhost:5555 | Celery task monitor |
+{{/if}}
+
+### Documentation site
+
+This project ships a full docs site (MkDocs Material). Serve it locally:
+
+```bash
+dude docs                 # → http://localhost:8001
+dude docs --port 9000     # custom port
+```
+
+It live-reloads as you edit files under `docs/docs/`. The **Command reference**
+page is auto-generated from your actual commands every time you run `dude docs`.
+
+### Hot reload
+
+- **Frontend** — Vite HMR is on by default. Edit any file under `frontend/src/`
+  and the browser updates instantly without a full page reload.
+- **Backend** — Django's dev server auto-reloads. Edit any Python file under
+  `backend/apps/` or `backend/config/` and the API restarts within a second.
+
+### Common commands
+
+| Command | Description |
+|---------|-------------|
+| `dude up --build` | Rebuild images and start all services |
+| `dude up` | Start all services (detached) |
+| `dude down` | Stop and remove containers |
+| `dude logs [service]` | Follow logs (omit service to follow all) |
+| `dude shell <service>` | Open a shell inside a running container |
+| `dude db makemigration` | Autogenerate Django migrations from model changes |
+| `dude db migrate` | Apply pending migrations |
+| `dude db superuser` | Create a Django admin account |
+| `dude api sync` | Fetch the drf-spectacular schema → regenerate typed client |
+| `dude api review` | Validate generated client against the spec |
+| `dude lint` | Run all stack lint checks |
+| `dude docs` | Serve this documentation (http://localhost:8001) |
+| `dude help` | Live list of every available command |
+| `dude upgrade` | Update pinned CLI and stack versions for this project |
+
+Run `dude help` for the full, live catalog (it reflects this project's `dude
+init` choices), or see the **Working with dude** page in the docs site.
+
+### Upgrading pinned versions
+
+Use `dude upgrade` to update the versions pinned in `package.json` and
+`dude.json`.
+
+```bash
+dude upgrade
+dude upgrade --cli --cli-version 0.6.1
+dude upgrade --stack --stack-version 5.0.5
+```
+
+This updates version pins only; it does not migrate existing files. Run `pnpm
+install` afterwards. To roll back, pin the previous version again and reinstall:
+
+```bash
+dude upgrade --cli --cli-version 0.6.0
+dude upgrade --stack --stack-version 5.0.4
+pnpm install
+```
+
+---
+
+## Scaffolding another project
+
+This project was created with `dude init`. With the launcher installed, you can
+scaffold a new one from anywhere (the launcher delegates `init` to the latest
+published CLI):
+
+```bash
+dude init my-next-app --stack react-django
+```
+
+---
+
+## Project layout
+
+```
+{{projectName}}/
+├── frontend/        # React + Vite + TypeScript
+├── backend/         # Django 5 + DRF (Python 3.13)
+│   ├── config/         # project: settings/ (base|local|production), urls, wsgi
+│   └── apps/           # one Django app per domain
+│       ├── core/       # health endpoint{{#if withCelery}}, example Celery tasks{{/if}}
+│       ├── users/      # custom User model + read-only API
+{{#if withS3}}
+│       ├── files/      # uploads on S3/MinIO (presigned URLs)
+{{/if}}
+│       └── <app>/      # models, serializers, services, views, urls, tests/
+├── e2e/             # Playwright + Cucumber end-to-end suite
+├── docs/            # MkDocs documentation site
+└── docker-compose.yml
+```
+
+Each app follows the same convention: **serializers list fields explicitly,
+views declare permissions and delegate writes to `services.py`, every model
+change ships its migration, every app ships tests** — enforced by `dude lint`
+(see `.claude/rules/BE/`).
+
+## Quick start — local (no Docker)
+
+```bash
+# Frontend (terminal 1)
+cd frontend
+pnpm install
+pnpm dev          # http://localhost:5173
+
+# Backend (terminal 2)
+cd backend
+uv sync
+uv run python manage.py migrate
+uv run python manage.py runserver   # http://localhost:8000
+```

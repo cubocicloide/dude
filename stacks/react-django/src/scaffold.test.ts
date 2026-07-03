@@ -1,0 +1,154 @@
+/**
+ * Integration test: scaffold option matrix.
+ *
+ * Drives the real `dude init` CLI (via the Project helper) for each
+ * combination of stack options, then verifies — from a customer's point of
+ * view — that:
+ *
+ *   1. the right template overlays were applied (and the disabled ones were not),
+ *   2. docker-compose.yml gained exactly the services the options imply, and
+ *   3. `dude lint` exits 0 on the freshly-scaffolded project.
+ *
+ * This is the only place the postgres/s3/celery/celerybeat overlays and their
+ * `withPostgres`/`withS3`/`withCelery`/`withRedis` Handlebars conditionals are
+ * exercised end-to-end. Unit tests cover individual lint rules; this proves the
+ * variants a user can actually select all scaffold into a lint-clean project.
+ */
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { Project } from '@cubocicloide/dude/testing'
+
+interface Variant {
+  /** Suite label and tmpdir prefix. */
+  name: string
+  /** Flags appended after `--yes` when invoking `dude init`. */
+  flags: string[]
+  /** Files that must exist (overlay was applied). */
+  present: string[]
+  /** Files that must NOT exist (overlay was skipped). */
+  absent: string[]
+  /** Service/section markers that must appear in docker-compose.yml. */
+  composeIncludes: string[]
+  /** Markers that must NOT appear in docker-compose.yml. */
+  composeExcludes: string[]
+}
+
+const POSTGRES_FILES = ['.dude/commands/reset.ts']
+const S3_FILES = ['backend/apps/files/models.py', 'backend/apps/files/views.py']
+const CELERY_FILES = ['backend/config/celery.py', 'backend/apps/core/tasks.py']
+const CELERYBEAT_FILES = ['backend/apps/core/tasks_scheduled.py']
+
+const VARIANTS: Variant[] = [
+  {
+    name: 'base',
+    flags: [],
+    present: ['backend/apps/users/models.py', 'backend/config/settings/base.py'],
+    absent: [...POSTGRES_FILES, ...S3_FILES, ...CELERY_FILES, ...CELERYBEAT_FILES],
+    composeIncludes: [],
+    composeExcludes: ['postgres:', 'minio:', 'redis:', 'celery_worker:', 'celery_beat:'],
+  },
+  {
+    name: 'postgres',
+    flags: ['--database', 'postgres'],
+    present: POSTGRES_FILES,
+    absent: [...S3_FILES, ...CELERY_FILES, ...CELERYBEAT_FILES],
+    composeIncludes: ['postgres:'],
+    composeExcludes: ['minio:', 'redis:', 'celery_worker:', 'celery_beat:'],
+  },
+  {
+    name: 's3',
+    flags: ['--storage', 's3'],
+    present: S3_FILES,
+    absent: [...POSTGRES_FILES, ...CELERY_FILES, ...CELERYBEAT_FILES],
+    // S3 locally means MinIO (server + one-shot bucket setup).
+    composeIncludes: ['minio:', 'minio_setup:'],
+    composeExcludes: ['postgres:', 'redis:', 'celery_worker:', 'celery_beat:'],
+  },
+  {
+    name: 'celery',
+    flags: ['--celery'],
+    present: CELERY_FILES,
+    absent: [...POSTGRES_FILES, ...S3_FILES, ...CELERYBEAT_FILES],
+    // Celery implies Redis as broker/result backend.
+    composeIncludes: ['redis:', 'celery_worker:'],
+    composeExcludes: ['postgres:', 'minio:', 'celery_beat:'],
+  },
+  {
+    name: 'celerybeat',
+    flags: ['--celeryBeat'],
+    // Celery Beat auto-enables Celery, so both overlays land.
+    present: [...CELERY_FILES, ...CELERYBEAT_FILES],
+    absent: [...POSTGRES_FILES, ...S3_FILES],
+    composeIncludes: ['redis:', 'celery_worker:', 'celery_beat:'],
+    composeExcludes: ['postgres:', 'minio:'],
+  },
+  {
+    name: 'full',
+    flags: ['--database', 'postgres', '--storage', 's3', '--celeryBeat'],
+    present: [...POSTGRES_FILES, ...S3_FILES, ...CELERY_FILES, ...CELERYBEAT_FILES],
+    absent: [],
+    composeIncludes: ['postgres:', 'minio:', 'redis:', 'celery_worker:', 'celery_beat:'],
+    composeExcludes: [],
+  },
+]
+
+describe.each(VARIANTS)('scaffold variant: $name', (variant) => {
+  let project: Project
+
+  beforeAll(() => {
+    project = Project.scaffold({
+      stack: './stacks/react-django',
+      prefix: `dude-${variant.name}-`,
+      flags: ['--yes', ...variant.flags],
+    })
+  }, 60_000)
+
+  afterAll(() => project.cleanup())
+
+  it('applies the enabled overlays', () => {
+    for (const file of variant.present) {
+      expect(project.exists(file), `expected ${file} to exist`).toBe(true)
+    }
+  })
+
+  it('omits the disabled overlays', () => {
+    for (const file of variant.absent) {
+      expect(project.exists(file), `expected ${file} to be absent`).toBe(false)
+    }
+  })
+
+  it('renders docker-compose.yml with the right services', () => {
+    const compose = project.readFile('docker-compose.yml')
+    for (const marker of variant.composeIncludes) {
+      expect(compose, `compose should contain "${marker}"`).toContain(marker)
+    }
+    for (const marker of variant.composeExcludes) {
+      expect(compose, `compose should not contain "${marker}"`).not.toContain(marker)
+    }
+  })
+
+  it('passes `dude lint` on the fresh scaffold', () => {
+    const result = project.run('lint')
+    if (result.status !== 0) process.stdout.write(result.stdout + result.stderr + '\n')
+    expect(result.status).toBe(0)
+  })
+
+  it('pins both the CLI and the stack in package.json, in lockstep with dude.json', () => {
+    const pkg = JSON.parse(project.readFile('package.json')) as {
+      devDependencies?: Record<string, string>
+    }
+    const manifest = JSON.parse(project.readFile('dude.json')) as {
+      stack: string
+      stackVersion: string
+    }
+    const deps = pkg.devDependencies ?? {}
+
+    // The CLI must be pinned so `pnpm install` provisions a reproducible version.
+    expect(deps['@cubocicloide/dude'], 'CLI must be pinned in devDependencies').toBeTruthy()
+
+    // The stack must be pinned too, at exactly the version dude.json records —
+    // so the package manager (not dude's runtime cache) resolves it.
+    expect(deps[manifest.stack], `stack ${manifest.stack} must be pinned`).toBe(
+      manifest.stackVersion,
+    )
+  })
+})

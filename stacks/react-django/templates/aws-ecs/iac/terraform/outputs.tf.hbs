@@ -1,0 +1,71 @@
+output "region" {
+  description = "AWS region this environment runs in."
+  value       = var.region
+}
+
+output "ecr_backend_repository_url" {
+  description = "Shared ECR repository the backend image is pushed to."
+  value       = data.aws_ecr_repository.backend.repository_url
+}
+
+output "ecr_frontend_repository_url" {
+  description = "Shared ECR repository the frontend image is pushed to."
+  value       = data.aws_ecr_repository.frontend.repository_url
+}
+
+output "cluster_name" {
+  description = "ECS cluster name."
+  value       = aws_ecs_cluster.this.name
+}
+
+output "backend_service_name" {
+  description = "ECS service name of the Django backend."
+  value       = aws_ecs_service.backend.name
+}
+
+output "frontend_service_name" {
+  description = "ECS service name of the nginx frontend."
+  value       = aws_ecs_service.frontend.name
+}
+
+output "alb_dns_name" {
+  description = "DNS name of the load balancer."
+  value       = aws_lb.this.dns_name
+}
+
+output "app_domain" {
+  description = "Custom domain the app is served on (empty when none is configured)."
+  value       = local.with_domain ? var.domain_name : ""
+}
+
+output "app_url" {
+  description = "The URL the app is served on."
+  value       = local.app_url
+}
+
+output "migrate_task_definition" {
+  description = "Task definition (with revision) `dude iac migrate` runs with `aws ecs run-task`."
+  value       = aws_ecs_task_definition.migrate.arn
+}
+
+output "public_subnet_ids" {
+  description = "Subnets one-off tasks (migrate) run in. No private subnets exist — the VPC skips NAT gateways for cost."
+  value       = aws_subnet.public[*].id
+}
+
+output "backend_security_group_id" {
+  description = "Security group of the backend workloads — one-off tasks (migrate) attach it to reach RDS."
+  value       = aws_security_group.backend.id
+}
+
+output "rds_endpoint" {
+  description = "PostgreSQL endpoint (host:port)."
+  value       = aws_db_instance.this.endpoint
+}
+{{#if withS3}}
+
+output "media_bucket" {
+  description = "S3 bucket holding uploaded media (the `files` app)."
+  value       = aws_s3_bucket.media.bucket
+}
+{{/if}}
