@@ -1,0 +1,53 @@
+# dev environment — small, cost-conscious defaults.
+# Copy this folder to add a new environment (dude iac new-env --env prod) and
+# bump the sizing / durability knobs there (db_multi_az, deletion protection,
+# desired counts, …).
+
+environment = "dev"
+region      = "eu-west-1"
+
+# The image tag currently deployed. `dude iac deploy` (and `ship`) rewrite this
+# line, so a plain `dude iac apply` always re-deploys the same build.
+image_tag = "latest"
+
+# Fargate sizing. worker_* applies to EACH task container the ECS executor
+# launches — one dedicated container per Airflow task instance.
+web_cpu       = 512
+web_memory    = 1024
+core_cpu      = 1024
+core_memory   = 2048
+worker_cpu    = 512
+worker_memory = 1024
+
+# Metadata DB (RDS Postgres).
+db_instance_class    = "db.t4g.micro"
+db_allocated_storage = 20
+
+# Who may reach the Airflow UI/API. Restrict this to your org's networks
+# before putting anything real in this deployment.
+allowed_cidrs = ["0.0.0.0/0"]
+
+# Plain (non-secret) env vars for every Airflow container.
+app_environment = {
+  # MY_FLAG = "value"
+}
+
+# Secret keys injected from the app secret (values via `dude iac secrets`).
+{{#if withEntraId}}
+app_secret_keys = ["AZURE_CLIENT_SECRET"]
+
+# Entra ID app registration (the client secret is NOT set here — run:
+#   dude iac secrets --env dev --set AZURE_CLIENT_SECRET=…
+# after the first apply, then add the production redirect URI in Entra).
+azure_tenant_id = "CHANGE-ME-tenant-guid"
+azure_client_id = "CHANGE-ME-app-client-id"
+{{else}}
+app_secret_keys = []
+{{/if}}
+
+# TLS + DNS (optional) — uncomment to serve HTTPS on your own domain.
+# The hosted zone must already exist in Route53. Terraform then issues an ACM
+# certificate (DNS-validated), points the domain at the ALB, and the ALB
+# listens on 443 redirecting HTTP→HTTPS. Leave commented for plain HTTP.
+# domain_name       = "airflow.example.com"
+# route53_zone_name = "example.com"

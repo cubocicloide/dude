@@ -1,0 +1,70 @@
+# Sign-on (SSO)
+
+The web UI authenticates through Airflow's **FAB auth manager**, configured
+in `airflow/config/webserver_config.py` (mounted into the api-server).
+{{#if withEntraId}}This project was scaffolded with **Microsoft Entra ID**
+sign-on.{{else}}This project was scaffolded with the **native** sign-on
+(Airflow user database).{{/if}}
+
+## Native (user database)
+
+Users, passwords and role assignments live in Airflow's own database, managed
+under **Security → Users** in the UI or via CLI:
+
+```bash
+docker compose run --rm airflow-cli airflow users create \
+  --role Viewer --username jane --password … \
+  --firstname Jane --lastname Doe --email jane@example.com
+```
+
+{{#unless withEntraId}}
+The first admin is created automatically on `dude up` from
+`AIRFLOW_ADMIN_USERNAME` / `AIRFLOW_ADMIN_PASSWORD` in `.env` — **change the
+defaults before exposing the UI anywhere**.
+{{/unless}}
+
+## Microsoft Entra ID (OAuth 2.0 / OIDC)
+
+{{#if withEntraId}}
+Already enabled — finish the setup on the Entra side:
+{{else}}
+To switch, edit `airflow/config/webserver_config.py` (replace the `AUTH_DB`
+block with the `AUTH_OAUTH` one — scaffold a throwaway project with
+`--sso entra-id` to copy it), add `authlib` to `airflow/requirements.txt`,
+provide the variables below in `.env`, then `dude up --build`. On the Entra
+side:
+{{/if}}
+
+1. **App registration** (Entra admin center → App registrations → New):
+   - Redirect URI (Web): `http://localhost:8080/auth/oauth-authorized/azure`
+     — add your production URL alongside it after deploying
+     (`https://<host>/auth/oauth-authorized/azure`).
+   - Create a **client secret** (Certificates & secrets).
+2. **App roles** (App roles → Create): create `airflow_admin`, `airflow_op`,
+   `airflow_user`, `airflow_viewer` (value = display name), then assign them
+   to users/groups under *Enterprise applications → your app → Users and
+   groups*. `AUTH_ROLES_MAPPING` in `webserver_config.py` maps them onto
+   Airflow's Admin / Op / User / Viewer roles at every login
+   (`AUTH_ROLES_SYNC_AT_LOGIN`).
+3. **Configuration** — fill in `.env` (locally; in AWS use
+   `dude iac secrets`):
+
+   | Variable | Where to find it |
+   | -------- | ---------------- |
+   | `AZURE_TENANT_ID` | App overview → Directory (tenant) ID |
+   | `AZURE_CLIENT_ID` | App overview → Application (client) ID |
+   | `AZURE_CLIENT_SECRET` | The secret created in step 1 |
+   | `AUTH_USER_REGISTRATION_ROLE` | Role for users with no mapped app role (default `Viewer`) |
+
+Users without any assigned app role are auto-registered with
+`AUTH_USER_REGISTRATION_ROLE` — set it to a harmless role (`Viewer`) or
+restrict the enterprise app to assigned users only.
+
+## Roles cheat-sheet
+
+| Airflow role | Can |
+| ------------ | --- |
+| `Admin` | everything, incl. Security and Connections |
+| `Op` | trigger/clear DAGs + edit Connections/Variables/Pools |
+| `User` | trigger/clear DAGs |
+| `Viewer` | read-only |

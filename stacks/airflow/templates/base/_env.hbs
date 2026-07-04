@@ -1,0 +1,16 @@
+AIRFLOW_UID=50000
+AIRFLOW_FERNET_KEY=
+AIRFLOW_JWT_SECRET=dev-only-jwt-secret-change-me
+POSTGRES_USER=airflow
+POSTGRES_PASSWORD=airflow
+POSTGRES_DB=airflow
+{{#unless withEntraId}}
+AIRFLOW_ADMIN_USERNAME=admin
+AIRFLOW_ADMIN_PASSWORD=admin
+{{/unless}}
+{{#if withEntraId}}
+AZURE_TENANT_ID=CHANGE-ME-tenant-guid
+AZURE_CLIENT_ID=CHANGE-ME-app-client-id
+AZURE_CLIENT_SECRET=CHANGE-ME-client-secret
+AUTH_USER_REGISTRATION_ROLE=Viewer
+{{/if}}

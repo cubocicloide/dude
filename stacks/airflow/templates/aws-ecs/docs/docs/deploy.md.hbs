@@ -1,0 +1,102 @@
+# Deploy — AWS ECS Fargate
+
+The `iac/` directory holds Terraform for a complete Airflow deployment on
+AWS, driven entirely through `dude iac …`. Architecture:
+
+```mermaid
+graph LR
+  U[Browser / API clients] --> ALB
+  ALB --> WEB[web service<br/>api-server]
+  CORE[core service<br/>scheduler · dag-processor · triggerer] -->|RunTask| W1[worker container<br/>one per Airflow task]
+  WEB --- RDS[(RDS Postgres<br/>metadata DB)]
+  CORE --- RDS
+  W1 --- RDS
+  W1 -->|task logs| S3[(S3 logs bucket)]
+  WEB -->|reads logs| S3
+```
+
+- **One image, everything baked in** — `dude iac ship` builds
+  `airflow/Dockerfile.prod` (requirements + dags + plugins +
+  webserver_config), pushes it to the shared ECR repo and rolls every task
+  definition to the new tag. A deploy is atomic and reproducible; there is no
+  live DAG mount in AWS.
+- **ECS executor: every task in a dedicated container.** The scheduler runs
+  the AWS ECS executor, which calls `RunTask` against the `worker` task
+  definition for each Airflow task instance. Sizing per task container is
+  `worker_cpu` / `worker_memory` in terraform.tfvars. Because workers are
+  ephemeral, task logs go to S3 (remote logging) and the UI reads them back
+  from there.
+- **Secrets** — Terraform owns the *core* secret (DB URI, Fernet key, JWT
+  secret{{#unless withEntraId}}, bootstrap admin password{{/unless}}); you own the *app* secret via
+  `dude iac secrets`. Keys listed in `app_secret_keys` become env vars in
+  every container. Plain config goes in `app_environment`.
+
+## First deploy
+
+```bash
+dude iac login --env dev
+dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes
+dude iac init --env dev
+dude iac apply --env dev          # VPC, ALB, RDS, ECS, secrets (~10 min)
+{{#if withEntraId}}
+dude iac secrets --env dev --set AZURE_CLIENT_SECRET=<client-secret>
+# Entra: add https://$(dude iac output --env dev …airflow_url)/auth/oauth-authorized/azure
+# to the app registration's redirect URIs.
+{{/if}}
+dude iac migrate --env dev        # metadata schema{{#unless withEntraId}} + admin user{{/unless}}
+dude iac ship --env dev           # build + push + deploy the image
+dude iac output --env dev         # airflow_url, db endpoint, …
+```
+
+{{#unless withEntraId}}
+Sign in as `admin`; the generated password lives in the core secret:
+
+```bash
+aws secretsmanager get-secret-value \
+  --secret-id {{projectName}}/dev/core --query SecretString --output text | jq -r .admin_password
+```
+
+{{/unless}}
+## The example DAGs on AWS
+
+- `example_ecs_task` — works out of the box: the IaC injects `ECS_CLUSTER`,
+  `ECS_WORKER_TASK_DEFINITION`, `ECS_SUBNETS`, `ECS_SECURITY_GROUPS` into
+  every container, so the DAG's guard passes and `EcsRunTaskOperator` launches
+  a dedicated container on the same cluster.
+- `example_batch_compute` — simulates by default. To run the real path,
+  provision an AWS Batch job queue + job definition (not part of this
+  Terraform on purpose — Batch compute environments are very workload-
+  specific), then wire them as plain env vars and grant the task role
+  `batch:SubmitJob`/`DescribeJobs`:
+
+  ```hcl
+  # terraform.tfvars
+  app_environment = {
+    BATCH_JOB_QUEUE      = "my-queue"
+    BATCH_JOB_DEFINITION = "my-jobdef"
+  }
+  ```
+
+  and trigger with `{"simulate": false}`.
+- `example_kubernetes_pod` — add a `kubernetes_default` connection pointing
+  at your EKS/other cluster (Admin → Connections) and make sure the task role
+  can reach it.
+
+## Scaling & production checklist
+
+- `worker_cpu/memory` — per-task sizing; `web_desired_count` — UI replicas.
+- RDS: set `db_multi_az = true`, `db_deletion_protection = true`,
+  `db_skip_final_snapshot = false` in prod tfvars.
+- Restrict `allowed_cidrs`; set `domain_name`/`route53_zone_name` for HTTPS.
+- New env: `dude iac new-env --env prod --from dev`, then bootstrap is shared
+  — just `init`, `apply`, `migrate`, `ship`.
+
+## Teardown
+
+```bash
+dude iac destroy --env dev
+```
+
+Removes the env (ECS services, ALB, RDS, secrets, buckets). The shared
+backend (state bucket, lock table, ECR) is torn down only when no other
+environment still uses it — pass `--keep-backend` to always preserve it.

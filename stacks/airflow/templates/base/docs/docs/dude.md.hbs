@@ -1,0 +1,45 @@
+# Working with dude
+
+This project pins its own toolchain: `package.json` pins the
+`@cubocicloide/dude` CLI **and** the `@cubocicloide/stack-airflow` stack, and
+`dude.json` records the same pins plus the answers given at `dude init`. The
+globally-installed **launcher** (`npm i -g @cubocicloide/dude-launcher`) makes
+`dude <cmd>` run this project's pinned versions automatically.
+
+```bash
+export GITHUB_TOKEN=<your-pat>   # @cubocicloide packages live on GitHub Packages
+pnpm install                     # provision the pinned toolchain
+dude help                        # the live, resolved command catalog
+```
+
+## Everyday loop
+
+```bash
+dude up --build     # after changing requirements.txt or the Dockerfile
+dude up             # otherwise (dags/ and plugins/ are bind-mounted — no rebuild)
+dude logs airflow-scheduler
+dude dag errors     # is everything importable?
+dude lint           # conventions (AF rules — see .claude/rules/AF/)
+dude test           # DAG integrity suite, inside the image
+dude format         # ruff format + import sort
+dude down
+```
+
+## Custom project commands
+
+Drop a TypeScript file in `.dude/commands/` — it becomes `dude <filename>`
+(see `.dude/commands/README.md` and the `hello.ts` example). Project commands
+take precedence over stack commands, which take precedence over core ones.
+
+## Upgrading
+
+```bash
+dude upgrade             # bump CLI and/or stack pins interactively
+pnpm install             # apply
+```
+
+`dude upgrade` moves the pins in `package.json` + `dude.json` in lockstep; it
+does not rewrite scaffolded files. The Airflow **image** version is upgraded
+separately — bump `AIRFLOW_VERSION` in `airflow/Dockerfile`, review
+`requirements.txt` against the new constraints file, `dude up --build`{{#if withIac}},
+and run `dude iac migrate --env <env>` after shipping (metadata schema){{/if}}.

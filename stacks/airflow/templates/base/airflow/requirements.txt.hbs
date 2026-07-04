@@ -1,0 +1,18 @@
+# Extra Python packages for this Airflow deployment — installed into the image
+# on top of apache/airflow (see Dockerfile). Every component gets them.
+#
+# Rules of the road (lint rule AF009 enforces pinning):
+#   • pin everything:  package==X.Y.Z   (or ~= for a compatible-release range)
+#   • for apache-airflow-providers-* packages, take the version from the
+#     official constraints file for the image's Airflow version — see the
+#     Dockerfile header. The base image already ships the common providers
+#     (amazon, cncf-kubernetes, postgres, http, fab, …).
+#   • after editing: dude up --build
+
+# Used by `dude test` (DAG integrity suite).
+pytest==8.3.4
+{{#if withEntraId}}
+
+# OAuth client library for the Entra ID sign-on (FAB AUTH_OAUTH).
+authlib==1.3.2
+{{/if}}

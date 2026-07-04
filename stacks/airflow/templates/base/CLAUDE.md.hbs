@@ -1,0 +1,57 @@
+# CLAUDE.md — {{projectName}}
+
+Apache Airflow project scaffolded by the dude `airflow` stack. Read this
+before changing anything.
+
+## Ground rules
+
+- **Conventions are lint-enforced.** `dude lint` runs rules AF001–AF010;
+  each has a page in `.claude/rules/AF/NNN.md`. Read the relevant page before
+  fixing a violation.
+- **One DAG per file**, file named after the `dag_id`, under `airflow/dags/`
+  (AF001). Shared helpers go in `airflow/dags/lib/` — never a second DAG in
+  an existing file.
+- Every DAG: explicit `schedule=` (AF002), explicit `catchup=` (AF003),
+  non-empty `tags=` (AF004), `default_args=DEFAULT_ARGS` from `lib.defaults`
+  (AF005).
+- **Parse-time hygiene**: no `Variable.get`/connection lookups outside task
+  functions (AF006); heavy imports (pandas, numpy, …) inside task functions
+  (AF007).
+- Plugins are packages under `airflow/plugins/<name>/` registering an
+  `AirflowPlugin` subclass in `__init__.py` (AF008). `ops_toolkit/` is the
+  reference.
+- New Python deps: **pinned** lines in `airflow/requirements.txt` (AF009),
+  then `dude up --build`.
+- Every env var consumed anywhere must be documented in `.env.example`
+  (AF010). Real secrets: `.env` locally{{#if withIac}}, `dude iac secrets` in AWS{{/if}}.
+
+## Validation loop
+
+```bash
+dude lint          # structural conventions (fast, no Airflow needed)
+dude test          # DAG integrity suite (runs pytest inside the image)
+dude dag errors    # live import errors from the running deployment
+dude format        # ruff format + import sort
+```
+
+Run `dude lint && dude test` before considering any change done.
+
+## Architecture notes
+
+- All components (api-server :8080, scheduler, dag-processor, triggerer) run
+  the SAME image built from `airflow/` — compose bind-mounts `dags/` and
+  `plugins/`, so DAG edits are live; plugin and dependency changes need a
+  restart / rebuild respectively.
+- Sign-on is configured in `airflow/config/webserver_config.py`
+  ({{#if withEntraId}}Entra ID OAuth — docs/docs/sso.md{{else}}native DB auth{{/if}}).
+- The example DAGs (`airflow/dags/examples/`) demonstrate: TaskFlow ETL,
+  dedicated-container execution on ECS and Kubernetes, and a simulated AWS
+  Batch compute-intensive pattern. They self-guard so they succeed (skip or
+  simulate) without cloud infrastructure — preserve that property when
+  editing them.
+{{#if withIac}}
+- `iac/terraform` deploys to AWS ECS Fargate with the **ECS executor**: every
+  Airflow task runs in a dedicated Fargate container; task logs go to S3.
+  DAGs are baked into the image at `dude iac ship` — there is no live mount
+  in AWS. See docs/docs/deploy.md.
+{{/if}}

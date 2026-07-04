@@ -1,0 +1,7 @@
+{
+  "name": "airflow",
+  "version": "0.1.0",
+  "minDudeVersion": "0.1.0",
+  "entry": "dist/index.js",
+  "tags": ["airflow", "python", "data-engineering", "etl", "aws", "ecs", "terraform"]
+}
