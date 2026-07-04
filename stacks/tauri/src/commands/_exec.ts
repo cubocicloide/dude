@@ -2,21 +2,30 @@ import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'pathe'
 
+/** Windows .cmd shims require shell execution to be found by spawnSync. */
+function shouldUseShell(): boolean {
+  return process.platform === 'win32'
+}
+
 /** True when `cmd --version` can be spawned (i.e. the tool is on PATH). */
 export function isAvailable(cmd: string): boolean {
-  const r = spawnSync(cmd, ['--version'], { stdio: 'ignore' })
+  const r = spawnSync(cmd, ['--version'], { stdio: 'ignore', shell: shouldUseShell() })
   return r.error == null
 }
 
 /** Run a command inheriting stdio; returns true on exit code 0. */
 export function exec(cmd: string, args: string[], cwd: string): boolean {
-  const result = spawnSync(cmd, args, { cwd, stdio: 'inherit' })
-  return result.status === 0 && result.error == null
+  const result = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: shouldUseShell() })
+  if (result.error) {
+    process.stderr.write(`error: failed to run ${cmd}: ${result.error.message}\n`)
+    return false
+  }
+  return result.status === 0
 }
 
 /** Capture a command's stdout (trimmed), or null on failure. */
 export function capture(cmd: string, args: string[]): string | null {
-  const r = spawnSync(cmd, args, { stdio: 'pipe', encoding: 'utf8' })
+  const r = spawnSync(cmd, args, { stdio: 'pipe', encoding: 'utf8', shell: shouldUseShell() })
   if (r.error != null || r.status !== 0) return null
   return r.stdout.trim()
 }

@@ -8,6 +8,7 @@ import {
   installedVersion,
   isExactPin,
   needsInstall,
+  shouldUseShell,
 } from './launcher.js'
 
 const tmpDirs: string[] = []
@@ -69,6 +70,17 @@ describe('isExactPin', () => {
     expect(isExactPin('^0.7.0')).toBe(false)
     expect(isExactPin('~1.2.3')).toBe(false)
     expect(isExactPin('workspace:*')).toBe(false)
+  })
+})
+
+describe('shouldUseShell', () => {
+  it('uses shell execution on Windows', () => {
+    expect(shouldUseShell('win32')).toBe(true)
+  })
+
+  it('does not use shell execution on non-Windows platforms', () => {
+    expect(shouldUseShell('linux')).toBe(false)
+    expect(shouldUseShell('darwin')).toBe(false)
   })
 })
 

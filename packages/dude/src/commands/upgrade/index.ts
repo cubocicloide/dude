@@ -15,6 +15,10 @@ interface DudeManifest {
   dudeVersion?: string
 }
 
+function shouldUseShell(platform: NodeJS.Platform = process.platform): boolean {
+  return platform === 'win32'
+}
+
 function resolvePublishedVersion(packageName: string, requestedVersion?: string): string {
   if (requestedVersion) return requestedVersion
 
@@ -24,6 +28,7 @@ function resolvePublishedVersion(packageName: string, requestedVersion?: string)
     const output = execFileSync('npm', ['view', spec, 'version', '--json'], {
       env: { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: shouldUseShell(),
     })
     const parsed: unknown = JSON.parse(output.toString().trim())
     if (typeof parsed === 'string' && parsed.length > 0) return parsed

@@ -21,6 +21,11 @@ const GLOBAL_SAFE = new Set(['init', 'version', 'help', '--version', '--help', '
 
 export type PackageManager = 'pnpm' | 'yarn' | 'npm'
 
+/** Windows package-manager shims need shell execution (cmd.exe). */
+export function shouldUseShell(platform: NodeJS.Platform = process.platform): boolean {
+  return platform === 'win32'
+}
+
 /** Walk up from `startDir` looking for the nearest directory containing dude.json. */
 export function findProjectRoot(startDir: string): string | null {
   let dir = startDir
@@ -134,7 +139,15 @@ export function run(argv: string[] = process.argv.slice(2), cwd: string = proces
         process.stderr.write(
           `dude: provisioning project toolchain (${decision.reason}) — running \`${pm} install\`…\n`,
         )
-        const install = spawnSync(pm, ['install'], { cwd: projectRoot, stdio: 'inherit' })
+        const install = spawnSync(pm, ['install'], {
+          cwd: projectRoot,
+          stdio: 'inherit',
+          shell: shouldUseShell(),
+        })
+        if (install.error) {
+          process.stderr.write(`dude: failed to run ${pm} install: ${install.error.message}\n`)
+          return 1
+        }
         if (install.status !== 0) {
           process.stderr.write(
             'dude: toolchain install failed. Ensure GITHUB_TOKEN is set, then retry.\n',
@@ -154,7 +167,12 @@ export function run(argv: string[] = process.argv.slice(2), cwd: string = proces
     const res = spawnSync('npx', ['--yes', `${CLI_PACKAGE}@latest`, ...argv], {
       cwd,
       stdio: 'inherit',
+      shell: shouldUseShell(),
     })
+    if (res.error) {
+      process.stderr.write(`dude: failed to run npx: ${res.error.message}\n`)
+      return 1
+    }
     return res.status ?? 1
   }
 
