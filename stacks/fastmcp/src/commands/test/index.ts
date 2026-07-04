@@ -3,14 +3,22 @@ import { existsSync } from 'node:fs'
 import path from 'pathe'
 import type { StackCommandDef } from '@cubocicloide/dude'
 
+function shouldUseShell(): boolean {
+  return process.platform === 'win32'
+}
+
 function isAvailable(cmd: string): boolean {
-  const r = spawnSync(cmd, ['--version'], { stdio: 'ignore' })
+  const r = spawnSync(cmd, ['--version'], { stdio: 'ignore', shell: shouldUseShell() })
   return r.error == null
 }
 
 function exec(cmd: string, args: string[], cwd: string): boolean {
-  const r = spawnSync(cmd, args, { cwd, stdio: 'inherit' })
-  return r.status === 0 && r.error == null
+  const r = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: shouldUseShell() })
+  if (r.error) {
+    process.stderr.write(`error: failed to run ${cmd}: ${r.error.message}\n`)
+    return false
+  }
+  return r.status === 0
 }
 
 function isDockerServiceRunning(service: string, cwd: string): boolean {
@@ -29,8 +37,7 @@ function section(title: string) {
 }
 
 export const testCommand: StackCommandDef = {
-  description:
-    'Run the FastMCP server test suite (pytest: unit + in-memory MCP integration).',
+  description: 'Run the FastMCP server test suite (pytest: unit + in-memory MCP integration).',
   args: {
     k: {
       type: 'string',

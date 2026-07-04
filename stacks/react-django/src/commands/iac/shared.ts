@@ -7,6 +7,10 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'pathe'
 
+function shouldUseShell(): boolean {
+  return process.platform === 'win32'
+}
+
 /** Result of a captured (non-inherited) child process. */
 export interface CaptureResult {
   status: number
@@ -24,7 +28,12 @@ export function childEnv(profile?: string): NodeJS.ProcessEnv {
 
 /** Run a command, inheriting stdio. Returns the exit status (or 1 on spawn error). */
 export function run(cmd: string, args: string[], cwd: string, profile?: string): number {
-  const r = spawnSync(cmd, args, { cwd, stdio: 'inherit', env: childEnv(profile) })
+  const r = spawnSync(cmd, args, {
+    cwd,
+    stdio: 'inherit',
+    env: childEnv(profile),
+    shell: shouldUseShell(),
+  })
   if (r.error) {
     const code = (r.error as NodeJS.ErrnoException).code
     if (code === 'ENOENT') {
@@ -38,13 +47,13 @@ export function run(cmd: string, args: string[], cwd: string, profile?: string):
 }
 
 /** Run a command and capture stdout (used for terraform/aws output parsing). */
-export function capture(
-  cmd: string,
-  args: string[],
-  cwd: string,
-  profile?: string,
-): CaptureResult {
-  const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', env: childEnv(profile) })
+export function capture(cmd: string, args: string[], cwd: string, profile?: string): CaptureResult {
+  const r = spawnSync(cmd, args, {
+    cwd,
+    encoding: 'utf8',
+    env: childEnv(profile),
+    shell: shouldUseShell(),
+  })
   return { status: r.status ?? 1, stdout: r.stdout ?? '' }
 }
 

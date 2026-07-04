@@ -31,8 +31,11 @@ function isDockerRunning(): boolean {
 }
 
 function openBrowser(url: string): void {
-  const opener =
-    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open'
+  if (process.platform === 'win32') {
+    spawnSync('cmd', ['/c', 'start', '', url], { stdio: 'ignore' })
+    return
+  }
+  const opener = process.platform === 'darwin' ? 'open' : 'xdg-open'
   spawnSync(opener, [url], { stdio: 'ignore' })
 }
 

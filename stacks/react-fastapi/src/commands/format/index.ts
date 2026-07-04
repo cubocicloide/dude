@@ -3,14 +3,22 @@ import { existsSync } from 'node:fs'
 import path from 'pathe'
 import type { StackCommandDef } from '@cubocicloide/dude'
 
+function shouldUseShell(): boolean {
+  return process.platform === 'win32'
+}
+
 function isAvailable(cmd: string): boolean {
-  const r = spawnSync(cmd, ['--version'], { stdio: 'ignore' })
+  const r = spawnSync(cmd, ['--version'], { stdio: 'ignore', shell: shouldUseShell() })
   return r.error == null // ENOENT → not installed
 }
 
 function exec(cmd: string, args: string[], cwd: string): boolean {
-  const result = spawnSync(cmd, args, { cwd, stdio: 'inherit' })
-  return result.status === 0 && result.error == null
+  const result = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: shouldUseShell() })
+  if (result.error) {
+    process.stderr.write(`error: failed to run ${cmd}: ${result.error.message}\n`)
+    return false
+  }
+  return result.status === 0
 }
 
 function hasLocalExecutable(dir: string, executable: string): boolean {
@@ -93,13 +101,35 @@ export const formatCommand: StackCommandDef = {
         ok =
           exec(
             'docker',
-            ['compose', 'exec', 'backend', 'uv', 'run', 'ruff', 'format', ...(check ? ['--check'] : []), 'app/'],
+            [
+              'compose',
+              'exec',
+              'backend',
+              'uv',
+              'run',
+              'ruff',
+              'format',
+              ...(check ? ['--check'] : []),
+              'app/',
+            ],
             projectRoot,
           ) && ok
         ok =
           exec(
             'docker',
-            ['compose', 'exec', 'backend', 'uv', 'run', 'ruff', 'check', '--select', 'I', ...(check ? [] : ['--fix']), 'app/'],
+            [
+              'compose',
+              'exec',
+              'backend',
+              'uv',
+              'run',
+              'ruff',
+              'check',
+              '--select',
+              'I',
+              ...(check ? [] : ['--fix']),
+              'app/',
+            ],
             projectRoot,
           ) && ok
       } else {
@@ -111,11 +141,8 @@ export const formatCommand: StackCommandDef = {
         }
         if (venvReady) {
           ok =
-            exec(
-              'uv',
-              ['run', 'ruff', 'format', ...(check ? ['--check'] : []), '.'],
-              backendDir,
-            ) && ok
+            exec('uv', ['run', 'ruff', 'format', ...(check ? ['--check'] : []), '.'], backendDir) &&
+            ok
           ok =
             exec(
               'uv',
