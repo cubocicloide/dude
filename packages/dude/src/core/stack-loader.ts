@@ -10,6 +10,10 @@ import type { StackDefinition } from './stack-contract.js'
 const require = createRequire(import.meta.url)
 const selfDir = dirname(fileURLToPath(import.meta.url))
 
+function shouldUseShell(platform: NodeJS.Platform = process.platform): boolean {
+  return platform === 'win32'
+}
+
 interface LoadedStack {
   definition: StackDefinition
   /** Absolute path of the stack package root (containing `package.json`). */
@@ -157,8 +161,7 @@ async function resolveStackRoot(
   // Dev fallback: walk up from `cwd` or from this module's own location
   // looking for a pnpm workspace, then scan its declared globs for a
   // package.json whose `name` matches `spec`.
-  const workspaceMatch =
-    findInPnpmWorkspace(cwd, spec) ?? findInPnpmWorkspace(selfDir, spec)
+  const workspaceMatch = findInPnpmWorkspace(cwd, spec) ?? findInPnpmWorkspace(selfDir, spec)
   if (workspaceMatch) return { root: workspaceMatch, source: 'workspace' }
 
   // Last resort: install from the registry into the dude cache dir.
@@ -207,6 +210,7 @@ function installStack(packageName: string, version?: string): string {
         cwd: cacheDir,
         stdio: ['ignore', 'ignore', 'pipe'],
         env: { ...process.env },
+        shell: shouldUseShell(),
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -227,6 +231,7 @@ function resolveLatestVersion(packageName: string): string {
     const output = execFileSync('npm', ['view', packageName, 'version', '--json'], {
       env: { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: shouldUseShell(),
     })
     const parsed: unknown = JSON.parse(output.toString().trim())
     // npm may return a string or an array (dist-tags case); take the last item.

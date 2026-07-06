@@ -3,14 +3,22 @@ import { existsSync } from 'node:fs'
 import path from 'pathe'
 import { runLint, formatDiagnostic, type StackCommandDef } from '@cubocicloide/dude'
 
+function shouldUseShell(): boolean {
+  return process.platform === 'win32'
+}
+
 function isAvailable(cmd: string): boolean {
-  const r = spawnSync(cmd, ['--version'], { stdio: 'ignore' })
+  const r = spawnSync(cmd, ['--version'], { stdio: 'ignore', shell: shouldUseShell() })
   return r.error == null
 }
 
 function exec(cmd: string, args: string[], cwd: string): boolean {
-  const r = spawnSync(cmd, args, { cwd, stdio: 'inherit' })
-  return r.status === 0 && r.error == null
+  const r = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: shouldUseShell() })
+  if (r.error) {
+    process.stderr.write(`error: failed to run ${cmd}: ${r.error.message}\n`)
+    return false
+  }
+  return r.status === 0
 }
 
 function ensureVenv(dir: string): boolean {
@@ -71,7 +79,9 @@ export const reviewCommand: StackCommandDef = {
       const run = (label: string, toolArgs: string[]) => {
         section(label)
         if (containerUp) {
-          ok = exec('docker', ['compose', 'exec', 'fastmcp', 'uv', 'run', ...toolArgs], projectRoot) && ok
+          ok =
+            exec('docker', ['compose', 'exec', 'fastmcp', 'uv', 'run', ...toolArgs], projectRoot) &&
+            ok
         } else {
           ok = exec('uv', ['run', ...toolArgs], serviceDir) && ok
         }
