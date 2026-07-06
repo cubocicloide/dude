@@ -34,6 +34,10 @@ ECS_SECURITY_GROUPS=
 # simulates the fan-out/reduce locally when they are empty).
 BATCH_JOB_QUEUE=
 BATCH_JOB_DEFINITION=
+# Hybrid-executor opt-in: tasks passing executor=DEDICATED_TASK_EXECUTOR get a
+# dedicated container. The IaC sets it to the ECS executor in AWS; leave it
+# empty locally (tasks fall back to the default LocalExecutor).
+DEDICATED_TASK_EXECUTOR=
 {{#unless withEntraId}}
 
 # Bootstrap admin user for the native (database) sign-on.

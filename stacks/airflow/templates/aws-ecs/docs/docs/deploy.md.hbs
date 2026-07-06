@@ -7,11 +7,12 @@ AWS, driven entirely through `dude iac …`. Architecture:
 graph LR
   U[Browser / API clients] --> ALB
   ALB --> WEB[web service<br/>api-server]
-  CORE[core service<br/>scheduler · dag-processor · triggerer] -->|RunTask| W1[worker container<br/>one per Airflow task]
+  CORE[core service<br/>scheduler + LocalExecutor tasks · dag-processor · triggerer] -.->|RunTask, opt-in tasks only| W1[dedicated worker container]
   WEB --- RDS[(RDS Postgres<br/>metadata DB)]
   CORE --- RDS
   W1 --- RDS
-  W1 -->|task logs| S3[(S3 logs bucket)]
+  CORE -->|task logs| S3[(S3 logs bucket)]
+  W1 -->|task logs| S3
   WEB -->|reads logs| S3
 ```
 
@@ -20,12 +21,20 @@ graph LR
   webserver_config), pushes it to the shared ECR repo and rolls every task
   definition to the new tag. A deploy is atomic and reproducible; there is no
   live DAG mount in AWS.
-- **ECS executor: every task in a dedicated container.** The scheduler runs
-  the AWS ECS executor, which calls `RunTask` against the `worker` task
-  definition for each Airflow task instance. Sizing per task container is
-  `worker_cpu` / `worker_memory` in terraform.tfvars. Because workers are
-  ephemeral, task logs go to S3 (remote logging) and the UI reads them back
-  from there.
+- **Hybrid executors: fast by default, dedicated containers on demand.**
+  `AIRFLOW__CORE__EXECUTOR` lists two executors; the first is the default:
+    - **LocalExecutor** — ordinary tasks run in-process inside the scheduler
+      container: no Fargate cold start, seconds instead of minutes. Size the
+      core task (`core_cpu`/`core_memory`) for this load.
+    - **AWS ECS executor** — a task opts into its own Fargate container with
+      `executor=os.getenv("DEDICATED_TASK_EXECUTOR")` (the IaC injects the
+      executor's module path; locally the variable is empty so the task falls
+      back to LocalExecutor). See `process_chunk` in `example_batch_compute`.
+      Expect **60–90s of cold start per container** (ENI + image pull) —
+      reserve it for heavy or isolation-sensitive work, sized by
+      `worker_cpu`/`worker_memory`.
+  Task logs always go to S3 (remote logging), so the UI can read them even
+  after an ephemeral worker is gone.
 - **Secrets** — Terraform owns the *core* secret (DB URI, Fernet key, JWT
   secret{{#unless withEntraId}}, bootstrap admin password{{/unless}}); you own the *app* secret via
   `dude iac secrets`. Keys listed in `app_secret_keys` become env vars in
@@ -49,10 +58,12 @@ dude iac output --env dev         # airflow_url, db endpoint, …
 ```
 
 {{#unless withEntraId}}
-Sign in as `admin`; the generated password lives in the core secret:
+Sign in as `admin`; the generated password lives in the core secret. Use the
+same `--profile` as `dude iac` (whatever `--profile` you passed it, otherwise
+`$AWS_PROFILE`, otherwise the `{{projectName}}-dev` convention):
 
 ```bash
-aws secretsmanager get-secret-value \
+aws secretsmanager get-secret-value --profile {{projectName}}-dev \
   --secret-id {{projectName}}/dev/core --query SecretString --output text | jq -r .admin_password
 ```
 
@@ -63,7 +74,10 @@ aws secretsmanager get-secret-value \
   `ECS_WORKER_TASK_DEFINITION`, `ECS_SUBNETS`, `ECS_SECURITY_GROUPS` into
   every container, so the DAG's guard passes and `EcsRunTaskOperator` launches
   a dedicated container on the same cluster.
-- `example_batch_compute` — simulates by default. To run the real path,
+- `example_batch_compute` — simulates by default, and on AWS its
+  `process_chunk` tasks opt into the ECS executor (`DEDICATED_TASK_EXECUTOR`),
+  so each chunk runs in its own Fargate container — trigger it and watch the
+  worker containers appear in `dude iac status`. To run the real Batch path,
   provision an AWS Batch job queue + job definition (not part of this
   Terraform on purpose — Batch compute environments are very workload-
   specific), then wire them as plain env vars and grant the task role
@@ -82,12 +96,51 @@ aws secretsmanager get-secret-value \
   at your EKS/other cluster (Admin → Connections) and make sure the task role
   can reach it.
 
+## Monitoring & logs
+
+One-shot overview — ECS services, deployments, Airflow's own component
+heartbeats, and the last dedicated worker containers with their exit codes:
+
+```bash
+dude iac status --env dev
+```
+
+Live logs, straight from CloudWatch (works with AWS CLI v1 and v2; stream
+names are `airflow/<component>/…`):
+
+```bash
+dude iac logs --env dev --follow                      # everything
+dude iac logs --env dev --follow --service scheduler  # one component
+dude iac logs --env dev --since 2h --service worker   # dedicated containers
+```
+
+Components: `api-server`, `scheduler`, `dag-processor`, `triggerer`,
+`worker`, `migrate`.
+
+Every environment also gets a **CloudWatch dashboard** (ECS CPU/memory, ALB
+requests + healthy hosts + 5xx, RDS, and a live "recent errors" log query) —
+the URL is in `dude iac output --env dev` (`dashboard_url`). Container
+Insights is enabled on the cluster for per-container metrics.
+
+Set `alarm_email` in `terraform.tfvars` to get **email alarms** for the three
+failures that matter: no healthy UI task behind the ALB, core service CPU
+saturated (DAGs will lag — scale `core_cpu` or move heavy tasks to the
+dedicated executor), and metadata-DB storage low. Confirm the SNS
+subscription email after the first `apply`.
+
+For per-DAG-run visibility use Airflow itself: the Grid view shows queued vs
+running time per task instance (a long "queued" gap on an opted-in task is
+Fargate cold start, not a bug).
+
 ## Scaling & production checklist
 
-- `worker_cpu/memory` — per-task sizing; `web_desired_count` — UI replicas.
+- `core_cpu/memory` — where LocalExecutor tasks run: scale this first if
+  normal tasks queue up. `worker_cpu/memory` — per dedicated container.
+  `web_desired_count` — UI replicas.
 - RDS: set `db_multi_az = true`, `db_deletion_protection = true`,
   `db_skip_final_snapshot = false` in prod tfvars.
 - Restrict `allowed_cidrs`; set `domain_name`/`route53_zone_name` for HTTPS.
+- Set `alarm_email` (see Monitoring above).
 - New env: `dude iac new-env --env prod --from dev`, then bootstrap is shared
   — just `init`, `apply`, `migrate`, `ship`.
 

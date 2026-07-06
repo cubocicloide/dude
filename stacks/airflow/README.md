@@ -16,9 +16,11 @@ dude stack plugin for an **Apache Airflow** project:
   custom `WorkdayTimetable`
 - **Optional IaC** (`--iac aws-ecs`): Terraform for AWS ECS Fargate — ALB +
   api-server, core service, RDS Postgres, S3 task logs, Secrets Manager
-  (`dude iac secrets`), and the **AWS ECS executor** so every Airflow task
-  runs in its own dedicated Fargate container; `dude iac migrate` runs
-  `airflow db migrate` as a one-off task
+  (`dude iac secrets`), CloudWatch dashboard + optional email alarms, and
+  **hybrid executors** (LocalExecutor by default — no Fargate cold start;
+  per-task opt-in to a dedicated container via the AWS ECS executor);
+  `dude iac migrate` runs `airflow db migrate` as a one-off task, `dude iac
+  status`/`logs` cover day-2 monitoring
 
 ## Usage
 

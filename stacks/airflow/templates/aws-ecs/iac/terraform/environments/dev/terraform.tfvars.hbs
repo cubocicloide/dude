@@ -10,8 +10,11 @@ region      = "eu-west-1"
 # line, so a plain `dude iac apply` always re-deploys the same build.
 image_tag = "latest"
 
-# Fargate sizing. worker_* applies to EACH task container the ECS executor
-# launches — one dedicated container per Airflow task instance.
+# Fargate sizing. Ordinary tasks run via LocalExecutor INSIDE the core task
+# (scheduler container) — size core_* for your normal task load. worker_*
+# applies to EACH dedicated container the ECS executor launches, for tasks
+# that opt in via executor=DEDICATED_TASK_EXECUTOR (60-90s Fargate cold start
+# per container — reserve it for heavy/isolated work).
 web_cpu       = 512
 web_memory    = 1024
 core_cpu      = 1024
@@ -26,6 +29,10 @@ db_allocated_storage = 20
 # Who may reach the Airflow UI/API. Restrict this to your org's networks
 # before putting anything real in this deployment.
 allowed_cidrs = ["0.0.0.0/0"]
+
+# Email for CloudWatch alarms (UI down / core CPU saturated / DB storage low).
+# Leave empty for no alarms; the dashboard exists either way (dashboard_url).
+# alarm_email = "you@example.com"
 
 # Plain (non-secret) env vars for every Airflow container.
 app_environment = {
