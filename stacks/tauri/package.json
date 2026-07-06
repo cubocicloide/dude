@@ -1,6 +1,6 @@
 {
   "name": "@cubocicloide/stack-tauri",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Tauri 2 desktop app stack plugin (React + Ant Design frontend, Rust backend) for the dude CLI.",
   "type": "module",
   "main": "./dist/index.js",
