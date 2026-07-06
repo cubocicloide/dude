@@ -30,6 +30,11 @@ from lib.defaults import DEFAULT_ARGS
 BATCH_JOB_QUEUE = os.getenv("BATCH_JOB_QUEUE", "")
 BATCH_JOB_DEFINITION = os.getenv("BATCH_JOB_DEFINITION", "")
 
+# Hybrid-executor opt-in: in AWS this resolves to the ECS executor, so each
+# simulated chunk gets its OWN Fargate container (the "dedicated container per
+# task" pattern). Locally it is unset → None → the default LocalExecutor.
+DEDICATED_TASK_EXECUTOR = os.getenv("DEDICATED_TASK_EXECUTOR")
+
 CHUNKS = 8  # how many partitions the simulated workload is split into
 
 with DAG(
@@ -59,13 +64,17 @@ with DAG(
         """Stand-in for 'split the input dataset into independent partitions'."""
         return list(range(CHUNKS))
 
-    @task
+    @task(executor=DEDICATED_TASK_EXECUTOR)
     def process_chunk(chunk: int) -> int:
         """One partition of the heavy computation.
 
         In the real setup this body IS the Batch container: each mapped task
         here corresponds to one index of a Batch array job. Keep it pure —
         read a partition, compute, write a partial result.
+
+        The `executor=` opt-in above means that in AWS each mapped chunk runs
+        in its own Fargate container (ECS executor); locally they run
+        in-process via LocalExecutor.
         """
         result = sum(i * i for i in range(100_000 * (chunk + 1)))
         print(f"chunk {chunk}: partial={result}")

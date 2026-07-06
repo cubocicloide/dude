@@ -84,3 +84,22 @@ resource "aws_ecr_repository" "airflow" {
     scan_on_push = true
   }
 }
+
+# Every `dude iac ship` pushes a ~1GB image — keep only the last 10 so the
+# registry doesn't grow unbounded (rollback still has plenty of history).
+resource "aws_ecr_lifecycle_policy" "airflow" {
+  repository = aws_ecr_repository.airflow.name
+
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "keep the 10 most recent images"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = 10
+      }
+      action = { type = "expire" }
+    }]
+  })
+}

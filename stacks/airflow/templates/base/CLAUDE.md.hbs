@@ -50,8 +50,12 @@ Run `dude lint && dude test` before considering any change done.
   simulate) without cloud infrastructure — preserve that property when
   editing them.
 {{#if withIac}}
-- `iac/terraform` deploys to AWS ECS Fargate with the **ECS executor**: every
-  Airflow task runs in a dedicated Fargate container; task logs go to S3.
-  DAGs are baked into the image at `dude iac ship` — there is no live mount
-  in AWS. See docs/docs/deploy.md.
+- `iac/terraform` deploys to AWS ECS Fargate with **hybrid executors**:
+  ordinary tasks run via LocalExecutor inside the scheduler container (no
+  Fargate cold start); a task opts into its own dedicated Fargate container
+  with `executor=os.getenv("DEDICATED_TASK_EXECUTOR")` (ECS executor,
+  60–90s cold start — reserve for heavy work). Task logs go to S3. DAGs are
+  baked into the image at `dude iac ship` — there is no live mount in AWS.
+  Monitoring: `dude iac status`, `dude iac logs --service <component>`, and
+  the CloudWatch `dashboard_url` output. See docs/docs/deploy.md.
 {{/if}}
