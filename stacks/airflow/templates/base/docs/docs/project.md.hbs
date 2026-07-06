@@ -67,7 +67,7 @@ load at process start, not per parse.
 | `example_etl` | TaskFlow ETL, XCom hand-off, project conventions |
 | `example_ecs_task` | Run a container as a **dedicated ECS Fargate task** (EcsRunTaskOperator) |
 | `example_kubernetes_pod` | Run a container in a **dedicated Kubernetes pod** (KubernetesPodOperator) |
-| `example_batch_compute` | Compute-intensive work via **AWS Batch** — simulated fan-out/reduce by default, real `BatchOperator` (array job, deferrable) when wired |
+| `example_batch_compute` | Compute-intensive work via **AWS Batch** — simulated fan-out/reduce by default (each chunk in its own container in AWS, via the `executor=DEDICATED_TASK_EXECUTOR` opt-in), real `BatchOperator` (array job, deferrable) when wired |
 
 All three container examples guard themselves: without their infrastructure
 (ECS coordinates, a `kubernetes_default` connection, a Batch queue) they

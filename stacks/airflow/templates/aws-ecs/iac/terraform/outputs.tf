@@ -73,6 +73,11 @@ output "airflow_url" {
   value       = local.airflow_url
 }
 
+output "dashboard_url" {
+  description = "CloudWatch dashboard for this environment (ECS, ALB, RDS, recent errors)."
+  value       = local.dashboard_url
+}
+
 output "db_endpoint" {
   description = "RDS endpoint of the metadata database."
   value       = aws_db_instance.this.address

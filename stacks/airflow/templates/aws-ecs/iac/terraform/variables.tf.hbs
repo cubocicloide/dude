@@ -41,25 +41,25 @@ variable "web_desired_count" {
 }
 
 variable "core_cpu" {
-  description = "CPU units for the core task (scheduler + dag-processor + triggerer share it)."
+  description = "CPU units for the core task (scheduler + dag-processor + triggerer — plus every LocalExecutor task, which runs inside the scheduler container)."
   type        = number
   default     = 1024
 }
 
 variable "core_memory" {
-  description = "Memory (MiB) for the core task."
+  description = "Memory (MiB) for the core task. LocalExecutor tasks run here — size for your normal task load."
   type        = number
   default     = 2048
 }
 
 variable "worker_cpu" {
-  description = "CPU units for EACH task container the ECS executor launches (one per Airflow task instance)."
+  description = "CPU units for EACH dedicated container the ECS executor launches (tasks opting in via executor=DEDICATED_TASK_EXECUTOR)."
   type        = number
   default     = 512
 }
 
 variable "worker_memory" {
-  description = "Memory (MiB) for each executor task container."
+  description = "Memory (MiB) for each dedicated executor container."
   type        = number
   default     = 1024
 }
@@ -175,4 +175,10 @@ variable "log_retention_days" {
   description = "Retention for CloudWatch container logs and S3 task logs."
   type        = number
   default     = 30
+}
+
+variable "alarm_email" {
+  description = "Email address for CloudWatch alarms (UI down, core CPU saturated, DB storage low). Empty = no alarms. The address must confirm the SNS subscription it receives."
+  type        = string
+  default     = ""
 }

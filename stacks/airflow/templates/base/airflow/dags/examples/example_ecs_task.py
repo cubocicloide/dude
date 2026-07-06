@@ -11,9 +11,11 @@ ECS_WORKER_TASK_DEFINITION, ECS_SUBNETS, ECS_SECURITY_GROUPS). Locally those
 are empty, so the guard task short-circuits and the run succeeds as a no-op —
 unpause it in AWS to see it for real.
 
-Note: in the AWS deployment *every* Airflow task already runs in a dedicated
-Fargate container via the **ECS executor**; this DAG shows the explicit
-variant for when a step needs a different image or size than the worker.
+Note: the AWS deployment also ships the **ECS executor** (hybrid with
+LocalExecutor) — a task can get a dedicated container just by setting
+`executor=os.getenv("DEDICATED_TASK_EXECUTOR")` (see example_batch_compute).
+This DAG shows the explicit operator variant, for when the step needs a
+different image, task definition or sizing than the standard worker.
 """
 
 import os
@@ -72,8 +74,11 @@ with DAG(
             ]
         },
         # Stream the container's CloudWatch logs into the Airflow task log.
+        # The stream name the awslogs driver creates is
+        # <awslogs-stream-prefix>/<container-name>/<task-id>, so this prefix
+        # must be "<log-config prefix>/<container name>" — here airflow/worker.
         awslogs_group="{{ var.value.get('ecs_log_group', '') }}",
-        awslogs_stream_prefix="ecs/worker",
+        awslogs_stream_prefix="airflow/worker",
     )
 
     ecs_configured() >> run_container

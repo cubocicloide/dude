@@ -118,8 +118,91 @@ export const iacStatusCommand: StackCommandDef = {
       }
     }
 
+    // ── Airflow's own health endpoint (scheduler/triggerer/dag-processor heartbeats) ──
     const airflowUrl = tfOutputRaw(projectRoot, 'airflow_url', profile)
-    if (airflowUrl) process.stdout.write(`\n  Airflow UI: ${airflowUrl}\n`)
-    process.stdout.write('\n')
+    if (airflowUrl) {
+      try {
+        const res = await fetch(`${airflowUrl}/api/v2/monitor/health`, {
+          signal: AbortSignal.timeout(10_000),
+        })
+        const health = (await res.json()) as Record<string, { status?: string }>
+        process.stdout.write(`\n  Airflow health (${airflowUrl}):\n`)
+        for (const [component, info] of Object.entries(health)) {
+          const ok = info?.status === 'healthy'
+          process.stdout.write(`     ${ok ? '✓' : '✗'} ${component}: ${info?.status ?? '?'}\n`)
+        }
+      } catch {
+        process.stdout.write(
+          `\n  ✗ Airflow health endpoint unreachable (${airflowUrl}/api/v2/monitor/health)\n` +
+            `    — check allowed_cidrs, or that the web service has healthy tasks above.\n`,
+        )
+      }
+    }
+
+    // ── Recently stopped dedicated worker containers (ECS-executor tasks) ──
+    const workerFamily =
+      tfOutputRaw(projectRoot, 'worker_task_definition', profile) || `${conventional}-worker`
+    const stopped = awsCapture(
+      'aws',
+      [
+        'ecs',
+        'list-tasks',
+        '--cluster',
+        cluster,
+        '--family',
+        workerFamily,
+        '--desired-status',
+        'STOPPED',
+        '--max-items',
+        '5',
+        '--output',
+        'json',
+        ...regionFlag,
+      ],
+      projectRoot,
+      profile,
+    )
+    if (stopped.status === 0) {
+      try {
+        const arns = (JSON.parse(stopped.stdout) as { taskArns?: string[] }).taskArns ?? []
+        if (arns.length) {
+          const detail = awsCapture(
+            'aws',
+            ['ecs', 'describe-tasks', '--cluster', cluster, '--tasks', ...arns, '--output', 'json', ...regionFlag],
+            projectRoot,
+            profile,
+          )
+          const tasks =
+            detail.status === 0
+              ? ((JSON.parse(detail.stdout) as {
+                  tasks?: Array<{
+                    stoppedAt?: string
+                    stoppedReason?: string
+                    containers?: Array<{ exitCode?: number }>
+                  }>
+                }).tasks ?? [])
+              : []
+          if (tasks.length) {
+            process.stdout.write(`\n  Recent dedicated worker containers (${workerFamily}):\n`)
+            for (const t of tasks) {
+              const exit = t.containers?.[0]?.exitCode
+              const when = t.stoppedAt ? String(t.stoppedAt).slice(0, 19) : ''
+              process.stdout.write(
+                `     ${exit === 0 ? '✓' : '✗'} exit ${exit ?? '?'}  ${when}  ${t.stoppedReason ?? ''}\n`,
+              )
+            }
+          }
+        }
+      } catch {
+        /* worker history is best-effort */
+      }
+    }
+
+    const dashboardUrl = tfOutputRaw(projectRoot, 'dashboard_url', profile)
+    if (airflowUrl) process.stdout.write(`\n  Airflow UI:  ${airflowUrl}\n`)
+    if (dashboardUrl) process.stdout.write(`  Dashboard:   ${dashboardUrl}\n`)
+    process.stdout.write(
+      `  Live logs:   dude iac logs --env ${env} --follow [--service scheduler]\n\n`,
+    )
   },
 }

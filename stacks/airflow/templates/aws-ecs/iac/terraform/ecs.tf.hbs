@@ -4,9 +4,18 @@
 #
 #   web      service   — api-server (UI + REST + execution API), behind the ALB
 #   core     service   — scheduler + dag-processor + triggerer (one task, 3 containers)
-#   worker   task def  — launched ON DEMAND by the AWS ECS executor: every
-#                        Airflow task instance gets its own Fargate container
+#   worker   task def  — launched ON DEMAND by the AWS ECS executor for tasks
+#                        that OPT IN to a dedicated Fargate container
 #   migrate  task def  — one-off `airflow db migrate` (dude iac migrate)
+#
+# Executors are HYBRID (comma-separated below): LocalExecutor is the default —
+# ordinary tasks run in-process inside the scheduler container, with no
+# Fargate cold start (an ENI + image pull costs 60-90s per container). Tasks
+# that genuinely need isolation/sizing set
+#   executor=os.getenv("DEDICATED_TASK_EXECUTOR")   # → AwsEcsExecutor in AWS
+# and get their own worker container (see example_batch_compute). Size the
+# core task with LocalExecutor in mind: its CPU/memory is where normal tasks
+# actually run.
 
 data "aws_ecr_repository" "airflow" {
   name = "${var.project_name}-airflow"
@@ -19,17 +28,30 @@ resource "aws_cloudwatch_log_group" "app" {
 
 resource "aws_ecs_cluster" "this" {
   name = local.name
+
+  # Container Insights: per-container CPU/memory metrics on the dashboard.
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 }
 
 locals {
   image         = "${data.aws_ecr_repository.airflow.repository_url}:${var.image_tag}"
   worker_family = "${local.name}-worker"
 
+  # Full module path of the ECS executor — the second entry of the hybrid
+  # executor pair, and the value tasks pass as `executor=` to opt in.
+  ecs_executor = "airflow.providers.amazon.aws.executors.ecs.ecs_executor.AwsEcsExecutor"
+
   # Environment shared by every Airflow container. Also carries the
   # coordinates the example DAGs read (ECS_*), and your own plain config from
   # var.app_environment. Secrets never go here — see local.airflow_secrets.
   airflow_env = concat([
-    { name = "AIRFLOW__CORE__EXECUTOR", value = "airflow.providers.amazon.aws.executors.ecs.ecs_executor.AwsEcsExecutor" },
+    # Hybrid executors: LocalExecutor (first = default, no cold start) plus
+    # the ECS executor for tasks that opt in via DEDICATED_TASK_EXECUTOR.
+    { name = "AIRFLOW__CORE__EXECUTOR", value = "LocalExecutor,${local.ecs_executor}" },
+    { name = "DEDICATED_TASK_EXECUTOR", value = local.ecs_executor },
     { name = "AIRFLOW__CORE__AUTH_MANAGER", value = "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager" },
     { name = "AIRFLOW__CORE__LOAD_EXAMPLES", value = "false" },
     { name = "AIRFLOW__CORE__DAG_IGNORE_FILE_SYNTAX", value = "glob" },
