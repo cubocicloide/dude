@@ -1,0 +1,72 @@
+"""FAB auth-manager configuration (mounted at /opt/airflow/webserver_config.py).
+
+{{#if withEntraId}}
+Sign-on: Microsoft Entra ID (OAuth 2.0 / OIDC).
+
+Users authenticate against your tenant; accounts are auto-registered on first
+login (AUTH_USER_REGISTRATION) and their Airflow role is derived from the
+Entra *app roles* carried in the token via AUTH_ROLES_MAPPING. Create app
+roles named airflow_admin / airflow_op / airflow_user / airflow_viewer in the
+app registration and assign them to users or groups — see docs/docs/sso.md.
+{{else}}
+Sign-on: native (Airflow user database).
+
+Users and roles are managed in the Airflow UI (Security → Users) or with
+`airflow users create`. The compose airflow-init service bootstraps the first
+admin from AIRFLOW_ADMIN_USERNAME / AIRFLOW_ADMIN_PASSWORD in .env.
+To switch to Microsoft Entra ID later, see docs/docs/sso.md.
+{{/if}}
+"""
+
+import os
+
+{{#if withEntraId}}
+from flask_appbuilder.security.manager import AUTH_OAUTH
+
+AUTH_TYPE = AUTH_OAUTH
+
+# Auto-create unknown users on first successful OAuth login…
+AUTH_USER_REGISTRATION = True
+# …with this role when the token carries no mapped app role.
+AUTH_USER_REGISTRATION_ROLE = os.getenv("AUTH_USER_REGISTRATION_ROLE", "Viewer")
+
+# Re-evaluate the role mapping on every login, so revoking an Entra app role
+# takes effect at the next sign-in (not never).
+AUTH_ROLES_SYNC_AT_LOGIN = True
+
+# Entra app roles (token "roles" claim) → Airflow roles.
+AUTH_ROLES_MAPPING = {
+    "airflow_admin": ["Admin"],
+    "airflow_op": ["Op"],
+    "airflow_user": ["User"],
+    "airflow_viewer": ["Viewer"],
+}
+
+AZURE_TENANT_ID = os.environ["AZURE_TENANT_ID"]
+
+OAUTH_PROVIDERS = [
+    {
+        # "azure" is special-cased by Flask-AppBuilder: it validates the
+        # id_token against jwks_uri and reads identity + roles from it.
+        "name": "azure",
+        "icon": "fa-windows",
+        "token_key": "access_token",
+        "remote_app": {
+            "client_id": os.environ["AZURE_CLIENT_ID"],
+            "client_secret": os.environ["AZURE_CLIENT_SECRET"],
+            "api_base_url": f"https://login.microsoftonline.com/{AZURE_TENANT_ID}/oauth2/v2.0/",
+            "request_token_url": None,
+            "access_token_url": f"https://login.microsoftonline.com/{AZURE_TENANT_ID}/oauth2/v2.0/token",
+            "authorize_url": f"https://login.microsoftonline.com/{AZURE_TENANT_ID}/oauth2/v2.0/authorize",
+            "jwks_uri": f"https://login.microsoftonline.com/{AZURE_TENANT_ID}/discovery/v2.0/keys",
+            "client_kwargs": {"scope": "openid profile email"},
+        },
+    },
+]
+{{else}}
+from flask_appbuilder.security.manager import AUTH_DB
+
+AUTH_TYPE = AUTH_DB
+{{/if}}
+
+WTF_CSRF_ENABLED = True

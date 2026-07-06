@@ -1,0 +1,27 @@
+# Node / dude toolchain
+node_modules/
+*.tsbuildinfo
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Airflow runtime artifacts (containers write these via bind mounts)
+airflow/logs/
+airflow/dags/__pycache__/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Scratch
+private/
+
+# OS
+.DS_Store

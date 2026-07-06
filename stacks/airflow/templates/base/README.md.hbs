@@ -1,0 +1,47 @@
+# {{projectName}}
+
+Apache Airflow deployment scaffolded with [dude](https://github.com/cubocicloide/dude)
+(`airflow` stack). Airflow 3 in Docker Compose{{#if withIac}} + Terraform for
+AWS ECS Fargate (ECS executor — every task in its own container){{/if}};
+sign-on via {{#if withEntraId}}Microsoft Entra ID{{else}}the native Airflow
+user database{{/if}}.
+
+## Quickstart
+
+```bash
+export GITHUB_TOKEN=<your-pat>
+npm install -g @cubocicloide/dude-launcher   # once per machine
+pnpm install                                 # provision the pinned toolchain
+{{#if withEntraId}}
+# fill AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET in .env first
+{{/if}}
+dude up --build
+open http://localhost:8080                   {{#unless withEntraId}}# admin / admin{{/unless}}
+```
+
+## Layout
+
+```
+airflow/
+├── Dockerfile           # apache/airflow + requirements.txt
+├── requirements.txt     # extra Python packages (pinned)
+├── config/webserver_config.py   # sign-on (FAB auth manager)
+├── dags/
+│   ├── lib/             # shared helpers (defaults, callbacks) — no DAGs
+│   └── examples/        # example_etl, example_ecs_task,
+│                        # example_kubernetes_pod, example_batch_compute
+├── plugins/ops_toolkit/ # listeners + macros + WorkdayTimetable
+└── tests/               # DAG integrity suite (dude test)
+{{#if withIac}}
+iac/                     # Terraform — AWS ECS Fargate (dude iac …)
+{{/if}}
+docs/                    # MkDocs site (dude docs)
+```
+
+## Commands
+
+`dude help` shows the live catalog. Highlights: `dude up|down|logs|shell`,
+`dude dag list|errors|trigger|test`, `dude lint`, `dude test`, `dude format`,
+`dude docs`{{#if withIac}}, `dude iac …` (bootstrap → apply → migrate → ship){{/if}}.
+
+Full documentation: `dude docs` → http://localhost:8001.

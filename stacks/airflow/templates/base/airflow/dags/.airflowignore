@@ -1,0 +1,3 @@
+# Paths the dag-processor must not parse (glob syntax — the compose/IaC set
+# AIRFLOW__CORE__DAG_IGNORE_FILE_SYNTAX=glob).
+lib/*

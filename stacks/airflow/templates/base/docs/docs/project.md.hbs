@@ -1,0 +1,74 @@
+# Project guide
+
+How to grow this deployment without it growing wild. Every convention below
+is enforced by `dude lint` (rules `AF001`–`AF010`, documented one-per-page in
+`.claude/rules/AF/`).
+
+## Adding a DAG
+
+1. Create `airflow/dags/<area>/<dag_id>.py` — **one DAG per file, file named
+   after the dag_id** (AF001). `examples/example_etl.py` is the reference.
+2. Every DAG declares explicitly: `schedule=` (AF002), `catchup=` (AF003),
+   `tags=[…]` (AF004), and `default_args=DEFAULT_ARGS` imported from
+   `lib.defaults` (AF005).
+3. Keep module scope import-cheap: no `Variable.get`/connection lookups at
+   parse time (AF006), heavy imports inside task functions (AF007).
+4. `dude lint && dude test` before committing. The dag-processor picks the
+   file up live (dags/ is bind-mounted) — check `dude dag errors`.
+
+Shared helper code goes in `airflow/dags/lib/` (importable as `from lib.x
+import y`), never as a second DAG in an existing file.
+
+## Adding Python packages
+
+Add a **pinned** line to `airflow/requirements.txt` (AF009), then rebuild:
+
+```bash
+dude up --build
+```
+
+For `apache-airflow-providers-*` packages, take the version from the official
+constraints file matching the image's Airflow version (link in
+`airflow/Dockerfile`). The base image already ships the common providers
+(amazon, cncf-kubernetes, postgres, http, fab, …).
+
+## Environment variables & secrets
+
+`.env.example` is the **contract**: every variable the deployment consumes is
+listed there (AF010). Locally, real values go in `.env` (gitignored).
+
+- Plain configuration → a `VAR=value` line in `.env`, consumed by
+  `docker-compose.yml` or read with `os.getenv` inside a task.
+- Secrets consumed by DAGs → prefer Airflow **Connections/Variables** (Admin
+  → Connections), encrypted at rest with `AIRFLOW_FERNET_KEY`.
+{{#if withIac}}
+- In AWS, secrets live in Secrets Manager and are injected as env vars:
+  `dude iac secrets --env dev --set MY_KEY=value` (see *Deploy*).
+{{/if}}
+
+## Plugins
+
+One package per plugin under `airflow/plugins/<name>/`, registered by an
+`AirflowPlugin` subclass in its `__init__.py` (AF008). The shipped
+`ops_toolkit` plugin demonstrates the three most useful extension points:
+
+- `listeners.py` — fleet-wide DAG-run success/failure hooks (alerting)
+- `macros.py` — Jinja helpers: `\{{ macros.ops_toolkit.ds_add_business_days(ds, 3) }}`
+- `timetables.py` — `WorkdayTimetable`, a Mon–Fri schedule usable as
+  `schedule=WorkdayTimetable()`
+
+Plugin changes require a component restart (`dude down && dude up`) — plugins
+load at process start, not per parse.
+
+## The example DAGs
+
+| DAG | Pattern it teaches |
+| --- | ------------------ |
+| `example_etl` | TaskFlow ETL, XCom hand-off, project conventions |
+| `example_ecs_task` | Run a container as a **dedicated ECS Fargate task** (EcsRunTaskOperator) |
+| `example_kubernetes_pod` | Run a container in a **dedicated Kubernetes pod** (KubernetesPodOperator) |
+| `example_batch_compute` | Compute-intensive work via **AWS Batch** — simulated fan-out/reduce by default, real `BatchOperator` (array job, deferrable) when wired |
+
+All three container examples guard themselves: without their infrastructure
+(ECS coordinates, a `kubernetes_default` connection, a Batch queue) they
+short-circuit or simulate, so they stay green locally.

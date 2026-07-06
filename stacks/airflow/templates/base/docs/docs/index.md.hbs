@@ -1,0 +1,54 @@
+# {{projectName}}
+
+An Apache Airflow deployment scaffolded with **dude** (`airflow` stack):
+Airflow 3 running in Docker Compose locally{{#if withIac}}, and on AWS ECS
+Fargate (Terraform, ECS executor) in the cloud{{/if}}, with an organized,
+lint-enforced layout for DAGs, plugins, packages and configuration.
+
+## Quickstart
+
+```bash
+{{#if withEntraId}}
+# 1. fill AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET in .env
+#    (see the SSO page for the Entra ID app registration)
+{{/if}}
+dude up --build          # build the image + start every component
+open http://localhost:8080
+{{#unless withEntraId}}
+# sign in with admin / admin (change it in .env)
+{{/unless}}
+```
+
+The example DAGs under `airflow/dags/examples/` arrive **paused** — unpause
+them in the UI (or `dude dag trigger --id example_etl`).
+
+## What's inside
+
+| Path | Purpose |
+| ---- | ------- |
+| `airflow/dags/` | DAG definitions — one DAG per file, `examples/` to learn from, `lib/` for shared helpers |
+| `airflow/plugins/ops_toolkit/` | Reference plugin: listeners + macros + a custom timetable |
+| `airflow/requirements.txt` | Python packages baked into the image (pinned) |
+| `airflow/config/webserver_config.py` | Sign-on configuration ({{#if withEntraId}}Microsoft Entra ID{{else}}native user DB{{/if}}) |
+| `airflow/tests/` | DAG integrity suite (`dude test`) |
+| `.env` / `.env.example` | Environment variables & local secrets — the deployment contract |
+{{#if withIac}}
+| `iac/` | Terraform for AWS ECS Fargate (see *Deploy*) |
+{{/if}}
+| `.claude/rules/AF/` | The project conventions, one page per `dude lint` rule |
+
+## Daily commands
+
+```bash
+dude up / dude down      # start / stop the deployment
+dude logs [service]      # follow logs
+dude dag list            # what's deployed
+dude dag errors          # import errors, if any
+dude lint                # structural conventions (AF rules)
+dude test                # DAG integrity suite (runs in the image)
+dude format              # ruff format + import sort
+dude docs                # this documentation, live-reloading
+```
+
+See *Project guide* for how to add DAGs, packages, plugins, and environment
+variables — and *Command reference* for everything `dude` can do here.

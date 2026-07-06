@@ -1,0 +1,52 @@
+# ─── {{projectName}} — environment contract ─────────────────────────────────
+# Copy to .env and adjust. `.env` is gitignored: real secrets live there
+# locally, and in AWS Secrets Manager (dude iac secrets) in the cloud.
+# Every variable the deployment consumes is documented HERE (lint rule AF010).
+
+# Host user id for the bind-mounted dags/plugins/logs (Linux only — run
+# `id -u`; keep 50000 on macOS/Windows).
+AIRFLOW_UID=50000
+
+# Fernet key encrypting Connections/Variables in the metadata DB. Empty is
+# fine for throwaway local runs; generate a stable one with:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+AIRFLOW_FERNET_KEY=
+
+# Secret signing the JWTs between Airflow components (api-server ↔ workers).
+AIRFLOW_JWT_SECRET=CHANGE-ME-any-long-random-string
+
+# Metadata database (the compose default points at the bundled postgres).
+POSTGRES_USER=airflow
+POSTGRES_PASSWORD=airflow
+POSTGRES_DB=airflow
+
+# Environment label surfaced by the ops_toolkit plugin macro deploy_env().
+DEPLOY_ENV=local
+
+# ── Consumed by the example DAGs — leave empty locally ──────────────────────
+# example_ecs_task: dedicated-container coordinates. In AWS the IaC injects
+# them automatically; locally the DAG short-circuits when they are empty.
+ECS_CLUSTER=
+ECS_WORKER_TASK_DEFINITION=
+ECS_SUBNETS=
+ECS_SECURITY_GROUPS=
+# example_batch_compute: set these to run the REAL AWS Batch path (the DAG
+# simulates the fan-out/reduce locally when they are empty).
+BATCH_JOB_QUEUE=
+BATCH_JOB_DEFINITION=
+{{#unless withEntraId}}
+
+# Bootstrap admin user for the native (database) sign-on.
+AIRFLOW_ADMIN_USERNAME=admin
+AIRFLOW_ADMIN_PASSWORD=admin
+{{/unless}}
+{{#if withEntraId}}
+
+# ── Microsoft Entra ID SSO (see docs/docs/sso.md for the app registration) ──
+AZURE_TENANT_ID=CHANGE-ME-tenant-guid
+AZURE_CLIENT_ID=CHANGE-ME-app-client-id
+AZURE_CLIENT_SECRET=CHANGE-ME-client-secret
+# FAB role given to first-time OAuth users (map Entra app roles to Airflow
+# roles in airflow/config/webserver_config.py).
+AUTH_USER_REGISTRATION_ROLE=Viewer
+{{/if}}

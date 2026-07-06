@@ -1,0 +1,271 @@
+# ECS cluster, task definitions and services.
+#
+# One image (built by `dude iac ship`, DAGs/plugins baked in) runs everything:
+#
+#   web      service   — api-server (UI + REST + execution API), behind the ALB
+#   core     service   — scheduler + dag-processor + triggerer (one task, 3 containers)
+#   worker   task def  — launched ON DEMAND by the AWS ECS executor: every
+#                        Airflow task instance gets its own Fargate container
+#   migrate  task def  — one-off `airflow db migrate` (dude iac migrate)
+
+data "aws_ecr_repository" "airflow" {
+  name = "${var.project_name}-airflow"
+}
+
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/ecs/${local.name}"
+  retention_in_days = var.log_retention_days
+}
+
+resource "aws_ecs_cluster" "this" {
+  name = local.name
+}
+
+locals {
+  image         = "${data.aws_ecr_repository.airflow.repository_url}:${var.image_tag}"
+  worker_family = "${local.name}-worker"
+
+  # Environment shared by every Airflow container. Also carries the
+  # coordinates the example DAGs read (ECS_*), and your own plain config from
+  # var.app_environment. Secrets never go here — see local.airflow_secrets.
+  airflow_env = concat([
+    { name = "AIRFLOW__CORE__EXECUTOR", value = "airflow.providers.amazon.aws.executors.ecs.ecs_executor.AwsEcsExecutor" },
+    { name = "AIRFLOW__CORE__AUTH_MANAGER", value = "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager" },
+    { name = "AIRFLOW__CORE__LOAD_EXAMPLES", value = "false" },
+    { name = "AIRFLOW__CORE__DAG_IGNORE_FILE_SYNTAX", value = "glob" },
+    { name = "AIRFLOW__CORE__EXECUTION_API_SERVER_URL", value = "http://web.${local.dns_namespace}:8080/execution/" },
+    { name = "AIRFLOW__API__BASE_URL", value = local.airflow_url },
+    { name = "AIRFLOW__LOGGING__REMOTE_LOGGING", value = "True" },
+    { name = "AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER", value = "s3://${aws_s3_bucket.logs.bucket}/task-logs" },
+    { name = "AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID", value = "aws_default" },
+    { name = "AIRFLOW_CONN_AWS_DEFAULT", value = "aws://" }, # default boto3 chain = the task role
+    { name = "AWS_DEFAULT_REGION", value = var.region },
+    { name = "AIRFLOW__AWS_ECS_EXECUTOR__REGION_NAME", value = var.region },
+    { name = "AIRFLOW__AWS_ECS_EXECUTOR__CLUSTER", value = aws_ecs_cluster.this.name },
+    { name = "AIRFLOW__AWS_ECS_EXECUTOR__TASK_DEFINITION", value = local.worker_family },
+    { name = "AIRFLOW__AWS_ECS_EXECUTOR__CONTAINER_NAME", value = "worker" },
+    { name = "AIRFLOW__AWS_ECS_EXECUTOR__LAUNCH_TYPE", value = "FARGATE" },
+    { name = "AIRFLOW__AWS_ECS_EXECUTOR__SUBNETS", value = join(",", aws_subnet.public[*].id) },
+    { name = "AIRFLOW__AWS_ECS_EXECUTOR__SECURITY_GROUPS", value = aws_security_group.service.id },
+    { name = "AIRFLOW__AWS_ECS_EXECUTOR__ASSIGN_PUBLIC_IP", value = "True" },
+    { name = "DEPLOY_ENV", value = var.environment },
+    # Coordinates consumed by the example DAGs (example_ecs_task).
+    { name = "ECS_CLUSTER", value = aws_ecs_cluster.this.name },
+    { name = "ECS_WORKER_TASK_DEFINITION", value = local.worker_family },
+    { name = "ECS_SUBNETS", value = join(",", aws_subnet.public[*].id) },
+    { name = "ECS_SECURITY_GROUPS", value = aws_security_group.service.id },
+    { name = "AIRFLOW_VAR_ECS_LOG_GROUP", value = aws_cloudwatch_log_group.app.name },
+{{#if withEntraId}}
+    # Entra ID SSO — consumed by webserver_config.py (client secret comes
+    # from the app secret: dude iac secrets --set AZURE_CLIENT_SECRET=…).
+    { name = "AZURE_TENANT_ID", value = var.azure_tenant_id },
+    { name = "AZURE_CLIENT_ID", value = var.azure_client_id },
+    { name = "AUTH_USER_REGISTRATION_ROLE", value = var.auth_user_registration_role },
+{{/if}}
+    ],
+    [for k, v in var.app_environment : { name = k, value = v }],
+  )
+
+  airflow_secrets = concat([
+    { name = "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN", valueFrom = "${aws_secretsmanager_secret.core.arn}:sql_alchemy_conn::" },
+    { name = "AIRFLOW__CORE__FERNET_KEY", valueFrom = "${aws_secretsmanager_secret.core.arn}:fernet_key::" },
+    { name = "AIRFLOW__API_AUTH__JWT_SECRET", valueFrom = "${aws_secretsmanager_secret.core.arn}:jwt_secret::" },
+    ],
+    [for k in var.app_secret_keys : { name = k, valueFrom = "${aws_secretsmanager_secret.app.arn}:${k}::" }],
+  )
+
+  log_config = {
+    logDriver = "awslogs"
+    options = {
+      awslogs-group         = aws_cloudwatch_log_group.app.name
+      awslogs-region        = var.region
+      awslogs-stream-prefix = "airflow"
+    }
+  }
+}
+
+# ── web: api-server behind the ALB ───────────────────────────────────────────
+
+resource "aws_ecs_task_definition" "web" {
+  family                   = "${local.name}-web"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.web_cpu
+  memory                   = var.web_memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  container_definitions = jsonencode([
+    {
+      name             = "api-server"
+      image            = local.image
+      essential        = true
+      command          = ["api-server"]
+      portMappings     = [{ containerPort = local.container_port, protocol = "tcp" }]
+      environment      = local.airflow_env
+      secrets          = local.airflow_secrets
+      logConfiguration = local.log_config
+    }
+  ])
+}
+
+resource "aws_ecs_service" "web" {
+  name            = "${local.name}-web"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.web.arn
+  desired_count   = var.web_desired_count
+  launch_type     = "FARGATE"
+
+  enable_execute_command = true
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.service.id]
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.web.arn
+    container_name   = "api-server"
+    container_port   = local.container_port
+  }
+
+  # Registers each task in Cloud Map: web.<project>-<env>.local.
+  service_registries {
+    registry_arn = aws_service_discovery_service.web.arn
+  }
+
+  health_check_grace_period_seconds = 120
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
+}
+
+# ── core: scheduler + dag-processor + triggerer ──────────────────────────────
+
+resource "aws_ecs_task_definition" "core" {
+  family                   = "${local.name}-core"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.core_cpu
+  memory                   = var.core_memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  container_definitions = jsonencode([
+    {
+      name             = "scheduler"
+      image            = local.image
+      essential        = true
+      command          = ["scheduler"]
+      environment      = local.airflow_env
+      secrets          = local.airflow_secrets
+      logConfiguration = local.log_config
+    },
+    {
+      name             = "dag-processor"
+      image            = local.image
+      essential        = true
+      command          = ["dag-processor"]
+      environment      = local.airflow_env
+      secrets          = local.airflow_secrets
+      logConfiguration = local.log_config
+    },
+    {
+      name             = "triggerer"
+      image            = local.image
+      essential        = true
+      command          = ["triggerer"]
+      environment      = local.airflow_env
+      secrets          = local.airflow_secrets
+      logConfiguration = local.log_config
+    }
+  ])
+}
+
+resource "aws_ecs_service" "core" {
+  name            = "${local.name}-core"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.core.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  enable_execute_command = true
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.service.id]
+    assign_public_ip = true
+  }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+}
+
+# ── worker: the ECS executor's per-task container ────────────────────────────
+# Never runs as a service — the AWS ECS executor calls RunTask against this
+# family for every scheduled task instance and overrides the command. This is
+# the "every task in its own dedicated container" part of the design.
+
+resource "aws_ecs_task_definition" "worker" {
+  family                   = local.worker_family
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.worker_cpu
+  memory                   = var.worker_memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  container_definitions = jsonencode([
+    {
+      name             = "worker"
+      image            = local.image
+      essential        = true
+      command          = ["version"] # always overridden by the executor
+      environment      = local.airflow_env
+      secrets          = local.airflow_secrets
+      logConfiguration = local.log_config
+    }
+  ])
+}
+
+# ── migrate: one-off metadata-DB migration (dude iac migrate) ────────────────
+
+resource "aws_ecs_task_definition" "migrate" {
+  family                   = "${local.name}-migrate"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.worker_cpu
+  memory                   = var.worker_memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "migrate"
+      image     = local.image
+      essential = true
+{{#if withEntraId}}
+      # Migrates the metadata schema (users come from Entra ID at login).
+      command     = ["bash", "-c", "airflow db migrate"]
+{{else}}
+      # Migrates the schema, then makes sure the bootstrap admin exists
+      # (password in the core secret: admin_password).
+      command     = ["bash", "-c", "airflow db migrate && airflow users create --role Admin --username admin --password \"$AIRFLOW_ADMIN_PASSWORD\" --firstname Admin --lastname Admin --email admin@${var.project_name}.local"]
+{{/if}}
+      environment = local.airflow_env
+      secrets = concat(local.airflow_secrets, [
+{{#unless withEntraId}}
+        { name = "AIRFLOW_ADMIN_PASSWORD", valueFrom = "${aws_secretsmanager_secret.core.arn}:admin_password::" },
+{{/unless}}
+      ])
+      logConfiguration = local.log_config
+    }
+  ])
+}

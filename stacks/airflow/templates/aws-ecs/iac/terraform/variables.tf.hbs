@@ -1,0 +1,178 @@
+variable "project_name" {
+  description = "Project slug — prefixes every resource name."
+  type        = string
+  default     = "{{projectName}}"
+}
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod, …)."
+  type        = string
+}
+
+variable "region" {
+  description = "AWS region for this environment."
+  type        = string
+}
+
+variable "image_tag" {
+  description = "Tag of the Airflow image to run. `dude iac deploy` keeps this line in terraform.tfvars up to date, so a plain `dude iac apply` re-deploys the same build."
+  type        = string
+  default     = "latest"
+}
+
+# ── Fargate sizing ────────────────────────────────────────────────────────────
+
+variable "web_cpu" {
+  description = "api-server task CPU units (1024 = 1 vCPU)."
+  type        = number
+  default     = 512
+}
+
+variable "web_memory" {
+  description = "api-server task memory (MiB) — must be a valid pairing with web_cpu."
+  type        = number
+  default     = 1024
+}
+
+variable "web_desired_count" {
+  description = "Number of api-server tasks behind the ALB."
+  type        = number
+  default     = 1
+}
+
+variable "core_cpu" {
+  description = "CPU units for the core task (scheduler + dag-processor + triggerer share it)."
+  type        = number
+  default     = 1024
+}
+
+variable "core_memory" {
+  description = "Memory (MiB) for the core task."
+  type        = number
+  default     = 2048
+}
+
+variable "worker_cpu" {
+  description = "CPU units for EACH task container the ECS executor launches (one per Airflow task instance)."
+  type        = number
+  default     = 512
+}
+
+variable "worker_memory" {
+  description = "Memory (MiB) for each executor task container."
+  type        = number
+  default     = 1024
+}
+
+# ── Metadata database (RDS Postgres) ─────────────────────────────────────────
+
+variable "db_instance_class" {
+  description = "RDS instance class for the Airflow metadata DB."
+  type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "db_allocated_storage" {
+  description = "RDS storage (GiB)."
+  type        = number
+  default     = 20
+}
+
+variable "db_engine_version" {
+  description = "Postgres major version."
+  type        = string
+  default     = "16"
+}
+
+variable "db_multi_az" {
+  description = "Multi-AZ standby for the metadata DB (enable in prod)."
+  type        = bool
+  default     = false
+}
+
+variable "db_backup_retention_days" {
+  description = "Automated RDS backup retention (days)."
+  type        = number
+  default     = 7
+}
+
+variable "db_skip_final_snapshot" {
+  description = "Skip the final snapshot on destroy (dev convenience — set false in prod)."
+  type        = bool
+  default     = true
+}
+
+variable "db_deletion_protection" {
+  description = "Protect the metadata DB from deletion (set true in prod)."
+  type        = bool
+  default     = false
+}
+
+# ── App configuration & secrets ──────────────────────────────────────────────
+
+variable "app_environment" {
+  description = "Plain (non-secret) environment variables injected into every Airflow container."
+  type        = map(string)
+  default     = {}
+}
+
+variable "app_secret_keys" {
+  description = "Keys of the app secret (<project>/<env>/app, managed with `dude iac secrets`) to inject into every Airflow container as env vars of the same name."
+  type        = list(string)
+  default     = []
+}
+{{#if withEntraId}}
+
+# ── Microsoft Entra ID SSO ───────────────────────────────────────────────────
+# The client SECRET is not a variable: store it in the app secret
+#   dude iac secrets --env <env> --set AZURE_CLIENT_SECRET=…
+# and keep "AZURE_CLIENT_SECRET" listed in app_secret_keys.
+
+variable "azure_tenant_id" {
+  description = "Entra ID tenant (directory) id."
+  type        = string
+}
+
+variable "azure_client_id" {
+  description = "Entra ID app registration client id."
+  type        = string
+}
+
+variable "auth_user_registration_role" {
+  description = "Airflow role granted to OAuth users with no mapped Entra app role."
+  type        = string
+  default     = "Viewer"
+}
+{{/if}}
+
+# ── Networking / edge ────────────────────────────────────────────────────────
+
+variable "allowed_cidrs" {
+  description = "CIDR blocks allowed to reach the ALB (the Airflow UI/API). Restrict to your org's networks."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "domain_name" {
+  description = "Public hostname for the UI (e.g. airflow.example.com). Leave empty to serve plain HTTP on the ALB DNS name."
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_name" {
+  description = "Existing Route53 hosted zone the domain lives in (e.g. example.com). Required when domain_name is set."
+  type        = string
+  default     = ""
+}
+
+variable "alb_idle_timeout" {
+  description = "ALB idle timeout in seconds (the UI streams logs — keep it comfortably high)."
+  type        = number
+  default     = 120
+}
+
+variable "log_retention_days" {
+  description = "Retention for CloudWatch container logs and S3 task logs."
+  type        = number
+  default     = 30
+}
