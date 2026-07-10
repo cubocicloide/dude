@@ -54,14 +54,27 @@ pnpm install
 
 # 4. First run — build the images and start every service.
 dude up --build
+{{#if withPostgres}}
 
-# 5. From the second run onward, just:
+# 5. First run only — apply migrations and seed demo data.
+dude reset
+{{/if}}
+
+# {{#if withPostgres}}6{{else}}5{{/if}}. From the second run onward, just:
 dude up
 ```
 
 > **Already have the project?** If you're reading this inside `{{projectName}}`
 > (or you just `git clone`d it), it's already scaffolded — skip step 2 and start
 > at `pnpm install`.
+{{#if withPostgres}}
+
+> **Why `dude reset`?** `dude up` applies pending Alembic migrations
+> automatically on every start, so the schema is always current — but a fresh
+> database has no data in it. `dude reset` drops the database, re-applies
+> migrations, and seeds demo users; skip it and pages like **Users** simply
+> render empty.
+{{/if}}
 
 > **How `dude` resolves its version.** `dude` on your `PATH` is the *launcher*.
 > On the first `dude <cmd>` inside a project it provisions the versions pinned in
@@ -110,6 +123,9 @@ page is auto-generated from your actual commands every time you run `dude docs`.
 |---------|-------------|
 | `dude up --build` | Rebuild images and start all services |
 | `dude up` | Start all services (detached) |
+{{#if withPostgres}}
+| `dude reset` | Drop the database, re-apply migrations, and seed demo data |
+{{/if}}
 | `dude down` | Stop and remove containers |
 | `dude logs [service]` | Follow logs (omit service to follow all) |
 | `dude shell <service>` | Open a shell inside a running container |
