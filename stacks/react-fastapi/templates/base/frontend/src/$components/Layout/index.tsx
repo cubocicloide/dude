@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Layout as AntLayout, Menu, Typography } from 'antd'
-import { HomeOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import logo from './$assets/logo.svg'
+import { MENU_ITEMS } from './constants'
 
 const { Sider, Header, Content } = AntLayout
 
@@ -18,19 +20,27 @@ export default function Layout() {
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
       <Sider collapsible collapsed={collapsed} trigger={null} width={220}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px 0 4px',
+          }}
+        >
+          <img src={logo} alt={APP_TITLE} style={{ height: 28 }} />
+        </div>
         <Menu
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
           style={{ paddingTop: 12, borderRight: 0 }}
-          items={[
-            {
-              key: 'home',
-              icon: <HomeOutlined />,
-              label: 'Home',
-              onClick: () => navigate('/'),
-            },
-          ]}
+          items={MENU_ITEMS.map(({ key, label, icon, path }) => ({
+            key,
+            icon,
+            label,
+            onClick: () => navigate(path),
+          }))}
         />
       </Sider>
 

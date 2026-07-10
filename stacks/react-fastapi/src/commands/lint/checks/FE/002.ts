@@ -1,30 +1,57 @@
 import { readdirSync, existsSync } from 'node:fs'
 import path from 'pathe'
 import type { RawDiagnostic } from '@cubocicloide/dude'
+import {
+  PASCAL_CASE,
+  SCOPE_FILES,
+  SCOPE_FILES_LABEL,
+  diag,
+  findDirsNamed,
+  frontendSrc,
+} from '../../frontend-structure'
 
-const ALLOWED = new Set(['index.tsx', 'styles.module.css', 'types.tsx', 'components'])
+const ALLOWED_DIRS = new Set(['$components', '$hooks', '$assets', '$misc'])
 
-/** FE002 — component dirs may only contain index.tsx, styles.module.css, types.tsx, components/ */
+/** FE002 — component dirs contain only the scope files and $components/$hooks/$assets/$misc */
 export default function check(root: string): RawDiagnostic[] {
-  const componentsDir = path.join(root, 'frontend', 'src', 'components')
-  if (!existsSync(componentsDir)) return []
+  const results: RawDiagnostic[] = []
 
-  const diagnostics: RawDiagnostic[] = []
-  for (const entry of readdirSync(componentsDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue
-    for (const child of readdirSync(path.join(componentsDir, entry.name), {
-      withFileTypes: true,
-    })) {
-      if (!ALLOWED.has(child.name)) {
-        diagnostics.push({
-          file: path.join('frontend', 'src', 'components', entry.name, child.name),
-          line: 1,
-          col: 1,
-          severity: 'warning',
-          message: `Unexpected file "${child.name}" in component directory. Allowed: index.tsx, styles.module.css, types.tsx, components/`,
-        })
+  for (const componentsDir of findDirsNamed(frontendSrc(root), '$components')) {
+    for (const entry of readdirSync(componentsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !PASCAL_CASE.test(entry.name)) continue
+      const componentDir = path.join(componentsDir, entry.name)
+
+      if (!existsSync(path.join(componentDir, 'index.tsx'))) {
+        results.push(
+          diag(root, componentDir, 'error', `Component "${entry.name}" is missing its index.tsx`),
+        )
+      }
+
+      for (const child of readdirSync(componentDir, { withFileTypes: true })) {
+        const childPath = path.join(componentDir, child.name)
+        if (child.isDirectory()) {
+          if (!ALLOWED_DIRS.has(child.name)) {
+            results.push(
+              diag(
+                root,
+                childPath,
+                'warning',
+                `Unexpected directory "${child.name}" in component directory. Allowed: $components/, $hooks/, $assets/, $misc/`,
+              ),
+            )
+          }
+        } else if (!SCOPE_FILES.has(child.name)) {
+          results.push(
+            diag(
+              root,
+              childPath,
+              'warning',
+              `Unexpected file "${child.name}" in component directory. Allowed: ${SCOPE_FILES_LABEL}`,
+            ),
+          )
+        }
       }
     }
   }
-  return diagnostics
+  return results
 }

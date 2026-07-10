@@ -3,8 +3,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { App as AntApp, ConfigProvider } from 'antd'
 
-import Layout from '@/components/Layout'
+import { Layout } from '@/$components'
 import HomePage from '@/pages'
+{{#if withPostgres}}
+import UsersPage from '@/pages/users'
+import UserDetailPage from '@/pages/users/[id]'
+{{/if}}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +25,10 @@ export function App() {
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<HomePage />} />
+{{#if withPostgres}}
+                <Route path="/users" element={<UsersPage />} />
+                <Route path="/users/:id" element={<UserDetailPage />} />
+{{/if}}
               </Route>
             </Routes>
           </BrowserRouter>
