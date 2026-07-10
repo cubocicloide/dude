@@ -1,49 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Badge, Card, Col, Row, Space, Typography } from 'antd'
+import { Alert, Badge, Button, Card, Col, Row, Space, Typography } from 'antd'
 import {
   CheckCircleOutlined,
   CodeOutlined,
+  MinusOutlined,
+  PlusOutlined,
   RocketOutlined,
 } from '@ant-design/icons'
 import { $get as getHealth } from '@/openapi/api/health'
+import { useCounterStore } from '@/$hooks'
+import { COMMANDS, GROUPS } from './constants'
 
 const { Title, Paragraph, Text, Link } = Typography
-
-interface Command {
-  cmd: string
-  desc: string
-  group: string
-}
-
-const COMMANDS: Command[] = [
-  // Infrastructure
-  { group: 'Infrastructure', cmd: 'dude up --build', desc: 'Build images and start all services' },
-  { group: 'Infrastructure', cmd: 'dude up', desc: 'Start all services (detached)' },
-  { group: 'Infrastructure', cmd: 'dude down', desc: 'Stop and remove containers' },
-  { group: 'Infrastructure', cmd: 'dude logs [service]', desc: 'Follow logs; omit service to follow all' },
-  { group: 'Infrastructure', cmd: 'dude shell <service>', desc: 'Open a shell inside a running container' },
-  // Quality
-  { group: 'Code quality', cmd: 'dude lint', desc: 'Structural lint checks (naming, layout)' },
-  { group: 'Code quality', cmd: 'dude format', desc: 'Format code — ruff (backend) + prettier (frontend)' },
-  { group: 'Code quality', cmd: 'dude review', desc: 'Lint + ESLint + API contract review in one pass' },
-  // API
-  { group: 'API contract', cmd: 'dude api sync', desc: 'Fetch OpenAPI spec → regenerate the typed client' },
-  { group: 'API contract', cmd: 'dude api review', desc: 'Validate frontend/src/openapi/ against the spec' },
-  // Testing
-  { group: 'Testing', cmd: 'dude test', desc: 'Run all test suites (backend + e2e)' },
-  { group: 'Testing', cmd: 'dude test --backend', desc: 'pytest only' },
-  { group: 'Testing', cmd: 'dude test --e2e', desc: 'Playwright + Cucumber only' },
-  // Security
-  { group: 'Security', cmd: 'dude security scan', desc: 'Run all SAST scanners; exit 1 on new HIGH+ findings' },
-  { group: 'Security', cmd: 'dude security accept', desc: 'Absorb all findings into the baseline' },
-  { group: 'Security', cmd: 'dude security verify --rule-id <id>', desc: 'Confirm a specific finding is fixed' },
-  // Docs
-  { group: 'Documentation', cmd: 'dude docs', desc: 'Serve MkDocs at http://localhost:8001 (live-reload)' },
-  // Help
-  { group: 'Help', cmd: 'dude help', desc: 'Show all available commands and flags' },
-]
-
-const GROUPS = [...new Set(COMMANDS.map((c) => c.group))]
 
 export default function HomePage() {
   const { data, isLoading, isError } = useQuery({
@@ -51,6 +19,7 @@ export default function HomePage() {
     queryFn: getHealth,
     refetchInterval: 30_000,
   })
+  const { count, increment, decrement, reset } = useCounterStore()
 
   const statusText = isLoading
     ? 'checking…'
@@ -100,8 +69,25 @@ export default function HomePage() {
           </Card>
         </Col>
 
+        {/* Zustand store demo */}
+        <Col xs={24} md={8}>
+          <Card title="Zustand store" style={{ height: '100%' }}>
+            <Space>
+              <Button icon={<MinusOutlined />} onClick={decrement} aria-label="decrement" />
+              <Text strong style={{ fontSize: 18, minWidth: 32, display: 'inline-block', textAlign: 'center' }}>
+                {count}
+              </Text>
+              <Button icon={<PlusOutlined />} onClick={increment} aria-label="increment" />
+              <Button onClick={reset}>Reset</Button>
+            </Space>
+            <Paragraph type="secondary" style={{ margin: '12px 0 0' }}>
+              Global state from <Text code>$hooks/useCounterStore</Text> — devtools enabled in dev.
+            </Paragraph>
+          </Card>
+        </Col>
+
         {/* Quick links */}
-        <Col xs={24} md={16}>
+        <Col xs={24} md={8}>
           <Card title={<><CodeOutlined /> Quick links</>} style={{ height: '100%' }}>
             <Space wrap size="middle">
               <Link href="/api/docs" target="_blank">

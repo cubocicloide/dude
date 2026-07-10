@@ -51,8 +51,9 @@ a non-obvious invariant.
 - After model changes, generate a migration (`dude db makemigration --app <app>`) and commit it
 
 **Frontend changes** (`frontend/src/`):
-- Components: `frontend/src/components/`
-- Pages: `frontend/src/pages/`
+- Components: `frontend/src/$components/` (page-local ones in `pages/<route>/$components/`)
+- Pages: `frontend/src/pages/` (kebab-case route segments, `[param]` for dynamic ones)
+- Hooks / zustand stores: `frontend/src/$hooks/`
 - API calls: follow the existing `fetch`/`axios` pattern already in the project
 - Do not edit auto-generated files (e.g. OpenAPI-derived types) — regenerate them instead
 
