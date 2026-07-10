@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE } from './constants'
+import { DEFAULT_LOCALE } from '../constants'
 
 /**
  * Formats an ISO date string or Date object as a short date.

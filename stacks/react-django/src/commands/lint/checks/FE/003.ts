@@ -1,27 +1,44 @@
 import { readdirSync, existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 import type { RawDiagnostic } from '@cubocicloide/dude'
+import { PASCAL_CASE, diag, findDirsNamed, frontendSrc } from '../../frontend-structure'
 
-const PASCAL_CASE = /^[A-Z][a-zA-Z0-9]*$/
-
-/** FE003 — components/index.tsx must barrel-export all PascalCase child directories */
+/** FE003 — every $components/ has an index.tsx barrel exporting all component directories */
 export default function check(root: string): RawDiagnostic[] {
-  const componentsDir = path.join(root, 'frontend', 'src', 'components')
-  const barrelFile = path.join(componentsDir, 'index.tsx')
-  if (!existsSync(componentsDir) || !existsSync(barrelFile)) return []
+  const results: RawDiagnostic[] = []
 
-  const pascalDirs = readdirSync(componentsDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && PASCAL_CASE.test(e.name))
-    .map((e) => e.name)
+  for (const componentsDir of findDirsNamed(frontendSrc(root), '$components')) {
+    const componentNames = readdirSync(componentsDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && PASCAL_CASE.test(e.name))
+      .map((e) => e.name)
+    if (componentNames.length === 0) continue
 
-  const barrel = readFileSync(barrelFile, 'utf8')
-  return pascalDirs
-    .filter((name) => !barrel.includes(`from './${name}'`) && !barrel.includes(`from "./${name}"`))
-    .map((name) => ({
-      file: path.join('frontend', 'src', 'components', 'index.tsx'),
-      line: 1,
-      col: 1,
-      severity: 'error' as const,
-      message: `components/index.tsx is missing a barrel export for "${name}"`,
-    }))
+    const barrelFile = path.join(componentsDir, 'index.tsx')
+    if (!existsSync(barrelFile)) {
+      results.push(
+        diag(
+          root,
+          componentsDir,
+          'error',
+          `$components/ is missing its index.tsx barrel (must export: ${componentNames.join(', ')})`,
+        ),
+      )
+      continue
+    }
+
+    const barrel = readFileSync(barrelFile, 'utf8')
+    for (const name of componentNames) {
+      if (!barrel.includes(`from './${name}'`) && !barrel.includes(`from "./${name}"`)) {
+        results.push(
+          diag(
+            root,
+            barrelFile,
+            'error',
+            `$components/index.tsx is missing a barrel export for "${name}"`,
+          ),
+        )
+      }
+    }
+  }
+  return results
 }

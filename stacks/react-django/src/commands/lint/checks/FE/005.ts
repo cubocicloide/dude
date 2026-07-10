@@ -1,28 +1,98 @@
 import { readdirSync, existsSync } from 'node:fs'
 import path from 'pathe'
 import type { RawDiagnostic } from '@cubocicloide/dude'
+import {
+  DYNAMIC_SEGMENT,
+  KEBAB_CASE,
+  SCOPE_FILES,
+  SCOPE_FILES_LABEL,
+  diag,
+  frontendSrc,
+} from '../../frontend-structure'
 
-const ALLOWED = new Set(['index.tsx', 'styles.module.css', 'types.tsx'])
+const ALLOWED_DIRS = new Set(['$components', '$hooks', '$assets', '$misc'])
+/** Unprefixed names that would shadow the privileged directories. */
+const RESERVED_SEGMENTS = new Set(['components', 'hooks', 'assets', 'misc'])
 
-/** FE005 — page dirs may only contain index.tsx, styles.module.css, types.tsx */
+/** FE005 — page dirs contain only scope files + privileged dirs; route segments are kebab-case or [param] */
 export default function check(root: string): RawDiagnostic[] {
-  const pagesDir = path.join(root, 'frontend', 'src', 'pages')
+  const pagesDir = path.join(frontendSrc(root), 'pages')
   if (!existsSync(pagesDir)) return []
 
-  const diagnostics: RawDiagnostic[] = []
-  for (const entry of readdirSync(pagesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue
-    for (const child of readdirSync(path.join(pagesDir, entry.name), { withFileTypes: true })) {
-      if (!ALLOWED.has(child.name)) {
-        diagnostics.push({
-          file: path.join('frontend', 'src', 'pages', entry.name, child.name),
-          line: 1,
-          col: 1,
-          severity: 'warning',
-          message: `Unexpected file "${child.name}" in page directory. Allowed: index.tsx, styles.module.css, types.tsx`,
-        })
+  const results: RawDiagnostic[] = []
+
+  function walk(dir: string): void {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const entryPath = path.join(dir, entry.name)
+
+      if (!entry.isDirectory()) {
+        if (!SCOPE_FILES.has(entry.name)) {
+          results.push(
+            diag(
+              root,
+              entryPath,
+              'error',
+              `Unexpected file "${entry.name}" in page directory. Allowed: ${SCOPE_FILES_LABEL}`,
+            ),
+          )
+        }
+        continue
       }
+
+      if (entry.name.startsWith('$')) {
+        if (!ALLOWED_DIRS.has(entry.name)) {
+          results.push(
+            diag(
+              root,
+              entryPath,
+              'error',
+              `Unknown privileged directory "${entry.name}" in page directory. Allowed: $components/, $hooks/, $assets/, $misc/`,
+            ),
+          )
+        }
+        continue
+      }
+
+      // Any other directory is a route segment.
+      if (RESERVED_SEGMENTS.has(entry.name)) {
+        results.push(
+          diag(
+            root,
+            entryPath,
+            'error',
+            `Route segment "${entry.name}" conflicts with the structural directories — use the privileged "$${entry.name}" folder, or pick a different route name`,
+          ),
+        )
+      } else if (!KEBAB_CASE.test(entry.name) && !DYNAMIC_SEGMENT.test(entry.name)) {
+        results.push(
+          diag(
+            root,
+            entryPath,
+            'error',
+            `Route segment "${entry.name}" must be kebab-case (e.g. "user-settings") or a dynamic [param] segment (e.g. "[id]")`,
+          ),
+        )
+      }
+
+      const hasIndex = existsSync(path.join(entryPath, 'index.tsx'))
+      const hasNestedRoutes = readdirSync(entryPath, { withFileTypes: true }).some(
+        (e) => e.isDirectory() && !e.name.startsWith('$'),
+      )
+      if (!hasIndex && !hasNestedRoutes) {
+        results.push(
+          diag(
+            root,
+            entryPath,
+            'warning',
+            `Route directory "${entry.name}" has no index.tsx and no nested routes`,
+          ),
+        )
+      }
+
+      walk(entryPath)
     }
   }
-  return diagnostics
+
+  walk(pagesDir)
+  return results
 }
