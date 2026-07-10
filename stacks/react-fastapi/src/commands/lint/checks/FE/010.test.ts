@@ -40,12 +40,14 @@ describe('FE010 — src root layout and $types', () => {
     )
   })
 
-  it('warns on unexpected root entries', () => {
+  it('errors on unexpected root entries', () => {
     const root = makeProject({
       [`${S}/helpers.ts`]: '',
       [`${S}/stores/index.tsx`]: '',
     })
-    const msgs = messages(check(root))
+    const diags = check(root)
+    expect(diags.every((d) => d.severity === 'error')).toBe(true)
+    const msgs = messages(diags)
     expect(msgs).toContain(
       'Unexpected file "helpers.ts" at src root. Allowed: App.tsx, main.tsx, styles.module.css',
     )

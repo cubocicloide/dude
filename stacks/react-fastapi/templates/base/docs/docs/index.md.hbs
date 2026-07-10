@@ -31,11 +31,25 @@ pnpm install
 
 # 5. Build the images and start every service (first run).
 dude up
+{{#if withPostgres}}
+
+# 6. Apply migrations and seed demo data (first run only — see below).
+dude reset
+{{/if}}
 ```
 
 From then on, `dude up` starts everything and `dude down` stops it. See
 [Working with dude](dude.md) for the full command reference and
 [the README](https://github.com/cubocicloide/dude) for prerequisites.
+{{#if withPostgres}}
+
+!!! tip "First run with PostgreSQL"
+    The backend applies pending Alembic migrations automatically on every
+    `dude up`, so the schema is always in sync — but a brand-new database has
+    no data in it. Run `dude reset` once after the first `dude up` to drop the
+    database, re-apply migrations, and seed demo users; otherwise pages like
+    **Users** simply render empty until you create data yourself.
+{{/if}}
 
 To serve this documentation site:
 

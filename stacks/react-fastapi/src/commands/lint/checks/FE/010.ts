@@ -42,7 +42,7 @@ export default function check(root: string): RawDiagnostic[] {
           diag(
             root,
             entryPath,
-            'warning',
+            'error',
             `Unexpected directory "${entry.name}" at src root. Allowed: $types/, $components/, $hooks/, openapi/, pages/, utils/`,
           ),
         )
@@ -52,7 +52,7 @@ export default function check(root: string): RawDiagnostic[] {
         diag(
           root,
           entryPath,
-          'warning',
+          'error',
           `Unexpected file "${entry.name}" at src root. Allowed: App.tsx, main.tsx, styles.module.css`,
         ),
       )

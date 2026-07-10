@@ -25,18 +25,18 @@ describe('FE002 — allowed contents of a component directory', () => {
     expect(messages(check(root))).toContain('Component "Card" is missing its index.tsx')
   })
 
-  it('warns on an unexpected file', () => {
+  it('errors on an unexpected file', () => {
     const root = makeProject({
       [`${C}/Card/index.tsx`]: '',
       [`${C}/Card/utils.ts`]: '',
     })
     const diags = check(root)
     expect(diags).toHaveLength(1)
-    expect(diags[0]!.severity).toBe('warning')
+    expect(diags[0]!.severity).toBe('error')
     expect(diags[0]!.message).toContain('Unexpected file "utils.ts"')
   })
 
-  it('warns on an unprefixed components/ directory', () => {
+  it('errors on an unprefixed components/ directory', () => {
     const root = makeProject({
       [`${C}/Card/index.tsx`]: '',
       [`${C}/Card/components/Avatar/index.tsx`]: '',

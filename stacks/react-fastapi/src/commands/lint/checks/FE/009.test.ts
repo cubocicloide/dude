@@ -18,9 +18,11 @@ describe('FE009 — utils domain structure', () => {
     expect(check(root)).toEqual([])
   })
 
-  it('warns on an unexpected file', () => {
+  it('errors on an unexpected file', () => {
     const root = makeProject({ [`${U}/helpers.ts`]: '' })
-    expect(messages(check(root))).toContain(
+    const diags = check(root)
+    expect(diags[0]!.severity).toBe('error')
+    expect(messages(diags)).toContain(
       'Unexpected file "helpers.ts" in utils. Allowed: index.tsx, styles.module.css, types.tsx, constants.tsx, functions.tsx',
     )
   })

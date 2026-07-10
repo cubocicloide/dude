@@ -29,12 +29,14 @@ describe('FE006 — $hooks directory naming and contents', () => {
     expect(messages(check(root))).toContain('Hook "useTodoList" is missing its index.tsx')
   })
 
-  it('warns on an unexpected directory inside a hook', () => {
+  it('errors on an unexpected directory inside a hook', () => {
     const root = makeProject({
       [`${H}/useTodoList/index.tsx`]: '',
       [`${H}/useTodoList/$components/Row/index.tsx`]: '',
     })
-    expect(messages(check(root))).toContain(
+    const diags = check(root)
+    expect(diags[0]!.severity).toBe('error')
+    expect(messages(diags)).toContain(
       'Unexpected directory "$components" in hook directory. Allowed: $assets/, $misc/',
     )
   })

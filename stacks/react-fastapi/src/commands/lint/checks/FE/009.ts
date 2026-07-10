@@ -28,7 +28,7 @@ export default function check(root: string): RawDiagnostic[] {
             diag(
               root,
               entryPath,
-              'warning',
+              'error',
               `Unexpected file "${entry.name}" in utils. Allowed: ${SCOPE_FILES_LABEL}`,
             ),
           )

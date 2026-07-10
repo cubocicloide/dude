@@ -19,12 +19,14 @@ describe('FE005 — page directory structure and route naming', () => {
     expect(check(root)).toEqual([])
   })
 
-  it('warns on an unexpected file in a page dir', () => {
+  it('errors on an unexpected file in a page dir', () => {
     const root = makeProject({
       [`${P}/index.tsx`]: '',
       [`${P}/helpers.ts`]: '',
     })
-    expect(messages(check(root))).toContain(
+    const diags = check(root)
+    expect(diags[0]!.severity).toBe('error')
+    expect(messages(diags)).toContain(
       'Unexpected file "helpers.ts" in page directory. Allowed: index.tsx, styles.module.css, types.tsx, constants.tsx, functions.tsx',
     )
   })

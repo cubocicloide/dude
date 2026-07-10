@@ -58,7 +58,7 @@ export default function check(root: string): RawDiagnostic[] {
               diag(
                 root,
                 childPath,
-                'warning',
+                'error',
                 `Unexpected directory "${child.name}" in hook directory. Allowed: $assets/, $misc/`,
               ),
             )
@@ -68,7 +68,7 @@ export default function check(root: string): RawDiagnostic[] {
             diag(
               root,
               childPath,
-              'warning',
+              'error',
               `Unexpected file "${child.name}" in hook directory. Allowed: ${SCOPE_FILES_LABEL}`,
             ),
           )
