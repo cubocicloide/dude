@@ -1,0 +1,75 @@
+# Production Frappe image for {{projectName}} — ONE image, many roles (the
+# frappe_docker pattern). The ECS task definitions pick the role by command:
+#
+#   frontend   nginx-entrypoint.sh                     (nginx, port 8080)
+#   backend    <image CMD>                             (gunicorn, port 8000)
+#   websocket  node apps/frappe/socketio.js            (socketio, port 9000)
+#   worker     bench worker --queue short,default,long
+#   scheduler  bench schedule
+#
+# Built from the project root (see `dude iac build`):
+#   docker build -f docker/Dockerfile.prod .
+#
+# Single-stage on top of frappe/bench for simplicity and fidelity with the dev
+# environment. Trade-off: a bigger image than frappe_docker's layered builds —
+# if size starts to matter, migrate to the upstream layered Containerfile
+# (https://github.com/frappe/frappe_docker) keeping the same commands.
+
+FROM frappe/bench:latest
+
+USER frappe
+WORKDIR /home/frappe
+
+# The bench: frappe v15, no Procfile/redis config — every process is its own
+# ECS service, and redis is ElastiCache.
+RUN bench init \
+    --skip-redis-config-generation \
+    --no-procfile \
+    --no-backups \
+    --frappe-branch version-15 \
+    --verbose \
+    frappe-bench
+
+WORKDIR /home/frappe/frappe-bench
+{{#if withHelpdesk}}
+
+# Frappe Helpdesk (the ticketing UI).
+RUN bench get-app helpdesk https://github.com/frappe/helpdesk
+{{/if}}
+
+# Custom apps from this repo.
+COPY --chown=frappe:frappe apps/ticketing apps/ticketing
+RUN ./env/bin/pip install -e apps/ticketing \
+ && ls -1 apps > sites/apps.txt \
+ && bench build
+
+# At runtime `sites/` is shadowed by the shared EFS volume, which would hide
+# the assets built above — keep a pristine copy next to it. The configurator
+# and migrate one-off tasks copy it back onto the volume.
+RUN cp -r sites/assets assets-baked \
+ && echo "{}" > sites/common_site_config.json
+
+# nginx for the frontend role (runs unprivileged as `frappe` on port 8080;
+# pid/logs under /tmp — see docker/nginx-template.conf).
+USER root
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends nginx gettext-base \
+ && rm -rf /var/lib/apt/lists/*
+COPY docker/nginx-template.conf /etc/nginx/nginx-template.conf
+COPY docker/nginx-entrypoint.sh /usr/local/bin/nginx-entrypoint.sh
+RUN chmod +x /usr/local/bin/nginx-entrypoint.sh
+USER frappe
+
+EXPOSE 8000 8080 9000
+
+# Default role: the gunicorn backend.
+CMD ["/home/frappe/frappe-bench/env/bin/gunicorn", \
+     "--chdir=/home/frappe/frappe-bench/sites", \
+     "--bind=0.0.0.0:8000", \
+     "--threads=4", \
+     "--workers=2", \
+     "--worker-class=gthread", \
+     "--worker-tmp-dir=/dev/shm", \
+     "--timeout=120", \
+     "--preload", \
+     "frappe.app:application"]

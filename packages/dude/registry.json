@@ -19,6 +19,10 @@
     "airflow": {
       "package": "@cubocicloide/stack-airflow",
       "minimumSupported": "0.1.0"
+    },
+    "frappe": {
+      "package": "@cubocicloide/stack-frappe",
+      "minimumSupported": "0.1.0"
     }
   }
 }

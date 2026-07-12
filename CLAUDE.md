@@ -17,6 +17,7 @@ monorepo. Read it fully before making changes.
 | `stacks/react-django/`   | `@cubocicloide/stack-react-django`  | Stack plugin for React + Django REST Framework (drf-spectacular; optional S3 storage — MinIO locally; Celery); IaC = AWS ECS Fargate (`--iac aws-ecs`) |
 | `stacks/fastmcp/`        | `@cubocicloide/stack-fastmcp`       | Stack plugin for a FastMCP (Python) server — modular MCP feature sub-servers; optional AWS ECS IaC |
 | `stacks/tauri/`          | `@cubocicloide/stack-tauri`         | Stack plugin for a Tauri 2 app (desktop + iOS/Android) — React + antd, Rust backend   |
+| `stacks/frappe/`         | `@cubocicloide/stack-frappe`        | Stack plugin for a Frappe Framework ticketing system (Frappe Helpdesk + worked-example custom app); IaC = AWS ECS Fargate (`--iac aws-ecs`) |
 
 Everything is TypeScript + ESM. Toolchain: **pnpm workspaces**, **Turbo**, **tsup**.
 

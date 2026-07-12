@@ -1,0 +1,55 @@
+[
+ {
+  "doctype": "Workflow",
+  "name": "Ticket Escalation Rule Approval",
+  "workflow_name": "Ticket Escalation Rule Approval",
+  "document_type": "Ticket Escalation Rule",
+  "workflow_state_field": "workflow_state",
+  "is_active": 1,
+  "override_status": 0,
+  "send_email_alert": 0,
+  "states": [
+   {
+    "state": "Draft",
+    "doc_status": "0",
+    "allow_edit": "System Manager",
+    "is_optional_state": 0
+   },
+   {
+    "state": "Approved",
+    "doc_status": "0",
+    "allow_edit": "System Manager",
+    "is_optional_state": 0
+   },
+   {
+    "state": "Rejected",
+    "doc_status": "0",
+    "allow_edit": "System Manager",
+    "is_optional_state": 0
+   }
+  ],
+  "transitions": [
+   {
+    "state": "Draft",
+    "action": "Approve",
+    "next_state": "Approved",
+    "allowed": "System Manager",
+    "allow_self_approval": 1
+   },
+   {
+    "state": "Draft",
+    "action": "Reject",
+    "next_state": "Rejected",
+    "allowed": "System Manager",
+    "allow_self_approval": 1
+   },
+   {
+    "state": "Rejected",
+    "action": "Approve",
+    "next_state": "Approved",
+    "allowed": "System Manager",
+    "allow_self_approval": 1
+   }
+  ]
+ }
+]

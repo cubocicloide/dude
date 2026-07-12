@@ -1,0 +1,32 @@
+# dev environment — {{projectName}}
+#
+# `dude iac deploy` rewrites `image_tag` here on every deploy, so this file is
+# the source of truth for what the environment runs. Everything else is a
+# knob you tune by hand.
+
+project_name = "{{projectName}}"
+environment  = "dev"
+region       = "eu-west-1"
+
+# Written by `dude iac deploy --env dev` (defaults to the git short SHA).
+image_tag = "latest"
+
+# The frappe site name (default: the project name). Keep it stable — changing
+# it after `dude iac create-site` means creating a new site.
+# site_name = "{{projectName}}"
+
+# Serve on a custom domain with HTTPS (both must be set; the zone must already
+# exist in Route53):
+# domain_name       = "helpdesk.example.com"
+# route53_zone_name = "example.com"
+
+# Restrict who can reach the ALB (default: the whole internet):
+# allowed_cidrs = ["203.0.113.0/24"]
+
+# ── Sizing (dev defaults are the cheapest sensible options) ──────────────────
+# db_instance_class    = "db.t4g.micro"
+# db_allocated_storage = 20
+# redis_node_type      = "cache.t4g.micro"
+# backend_cpu          = 512
+# backend_memory       = 1024
+# worker_desired_count = 1

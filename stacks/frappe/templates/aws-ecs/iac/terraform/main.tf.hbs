@@ -1,0 +1,1204 @@
+# ECS Fargate deployment for {{projectName}}: ONE production Frappe image (the
+# frappe_docker layered pattern) run in five roles — `frontend` (nginx, the only
+# ALB target), `backend` (gunicorn), `websocket` (socketio), `worker` (bench
+# worker) and `scheduler` (bench schedule) — plus RDS MariaDB, ElastiCache
+# Redis and an EFS file system holding the shared frappe `sites/` volume.
+#
+# Traffic flow: ALB → frontend (nginx) → backend/websocket via Cloud Map
+# service discovery (`backend.<name>.internal:8000`, `websocket.<…>:9000`).
+# The frappe nginx config proxies both HTTP and `/socket.io` itself, so only
+# the frontend needs a target group.
+#
+# One-off Fargate task definitions (run by the CLI, never as services):
+#   configurator — writes common_site_config.json on the sites volume and
+#                  refreshes the built assets (dude iac create-site re-runs it)
+#   create-site  — bench new-site against RDS (first deploy only)
+#   migrate      — bench --site all migrate (after every deploy)
+#
+# Why ECS (and not EKS): a Kubernetes control plane costs more per month than
+# this whole workload. Fargate runs the containers serverlessly.
+
+locals {
+  name           = "${var.project_name}-${var.environment}"
+  frontend_port  = 8080
+  backend_port   = 8000
+  websocket_port = 9000
+  with_domain    = var.domain_name != "" && var.route53_zone_name != ""
+
+  # The frappe site served by this environment. nginx forwards it as the Host
+  # header (FRAPPE_SITE_NAME_HEADER), so the site name is independent of the
+  # domain the ALB answers on.
+  site_name = var.site_name != "" ? var.site_name : var.project_name
+
+  app_host = local.with_domain ? var.domain_name : aws_lb.this.dns_name
+  app_url  = local.with_domain ? "https://${var.domain_name}" : "http://${aws_lb.this.dns_name}"
+
+  # Private DNS namespace for frontend → backend/websocket traffic.
+  namespace      = "${local.name}.internal"
+  backend_host   = "backend.${local.name}.internal"
+  websocket_host = "websocket.${local.name}.internal"
+
+  bench_dir = "/home/frappe/frappe-bench"
+}
+
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+# ── Network ──────────────────────────────────────────────────────────────────
+# A minimal VPC with two public subnets. Tasks run in the public subnets with a
+# public IP (for image pulls / egress) but their security groups only admit
+# traffic from the ALB / each other — this avoids the ~$65/month a NAT gateway
+# pair would cost a dev environment. Move the tasks to private subnets + NAT if
+# your compliance posture requires it.
+
+resource "aws_vpc" "this" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = { Name = local.name }
+}
+
+resource "aws_internet_gateway" "this" {
+  vpc_id = aws_vpc.this.id
+
+  tags = { Name = local.name }
+}
+
+resource "aws_subnet" "public" {
+  count                   = 2
+  vpc_id                  = aws_vpc.this.id
+  cidr_block              = cidrsubnet(aws_vpc.this.cidr_block, 8, count.index)
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  map_public_ip_on_launch = true
+
+  tags = { Name = "${local.name}-public-${count.index}" }
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.this.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.this.id
+  }
+
+  tags = { Name = "${local.name}-public" }
+}
+
+resource "aws_route_table_association" "public" {
+  count          = 2
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
+# ── Security groups ──────────────────────────────────────────────────────────
+
+resource "aws_security_group" "alb" {
+  name_prefix = "${local.name}-alb-"
+  description = "ALB - admits HTTP/HTTPS from allowed_cidrs"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_cidrs
+  }
+
+  ingress {
+    description = "HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_cidrs
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# One security group for every Frappe task (frontend/backend/websocket/worker/
+# scheduler and the one-off tasks): they all mount the same EFS volume and talk
+# to the same database/redis, and the frontend proxies to backend + websocket
+# inside the group (`self` ingress).
+resource "aws_security_group" "app" {
+  name_prefix = "${local.name}-app-"
+  description = "Frappe tasks - nginx reachable from the ALB, everything else group-internal"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "nginx from the ALB"
+    from_port       = local.frontend_port
+    to_port         = local.frontend_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  ingress {
+    description = "frontend -> backend/websocket (service discovery)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# ── Registry & logs ──────────────────────────────────────────────────────────
+# The single ECR repository is shared across environments and owned by the
+# bootstrap config (one image, promoted dev → staging → prod by tag).
+
+data "aws_ecr_repository" "app" {
+  name = "${var.project_name}-app"
+}
+
+resource "aws_cloudwatch_log_group" "service" {
+  for_each          = toset(["frontend", "backend", "websocket", "worker", "scheduler"])
+  name              = "/ecs/${local.name}-${each.key}"
+  retention_in_days = var.log_retention_days
+}
+
+# ── Database (RDS MariaDB) ───────────────────────────────────────────────────
+# Frappe requires MariaDB. The master ("root") credentials are only used by the
+# one-off create-site task (bench new-site creates the site's own db + user);
+# the running services read the per-site credentials from common_site_config /
+# site_config.json on the EFS volume.
+
+resource "random_password" "db_root" {
+  length  = 32
+  special = false
+}
+
+resource "aws_db_subnet_group" "this" {
+  name       = local.name
+  subnet_ids = aws_subnet.public[*].id
+
+  tags = { Name = local.name }
+}
+
+resource "aws_security_group" "db" {
+  name_prefix = "${local.name}-db-"
+  description = "RDS MariaDB - only reachable from the Frappe tasks"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "MariaDB from the Frappe tasks"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_db_instance" "this" {
+  identifier     = "${local.name}-db"
+  engine         = "mariadb"
+  engine_version = "10.6"
+  instance_class = var.db_instance_class
+
+  allocated_storage = var.db_allocated_storage
+  storage_type      = "gp3"
+
+  # No initial database: bench new-site creates one per site. "root" is
+  # reserved on RDS, hence "admin" — bench receives it via --mariadb-root-username.
+  username = "admin"
+  password = random_password.db_root.result
+
+  # Frappe expects utf8mb4 with the classic collation.
+  parameter_group_name = aws_db_parameter_group.this.name
+
+  db_subnet_group_name   = aws_db_subnet_group.this.name
+  vpc_security_group_ids = [aws_security_group.db.id]
+  publicly_accessible    = false
+  multi_az               = false
+
+  skip_final_snapshot = true
+  apply_immediately   = true
+
+  tags = { Name = "${local.name}-db" }
+}
+
+resource "aws_db_parameter_group" "this" {
+  name_prefix = "${local.name}-mariadb-"
+  family      = "mariadb10.6"
+
+  parameter {
+    name  = "character_set_server"
+    value = "utf8mb4"
+  }
+
+  parameter {
+    name  = "collation_server"
+    value = "utf8mb4_unicode_ci"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# ── Redis (ElastiCache) ──────────────────────────────────────────────────────
+# One node; frappe's two logical brokers use separate redis databases
+# (cache → /0, queue + socketio → /1).
+
+resource "aws_security_group" "redis" {
+  name_prefix = "${local.name}-redis-"
+  description = "ElastiCache Redis - only reachable from the Frappe tasks"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "Redis from the Frappe tasks"
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_elasticache_subnet_group" "redis" {
+  name       = "${local.name}-redis"
+  subnet_ids = aws_subnet.public[*].id
+}
+
+resource "aws_elasticache_cluster" "redis" {
+  cluster_id         = "${local.name}-redis"
+  engine             = "redis"
+  node_type          = var.redis_node_type
+  num_cache_nodes    = 1
+  port               = 6379
+  subnet_group_name  = aws_elasticache_subnet_group.redis.name
+  security_group_ids = [aws_security_group.redis.id]
+}
+
+locals {
+  redis_host     = aws_elasticache_cluster.redis.cache_nodes[0].address
+  redis_cache    = "redis://${local.redis_host}:6379/0"
+  redis_queue    = "redis://${local.redis_host}:6379/1"
+  redis_socketio = "redis://${local.redis_host}:6379/1"
+}
+
+# ── Sites volume (EFS) ───────────────────────────────────────────────────────
+# The frappe `sites/` directory (site_config.json, uploaded files, assets) must
+# be shared by every service and survive task churn — Fargate task storage is
+# ephemeral. The access point pins ownership to the image's `frappe` user
+# (uid/gid 1000).
+
+resource "aws_efs_file_system" "sites" {
+  creation_token = "${local.name}-sites"
+  encrypted      = true
+
+  tags = { Name = "${local.name}-sites" }
+}
+
+resource "aws_security_group" "efs" {
+  name_prefix = "${local.name}-efs-"
+  description = "EFS - only reachable from the Frappe tasks"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "NFS from the Frappe tasks"
+    from_port       = 2049
+    to_port         = 2049
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_efs_mount_target" "sites" {
+  count           = 2
+  file_system_id  = aws_efs_file_system.sites.id
+  subnet_id       = aws_subnet.public[count.index].id
+  security_groups = [aws_security_group.efs.id]
+}
+
+resource "aws_efs_access_point" "sites" {
+  file_system_id = aws_efs_file_system.sites.id
+
+  posix_user {
+    uid = 1000
+    gid = 1000
+  }
+
+  root_directory {
+    path = "/sites"
+
+    creation_info {
+      owner_uid   = 1000
+      owner_gid   = 1000
+      permissions = "755"
+    }
+  }
+
+  tags = { Name = "${local.name}-sites" }
+}
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
+# The DB master password and the site's Administrator password live in Secrets
+# Manager and are injected into the one-off create-site task via `secrets`.
+# recovery_window_in_days = 0 so `dude iac destroy` + re-apply doesn't collide
+# with a secret pending deletion.
+
+resource "aws_secretsmanager_secret" "db_root_password" {
+  name                    = "${local.name}/db-root-password"
+  recovery_window_in_days = 0
+}
+
+resource "aws_secretsmanager_secret_version" "db_root_password" {
+  secret_id     = aws_secretsmanager_secret.db_root_password.id
+  secret_string = random_password.db_root.result
+}
+
+resource "random_password" "admin" {
+  length  = 24
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "admin_password" {
+  name                    = "${local.name}/admin-password"
+  recovery_window_in_days = 0
+}
+
+resource "aws_secretsmanager_secret_version" "admin_password" {
+  secret_id     = aws_secretsmanager_secret.admin_password.id
+  secret_string = random_password.admin.result
+}
+
+# ── IAM ──────────────────────────────────────────────────────────────────────
+
+data "aws_iam_policy_document" "task_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "execution" {
+  name               = "${local.name}-ecs-execution"
+  assume_role_policy = data.aws_iam_policy_document.task_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "execution" {
+  role       = aws_iam_role.execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# The execution role (not the task role) resolves `secrets` entries at task
+# start, so it needs read access to exactly the two secrets injected above.
+resource "aws_iam_role_policy" "execution_secrets" {
+  name = "read-app-secrets"
+  role = aws_iam_role.execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
+      Resource = [
+        aws_secretsmanager_secret.db_root_password.arn,
+        aws_secretsmanager_secret.admin_password.arn,
+      ]
+    }]
+  })
+}
+
+resource "aws_iam_role" "task" {
+  name               = "${local.name}-ecs-task"
+  assume_role_policy = data.aws_iam_policy_document.task_assume.json
+}
+
+# ECS Exec — lets `aws ecs execute-command` open a shell in a running task.
+resource "aws_iam_role_policy" "task_ecs_exec" {
+  name = "ecs-exec"
+  role = aws_iam_role.task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
+# ── Load balancer ────────────────────────────────────────────────────────────
+# Only the frontend (nginx) is a target: the frappe nginx config proxies API,
+# websocket and asset traffic itself.
+
+resource "aws_lb" "this" {
+  name               = local.name
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb.id]
+  subnets            = aws_subnet.public[*].id
+}
+
+resource "aws_lb_target_group" "frontend" {
+  name        = "${local.name}-fe"
+  port        = local.frontend_port
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.this.id
+
+  # `/api/method/ping` answers 200 once the site exists. Before the first
+  # `dude iac create-site` there is no site yet, so anything below a 5xx is
+  # accepted — “nginx and the backend are reachable” is what this probes.
+  health_check {
+    path                = "/api/method/ping"
+    matcher             = "200-499"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+
+  deregistration_delay = 30
+}
+
+# Plain HTTP when no domain is configured…
+resource "aws_lb_listener" "http" {
+  count             = local.with_domain ? 0 : 1
+  load_balancer_arn = aws_lb.this.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.frontend.arn
+  }
+}
+
+# …or HTTPS with an ACM certificate + HTTP→HTTPS redirect when one is.
+data "aws_route53_zone" "this" {
+  count = local.with_domain ? 1 : 0
+  name  = var.route53_zone_name
+}
+
+resource "aws_acm_certificate" "this" {
+  count             = local.with_domain ? 1 : 0
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "cert_validation" {
+  for_each = local.with_domain ? {
+    for dvo in aws_acm_certificate.this[0].domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  } : {}
+
+  zone_id         = data.aws_route53_zone.this[0].zone_id
+  name            = each.value.name
+  type            = each.value.type
+  ttl             = 60
+  records         = [each.value.record]
+  allow_overwrite = true
+}
+
+resource "aws_acm_certificate_validation" "this" {
+  count                   = local.with_domain ? 1 : 0
+  certificate_arn         = aws_acm_certificate.this[0].arn
+  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+}
+
+resource "aws_lb_listener" "https" {
+  count             = local.with_domain ? 1 : 0
+  load_balancer_arn = aws_lb.this.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = aws_acm_certificate_validation.this[0].certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.frontend.arn
+  }
+}
+
+resource "aws_lb_listener" "http_redirect" {
+  count             = local.with_domain ? 1 : 0
+  load_balancer_arn = aws_lb.this.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_route53_record" "app" {
+  count   = local.with_domain ? 1 : 0
+  zone_id = data.aws_route53_zone.this[0].zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.this.dns_name
+    zone_id                = aws_lb.this.zone_id
+    evaluate_target_health = true
+  }
+}
+
+# ── Service discovery (Cloud Map) ────────────────────────────────────────────
+# Private DNS so the frontend's nginx can reach gunicorn and socketio by name.
+
+resource "aws_service_discovery_private_dns_namespace" "this" {
+  name = local.namespace
+  vpc  = aws_vpc.this.id
+}
+
+resource "aws_service_discovery_service" "backend" {
+  name = "backend"
+
+  dns_config {
+    namespace_id   = aws_service_discovery_private_dns_namespace.this.id
+    routing_policy = "MULTIVALUE"
+
+    dns_records {
+      ttl  = 10
+      type = "A"
+    }
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
+
+resource "aws_service_discovery_service" "websocket" {
+  name = "websocket"
+
+  dns_config {
+    namespace_id   = aws_service_discovery_private_dns_namespace.this.id
+    routing_policy = "MULTIVALUE"
+
+    dns_records {
+      ttl  = 10
+      type = "A"
+    }
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
+
+# ── ECS (Fargate) ────────────────────────────────────────────────────────────
+
+resource "aws_ecs_cluster" "this" {
+  name = local.name
+}
+
+locals {
+  image = "${data.aws_ecr_repository.app.repository_url}:${var.image_tag}"
+
+  # The shared EFS `sites/` volume, mounted into every container.
+  sites_volume = {
+    name = "sites"
+    efs_volume_configuration = {
+      file_system_id     = aws_efs_file_system.sites.id
+      transit_encryption = "ENABLED"
+      authorization_config = {
+        access_point_id = aws_efs_access_point.sites.id
+        iam             = "DISABLED"
+      }
+    }
+  }
+
+  sites_mount = [
+    {
+      sourceVolume  = "sites"
+      containerPath = "${local.bench_dir}/sites"
+      readOnly      = false
+    }
+  ]
+
+  log_configuration = {
+    for svc in ["frontend", "backend", "websocket", "worker", "scheduler"] :
+    svc => {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.service[svc].name
+        awslogs-region        = var.region
+        awslogs-stream-prefix = svc
+      }
+    }
+  }
+}
+
+# Every service task definition shares this shape; only the command, port and
+# environment differ.
+resource "aws_ecs_task_definition" "frontend" {
+  family                   = "${local.name}-frontend"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.frontend_cpu
+  memory                   = var.frontend_memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  volume {
+    name = local.sites_volume.name
+
+    efs_volume_configuration {
+      file_system_id     = local.sites_volume.efs_volume_configuration.file_system_id
+      transit_encryption = local.sites_volume.efs_volume_configuration.transit_encryption
+
+      authorization_config {
+        access_point_id = local.sites_volume.efs_volume_configuration.authorization_config.access_point_id
+        iam             = local.sites_volume.efs_volume_configuration.authorization_config.iam
+      }
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = "frontend"
+      image     = local.image
+      essential = true
+      command   = ["nginx-entrypoint.sh"]
+
+      portMappings = [
+        { containerPort = local.frontend_port, protocol = "tcp" }
+      ]
+
+      environment = [
+        { name = "BACKEND", value = "${local.backend_host}:${local.backend_port}" },
+        { name = "SOCKETIO", value = "${local.websocket_host}:${local.websocket_port}" },
+        { name = "FRAPPE_SITE_NAME_HEADER", value = local.site_name },
+        { name = "UPSTREAM_REAL_IP_ADDRESS", value = "10.0.0.0/16" },
+        { name = "UPSTREAM_REAL_IP_HEADER", value = "X-Forwarded-For" },
+        { name = "UPSTREAM_REAL_IP_RECURSIVE", value = "on" },
+      ]
+
+      mountPoints      = local.sites_mount
+      logConfiguration = local.log_configuration["frontend"]
+    }
+  ])
+}
+
+resource "aws_ecs_service" "frontend" {
+  name            = "${local.name}-frontend"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.frontend.arn
+  desired_count   = var.frontend_desired_count
+  launch_type     = "FARGATE"
+
+  enable_execute_command = true
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.app.id]
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.frontend.arn
+    container_name   = "frontend"
+    container_port   = local.frontend_port
+  }
+
+  health_check_grace_period_seconds = 120
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
+}
+
+resource "aws_ecs_task_definition" "backend" {
+  family                   = "${local.name}-backend"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.backend_cpu
+  memory                   = var.backend_memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  volume {
+    name = local.sites_volume.name
+
+    efs_volume_configuration {
+      file_system_id     = local.sites_volume.efs_volume_configuration.file_system_id
+      transit_encryption = local.sites_volume.efs_volume_configuration.transit_encryption
+
+      authorization_config {
+        access_point_id = local.sites_volume.efs_volume_configuration.authorization_config.access_point_id
+        iam             = local.sites_volume.efs_volume_configuration.authorization_config.iam
+      }
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = "backend"
+      image     = local.image
+      essential = true
+      # No command: the image's CMD is the gunicorn server (see docker/Dockerfile.prod).
+
+      portMappings = [
+        { containerPort = local.backend_port, protocol = "tcp" }
+      ]
+
+      mountPoints      = local.sites_mount
+      logConfiguration = local.log_configuration["backend"]
+    }
+  ])
+}
+
+resource "aws_ecs_service" "backend" {
+  name            = "${local.name}-backend"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.backend.arn
+  desired_count   = var.backend_desired_count
+  launch_type     = "FARGATE"
+
+  enable_execute_command = true
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.app.id]
+    assign_public_ip = true
+  }
+
+  service_registries {
+    registry_arn = aws_service_discovery_service.backend.arn
+  }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+}
+
+resource "aws_ecs_task_definition" "websocket" {
+  family                   = "${local.name}-websocket"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.websocket_cpu
+  memory                   = var.websocket_memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  volume {
+    name = local.sites_volume.name
+
+    efs_volume_configuration {
+      file_system_id     = local.sites_volume.efs_volume_configuration.file_system_id
+      transit_encryption = local.sites_volume.efs_volume_configuration.transit_encryption
+
+      authorization_config {
+        access_point_id = local.sites_volume.efs_volume_configuration.authorization_config.access_point_id
+        iam             = local.sites_volume.efs_volume_configuration.authorization_config.iam
+      }
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = "websocket"
+      image     = local.image
+      essential = true
+      command   = ["node", "${local.bench_dir}/apps/frappe/socketio.js"]
+
+      portMappings = [
+        { containerPort = local.websocket_port, protocol = "tcp" }
+      ]
+
+      mountPoints      = local.sites_mount
+      logConfiguration = local.log_configuration["websocket"]
+    }
+  ])
+}
+
+resource "aws_ecs_service" "websocket" {
+  name            = "${local.name}-websocket"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.websocket.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  enable_execute_command = true
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.app.id]
+    assign_public_ip = true
+  }
+
+  service_registries {
+    registry_arn = aws_service_discovery_service.websocket.arn
+  }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+}
+
+# Queue worker — one service consuming all three queues. Split it into
+# per-queue services (short/default/long) when workload demands it.
+resource "aws_ecs_task_definition" "worker" {
+  family                   = "${local.name}-worker"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.worker_cpu
+  memory                   = var.worker_memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  volume {
+    name = local.sites_volume.name
+
+    efs_volume_configuration {
+      file_system_id     = local.sites_volume.efs_volume_configuration.file_system_id
+      transit_encryption = local.sites_volume.efs_volume_configuration.transit_encryption
+
+      authorization_config {
+        access_point_id = local.sites_volume.efs_volume_configuration.authorization_config.access_point_id
+        iam             = local.sites_volume.efs_volume_configuration.authorization_config.iam
+      }
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = "worker"
+      image     = local.image
+      essential = true
+      command   = ["bench", "worker", "--queue", "short,default,long"]
+
+      mountPoints      = local.sites_mount
+      logConfiguration = local.log_configuration["worker"]
+    }
+  ])
+}
+
+resource "aws_ecs_service" "worker" {
+  name            = "${local.name}-worker"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.worker.arn
+  desired_count   = var.worker_desired_count
+  launch_type     = "FARGATE"
+
+  enable_execute_command = true
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.app.id]
+    assign_public_ip = true
+  }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+}
+
+# Scheduler — exactly one task: it must be a singleton or every scheduled job
+# fires once per replica.
+resource "aws_ecs_task_definition" "scheduler" {
+  family                   = "${local.name}-scheduler"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  volume {
+    name = local.sites_volume.name
+
+    efs_volume_configuration {
+      file_system_id     = local.sites_volume.efs_volume_configuration.file_system_id
+      transit_encryption = local.sites_volume.efs_volume_configuration.transit_encryption
+
+      authorization_config {
+        access_point_id = local.sites_volume.efs_volume_configuration.authorization_config.access_point_id
+        iam             = local.sites_volume.efs_volume_configuration.authorization_config.iam
+      }
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = "scheduler"
+      image     = local.image
+      essential = true
+      command   = ["bench", "schedule"]
+
+      mountPoints      = local.sites_mount
+      logConfiguration = local.log_configuration["scheduler"]
+    }
+  ])
+}
+
+resource "aws_ecs_service" "scheduler" {
+  name            = "${local.name}-scheduler"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.scheduler.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  enable_execute_command = true
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.app.id]
+    assign_public_ip = true
+  }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+}
+
+# ── One-off task definitions ─────────────────────────────────────────────────
+# Run by the CLI with `aws ecs run-task` — never as long-lived services.
+
+# configurator: points the bench at RDS/ElastiCache by writing
+# common_site_config.json on the sites volume, and refreshes the built assets
+# from the copy baked into the image (sites/ shadows the image's own assets).
+resource "aws_ecs_task_definition" "configurator" {
+  family                   = "${local.name}-configurator"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  volume {
+    name = local.sites_volume.name
+
+    efs_volume_configuration {
+      file_system_id     = local.sites_volume.efs_volume_configuration.file_system_id
+      transit_encryption = local.sites_volume.efs_volume_configuration.transit_encryption
+
+      authorization_config {
+        access_point_id = local.sites_volume.efs_volume_configuration.authorization_config.access_point_id
+        iam             = local.sites_volume.efs_volume_configuration.authorization_config.iam
+      }
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = "configurator"
+      image     = local.image
+      essential = true
+      command = ["bash", "-c", join("; ", [
+        "set -e",
+        "ls -1 apps > sites/apps.txt",
+        "bench set-config -g db_host \"$DB_HOST\"",
+        "bench set-config -gp db_port 3306",
+        "bench set-config -g redis_cache \"$REDIS_CACHE\"",
+        "bench set-config -g redis_queue \"$REDIS_QUEUE\"",
+        "bench set-config -g redis_socketio \"$REDIS_SOCKETIO\"",
+        "bench set-config -gp socketio_port ${local.websocket_port}",
+        "mkdir -p sites/assets",
+        "cp -rf ${local.bench_dir}/assets-baked/. sites/assets/ 2>/dev/null || true",
+        "echo configurator done",
+      ])]
+
+      environment = [
+        { name = "DB_HOST", value = aws_db_instance.this.address },
+        { name = "REDIS_CACHE", value = local.redis_cache },
+        { name = "REDIS_QUEUE", value = local.redis_queue },
+        { name = "REDIS_SOCKETIO", value = local.redis_socketio },
+      ]
+
+      mountPoints = local.sites_mount
+      logConfiguration = merge(local.log_configuration["backend"], {
+        options = merge(local.log_configuration["backend"].options, { awslogs-stream-prefix = "configurator" })
+      })
+    }
+  ])
+}
+
+# create-site: first-deploy only. Idempotent — exits 0 when the site exists.
+resource "aws_ecs_task_definition" "create_site" {
+  family                   = "${local.name}-create-site"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.backend_cpu
+  memory                   = var.backend_memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  volume {
+    name = local.sites_volume.name
+
+    efs_volume_configuration {
+      file_system_id     = local.sites_volume.efs_volume_configuration.file_system_id
+      transit_encryption = local.sites_volume.efs_volume_configuration.transit_encryption
+
+      authorization_config {
+        access_point_id = local.sites_volume.efs_volume_configuration.authorization_config.access_point_id
+        iam             = local.sites_volume.efs_volume_configuration.authorization_config.iam
+      }
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = "create-site"
+      image     = local.image
+      essential = true
+      command = ["bash", "-c", join("; ", [
+        "set -e",
+        "if [ -d \"sites/$SITE_NAME\" ]; then echo \"site $SITE_NAME already exists\"; exit 0; fi",
+        join(" ", [
+          "bench new-site \"$SITE_NAME\"",
+          "--no-mariadb-socket",
+          "--mariadb-root-username admin",
+          "--mariadb-root-password \"$DB_ROOT_PASSWORD\"",
+          "--admin-password \"$ADMIN_PASSWORD\"",
+{{#if withHelpdesk}}
+          "--install-app helpdesk",
+{{/if}}
+          "--install-app ticketing",
+          "--set-default",
+        ]),
+        # RDS: frappe must not attempt grants that need SUPER privileges.
+        "bench --site \"$SITE_NAME\" set-config rds_db 1",
+        "echo site created",
+      ])]
+
+      environment = [
+        { name = "SITE_NAME", value = local.site_name },
+      ]
+
+      secrets = [
+        { name = "DB_ROOT_PASSWORD", valueFrom = aws_secretsmanager_secret.db_root_password.arn },
+        { name = "ADMIN_PASSWORD", valueFrom = aws_secretsmanager_secret.admin_password.arn },
+      ]
+
+      mountPoints = local.sites_mount
+      logConfiguration = merge(local.log_configuration["backend"], {
+        options = merge(local.log_configuration["backend"].options, { awslogs-stream-prefix = "create-site" })
+      })
+    }
+  ])
+}
+
+# migrate: after every deploy that changes DocTypes/patches/fixtures. Also
+# refreshes the baked assets, so a plain `ship + migrate` cycle is complete.
+resource "aws_ecs_task_definition" "migrate" {
+  family                   = "${local.name}-migrate"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.backend_cpu
+  memory                   = var.backend_memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  volume {
+    name = local.sites_volume.name
+
+    efs_volume_configuration {
+      file_system_id     = local.sites_volume.efs_volume_configuration.file_system_id
+      transit_encryption = local.sites_volume.efs_volume_configuration.transit_encryption
+
+      authorization_config {
+        access_point_id = local.sites_volume.efs_volume_configuration.authorization_config.access_point_id
+        iam             = local.sites_volume.efs_volume_configuration.authorization_config.iam
+      }
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = "migrate"
+      image     = local.image
+      essential = true
+      command = ["bash", "-c", join("; ", [
+        "set -e",
+        "cp -rf ${local.bench_dir}/assets-baked/. sites/assets/ 2>/dev/null || true",
+        "bench --site all migrate",
+      ])]
+
+      mountPoints = local.sites_mount
+      logConfiguration = merge(local.log_configuration["backend"], {
+        options = merge(local.log_configuration["backend"].options, { awslogs-stream-prefix = "migrate" })
+      })
+    }
+  ])
+}

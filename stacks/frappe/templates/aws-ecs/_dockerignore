@@ -1,0 +1,11 @@
+# Build context for docker/Dockerfile.prod is the project root — keep it lean.
+.git
+node_modules
+private
+docs
+iac
+e2e
+**/__pycache__
+**/*.pyc
+.env
+.env.*

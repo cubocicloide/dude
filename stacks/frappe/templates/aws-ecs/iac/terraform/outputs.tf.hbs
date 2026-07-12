@@ -1,0 +1,103 @@
+# Outputs consumed by the `dude iac` commands (build/push/deploy/status/
+# create-site/migrate read them with `terraform output -json`) — keep the
+# names stable.
+
+output "region" {
+  description = "AWS region of this environment."
+  value       = var.region
+}
+
+output "app_url" {
+  description = "Public URL of the app."
+  value       = local.app_url
+}
+
+output "site_name" {
+  description = "Frappe site served by this environment."
+  value       = local.site_name
+}
+
+output "alb_dns_name" {
+  description = "DNS name of the load balancer."
+  value       = aws_lb.this.dns_name
+}
+
+output "ecr_app_repository_url" {
+  description = "ECR repository for the production Frappe image."
+  value       = data.aws_ecr_repository.app.repository_url
+}
+
+output "cluster_name" {
+  description = "ECS cluster name."
+  value       = aws_ecs_cluster.this.name
+}
+
+output "frontend_service_name" {
+  description = "ECS service running nginx."
+  value       = aws_ecs_service.frontend.name
+}
+
+output "backend_service_name" {
+  description = "ECS service running gunicorn."
+  value       = aws_ecs_service.backend.name
+}
+
+output "websocket_service_name" {
+  description = "ECS service running socketio."
+  value       = aws_ecs_service.websocket.name
+}
+
+output "worker_service_name" {
+  description = "ECS service running the queue worker."
+  value       = aws_ecs_service.worker.name
+}
+
+output "scheduler_service_name" {
+  description = "ECS service running bench schedule."
+  value       = aws_ecs_service.scheduler.name
+}
+
+output "public_subnet_ids" {
+  description = "Subnets the one-off tasks run in."
+  value       = aws_subnet.public[*].id
+}
+
+output "app_security_group_id" {
+  description = "Security group shared by every Frappe task (used by the one-off tasks)."
+  value       = aws_security_group.app.id
+}
+
+output "configurator_task_definition" {
+  description = "Task definition ARN for the configurator one-off task."
+  value       = aws_ecs_task_definition.configurator.arn
+}
+
+output "create_site_task_definition" {
+  description = "Task definition ARN for the create-site one-off task."
+  value       = aws_ecs_task_definition.create_site.arn
+}
+
+output "migrate_task_definition" {
+  description = "Task definition ARN for the migrate one-off task."
+  value       = aws_ecs_task_definition.migrate.arn
+}
+
+output "db_endpoint" {
+  description = "RDS MariaDB endpoint."
+  value       = aws_db_instance.this.address
+}
+
+output "redis_endpoint" {
+  description = "ElastiCache Redis endpoint."
+  value       = local.redis_host
+}
+
+output "efs_id" {
+  description = "EFS file system holding the frappe sites/ volume."
+  value       = aws_efs_file_system.sites.id
+}
+
+output "admin_password_secret_arn" {
+  description = "Secrets Manager secret holding the site's Administrator password."
+  value       = aws_secretsmanager_secret.admin_password.arn
+}

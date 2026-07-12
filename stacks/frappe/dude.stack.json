@@ -1,0 +1,12 @@
+{
+  "name": "frappe",
+  "version": "0.1.0",
+  "minDudeVersion": "0.1.0",
+  "entry": "dist/index.js",
+  "tags": [
+    "framework:frappe",
+    "app:helpdesk",
+    "domain:ticketing",
+    "lang:python"
+  ]
+}
