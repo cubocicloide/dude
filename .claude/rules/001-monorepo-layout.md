@@ -15,6 +15,7 @@ paths:
 | `stacks/react-django/`    | `@cubocicloide/stack-react-django`  | Stack plugin|
 | `stacks/fastmcp/`         | `@cubocicloide/stack-fastmcp`       | Stack plugin|
 | `stacks/tauri/`           | `@cubocicloide/stack-tauri`         | Stack plugin|
+| `stacks/frappe/`          | `@cubocicloide/stack-frappe`        | Stack plugin|
 
 ## Adding a new stack
 

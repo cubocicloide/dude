@@ -1,0 +1,69 @@
+# {{projectName}}
+
+A minimal-but-functional **ticketing system** built on the
+[Frappe Framework](https://frappeframework.com){{#if withHelpdesk}} and
+[Frappe Helpdesk](https://github.com/frappe/helpdesk){{/if}}, scaffolded by
+[`dude`](https://github.com/cubocicloide/dude) (stack: `frappe`).
+
+Beyond running out of the box, this project is a **worked example of Frappe's
+core building blocks**: the custom app in [`apps/ticketing/`](apps/ticketing/)
+demonstrates DocTypes (models), controllers, form scripts and portal pages
+(views), whitelisted API methods, scheduled tasks, document-event hooks,
+workflows and fixtures — so you can copy the patterns into your own apps.
+
+## Quickstart
+
+```bash
+# One-time: the global launcher + project toolchain
+export GITHUB_TOKEN=<your-pat>
+npm install -g @cubocicloide/dude-launcher
+pnpm install
+
+# Start everything (first boot provisions the bench + site: several minutes)
+dude up
+dude logs --service bench   # watch the provisioning progress
+```
+
+When `bench start` is up:
+
+| What | Where |
+| ---- | ----- |
+| Desk (admin UI) | http://{{projectName}}.localhost:8000/app — `Administrator` / `admin` |
+{{#if withHelpdesk}}| Helpdesk (agent UI) | http://{{projectName}}.localhost:8000/helpdesk |
+{{/if}}| Example portal page | http://{{projectName}}.localhost:8000/ticket_stats |
+| Example API method | http://{{projectName}}.localhost:8000/api/method/ticketing.api.ticket_stats |
+
+> `*.localhost` resolves to 127.0.0.1 in modern browsers. If your tooling
+> can't resolve it, add `127.0.0.1 {{projectName}}.localhost` to `/etc/hosts`.
+
+## Everyday commands
+
+```bash
+dude up [--build]        # start the stack
+dude down [--volumes]    # stop it (--volumes wipes bench + database!)
+dude logs [--service s]  # follow logs
+dude shell [--service s] # shell into a container (default: bench)
+dude bench <anything>    # raw bench passthrough, e.g. `dude bench --site all migrate`
+dude site migrate        # bench migrate on the default site
+dude site console        # IPython with the site loaded
+dude site backup         # backup database + files
+dude app new --name x    # scaffold a new custom app into apps/
+dude test                # run the ticketing app's tests
+dude lint                # Frappe best-practice structural checks
+dude format              # ruff format + autofix over apps/
+dude docs                # serve the project docs (MkDocs)
+```
+
+Run `dude help` for the full, live catalog{{#if withIac}} — including the
+`dude iac …` group that deploys this project to AWS ECS Fargate (see
+`iac/README.md`){{/if}}.
+
+## Learn Frappe with this repo
+
+Start with [`apps/ticketing/README.md`](apps/ticketing/README.md) — it maps
+each Frappe concept to a concrete file. The project docs (`dude docs`) include
+a guided tour and a "how do I add a new DocType / task / workflow?" cookbook.
+
+The structural conventions the linter enforces are described in
+[`.claude/rules/`](.claude/rules/) — useful reading even if you never open
+the linter.

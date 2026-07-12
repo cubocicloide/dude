@@ -1,0 +1,4 @@
+# One dotted path per line; each runs exactly once per site on `bench migrate`.
+# Use patches for data migrations when a DocType's schema or semantics change.
+# Example:
+#   ticketing.patches.v0_2.backfill_priority

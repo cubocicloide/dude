@@ -1,0 +1,223 @@
+# Frappe core concepts
+
+Frappe is a **metadata-driven full-stack framework**: you describe your models
+declaratively and the framework generates the database schema, the admin UI,
+the REST API and the permission system from that description. This page is a
+guided tour of the concepts, and **every concept points at the file in
+`apps/ticketing/` that demonstrates it** — read this page with the code open.
+
+```mermaid
+flowchart LR
+    subgraph bench [bench container]
+        F[Frappe Framework]{{#if withHelpdesk}} --> H[helpdesk app]{{/if}}
+        F --> T[ticketing app<br/>apps/ticketing]
+    end
+    B[Browser] -->|/app · /helpdesk · /ticket_stats · /api| F
+    F --> M[(MariaDB)]
+    F --> R[(Redis cache + queue)]
+```
+
+---
+
+## Bench, site, app
+
+Frappe's three nested units:
+
+- **Bench** — a self-contained installation: a Python virtualenv, the Frappe
+  source, every installed app, and the process manager (`bench start`). In this
+  project the bench lives *inside* the `bench` container (persisted in the
+  `bench_home` Docker volume) and is created on first boot by
+  `docker/init.sh`. `dude shell` drops you straight into it.
+- **Site** — one tenant: one database, one set of installed apps, one config.
+  A bench can host many sites; this project provisions one, named after
+  `SITE_NAME` in `.env` (default `{{projectName}}.localhost` — Frappe routes
+  requests to sites by hostname, which is why the URL matters).
+- **App** — a Python package that plugs into the framework: models (DocTypes),
+  server code, web pages, hooks. `frappe` itself is an app{{#if withHelpdesk}}; so is
+  `helpdesk`{{/if}}; so is our custom **`ticketing`** app in `apps/ticketing/`.
+
+Custom apps under `apps/` in this repo are mounted into the container and
+installed in **editable mode** (`docker/init.sh`), so editing a file on the
+host reloads the dev server live.
+
+---
+
+## DocTypes — models, declared as JSON
+
+A **DocType** is Frappe's model. One DocType = one database table = one Desk
+list/form UI = one REST resource — all generated from a single JSON schema.
+
+The complete example bundle is
+`apps/ticketing/ticketing/ticketing/doctype/ticket_escalation_rule/`:
+
+| File | Role |
+|------|------|
+| `ticket_escalation_rule.json` | the **schema**: fields, types, permissions, naming |
+| `ticket_escalation_rule.py` | the **controller** (server-side lifecycle hooks) |
+| `ticket_escalation_rule.js` | the **form script** (client-side Desk logic) |
+| `test_ticket_escalation_rule.py` | unit tests, run by `dude test` |
+| `__init__.py` | makes the directory a package |
+
+Things to notice in the JSON:
+
+- **Fields** — each has a snake_case `fieldname`, a `fieldtype` (`Data`,
+  `Int`, `Select`, `Link`, `Check`, …) and UI hints (`reqd`, `in_list_view`).
+  A `Link` field (`escalate_to` → `User`) is a foreign key.
+- **Naming** — `"autoname": "field:rule_name"` makes the document's primary
+  key (`name`) equal to the `rule_name` field. Other schemes: series
+  (`TICK-.####`), hash, prompt.
+- **Permissions** — the `permissions` array grants per-role CRUD rights.
+  A DocType with no permissions is invisible to everyone but Administrator.
+
+### Controllers
+
+`ticket_escalation_rule.py` defines a class named after the DocType
+(`TicketEscalationRule(Document)`); Frappe instantiates it for every document
+of the type. Override lifecycle hooks — `validate`, `before_save`,
+`on_update`, `on_trash`, … — to add server-side behaviour. The example's
+`validate` rejects non-positive escalation delays with `frappe.throw`.
+
+---
+
+## Desk vs portal — the two faces of the UI
+
+- **Desk** (`/app`) is the generated back-office: every DocType automatically
+  gets a list view, form view, filters, and reports. This is where agents and
+  admins work.
+- **Portal / website** pages are public-facing Jinja templates. A file pair
+  under `templates/pages/` — `<route>.py` + `<route>.html` — becomes a web
+  route automatically. The example:
+  `apps/ticketing/ticketing/templates/pages/ticket_stats.{py,html}` serves
+  `/ticket_stats`; `get_context()` in the `.py` runs on each request and feeds
+  the template.
+
+### Form scripts
+
+`ticket_escalation_rule.js` runs in the browser when the Desk form opens.
+`frappe.ui.form.on("Ticket Escalation Rule", { refresh(frm) {…} })` reacts to
+form events and individual field changes. Use it for UX guardrails only — the
+controller must enforce every rule server-side too (never trust the client).
+
+---
+
+## Whitelisted methods and the REST API
+
+Any function decorated with `@frappe.whitelist()` becomes an RPC endpoint at
+`/api/method/<dotted.path>`. The example, `apps/ticketing/ticketing/api.py`:
+
+```
+GET /api/method/ticketing.api.ticket_stats
+```
+
+Frappe also exposes a generated **resource API** for every DocType:
+
+```
+GET  /api/resource/Ticket Escalation Rule          # list (respects permissions)
+GET  /api/resource/Ticket Escalation Rule/<name>   # read one
+POST /api/resource/Ticket Escalation Rule          # create
+```
+
+Both APIs honour the session (or token) of the caller and the DocType
+permission matrix. Never add `allow_guest=True` to a whitelisted method unless
+the data is truly public — lint rule **PY001** flags it.
+
+---
+
+## hooks.py — the app's declarative contract
+
+`apps/ticketing/ticketing/hooks.py` is the single place where the app tells
+the framework what it provides. Keep it declarative; put logic in dedicated
+modules. The example declares:
+
+- **`doc_events`** — run code when documents of *any* app change. The example
+  hooks {{#if withHelpdesk}}Helpdesk's{{/if}} `HD Ticket` (`after_insert`, `on_update`) and points
+  at plain functions in `apps/ticketing/ticketing/events/hd_ticket.py`. This
+  is the canonical way to extend another app **without forking it**.
+- **`scheduler_events`** — background jobs by frequency (`all`, `hourly`,
+  `daily`, `weekly`, `monthly`, `cron`). The example wires two jobs in
+  `apps/ticketing/ticketing/tasks.py` (see below).
+- **`fixtures`** — records (not code) the app ships: exported to
+  `apps/ticketing/ticketing/fixtures/*.json` and re-imported on every
+  `bench migrate`. The example ships a Workflow and its states/actions.
+
+`dude lint` verifies the contract stays honest: every dotted path in
+`hooks.py` must resolve to a real function, and declared fixtures must match
+the shipped JSON files (APP rules — see `.claude/rules/APP/`).
+
+---
+
+## The scheduler
+
+`bench start` runs a `schedule` process that fires the jobs declared in
+`scheduler_events`. The examples in `apps/ticketing/ticketing/tasks.py`:
+
+- `escalate_overdue_tickets` (hourly) — applies enabled, **Approved**
+  `Ticket Escalation Rule`s to open tickets: posts a comment and assigns the
+  escalation contact.
+- `close_stale_resolved_tickets` (daily) — closes tickets left in Resolved
+  for more than 7 days.
+
+Jobs must be **idempotent** — the scheduler guarantees at-least-once, not
+exactly-once, execution (note how `_escalate` checks for its own marker
+comment before acting). To run one immediately instead of waiting:
+
+```bash
+dude bench --site all execute ticketing.tasks.escalate_overdue_tickets
+```
+
+---
+
+## Workflows
+
+A **Workflow** gates a DocType behind named states and role-restricted
+transitions — configuration, not code. The example
+(`apps/ticketing/ticketing/fixtures/workflow.json`) puts
+`Ticket Escalation Rule` through **Draft → Approved / Rejected**: the Desk
+form grows an *Approve/Reject* button, the document gets a `workflow_state`
+field, and the hourly task only honours rules whose state is `Approved`.
+
+Workflows are built in the Desk UI (search "Workflow") and shipped as
+**fixtures** so they exist on every environment — see the
+[cookbook](extending.md#add-a-workflow) for the export loop.
+
+---
+
+## Developer mode
+
+The site is provisioned with `developer_mode = 1` (`docker/init.sh`). This is
+what makes the scaffold a live workshop: with developer mode **on**, creating
+or editing a DocType in the Desk UI **writes the JSON back into the app's
+source tree** on disk, ready to commit. With it off (production), the same
+edit would create a database-only "custom" DocType that never lands in git.
+
+{{#if withHelpdesk}}
+---
+
+## What Frappe Helpdesk adds
+
+**Frappe Helpdesk** is itself just a Frappe app (`helpdesk`, installed by
+`docker/init.sh`) — a useful reminder that everything above scales to real
+products. It brings:
+
+- The agent UI at `/helpdesk` (a Vue single-page app served by Frappe).
+- A family of DocTypes — **`HD Ticket`** (the ticket itself), `HD Team`,
+  `HD Agent`, `HD Service Level Agreement`, and more. Browse them in Desk:
+  they are ordinary DocTypes with schemas, controllers and permissions.
+- REST/RPC endpoints for all of the above, like any DocType.
+
+The `ticketing` app treats Helpdesk as a peer: it listens to `HD Ticket`
+events (`doc_events`), queries it from tasks and APIs
+(`frappe.get_all("HD Ticket", …)`) and augments it with its own
+`Ticket Escalation Rule` DocType — all without touching Helpdesk's code.
+{{/if}}
+
+---
+
+## Where to go next
+
+- [Extending the app](extending.md) — step-by-step recipes for adding each
+  kind of building block.
+- `.claude/rules/` — the structural conventions `dude lint` enforces
+  (APP/DT/PY rules), each explained with fixes.
+- [Frappe Framework documentation](https://docs.frappe.io/framework) — the
+  upstream reference.

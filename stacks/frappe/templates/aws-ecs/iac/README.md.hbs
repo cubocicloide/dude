@@ -1,0 +1,113 @@
+# iac/ — AWS ECS Fargate deployment (Terraform)
+
+Deploys {{projectName}} to AWS: ONE production Frappe image (built by
+`docker/Dockerfile.prod`) run as five ECS Fargate services —
+**frontend** (nginx, the only ALB target), **backend** (gunicorn),
+**websocket** (socketio), **worker** (bench worker) and **scheduler**
+(bench schedule) — plus **RDS MariaDB**, **ElastiCache Redis** and an
+**EFS** file system holding the shared frappe `sites/` volume.
+
+Everything is driven through `dude iac …`. Every command is
+**environment-scoped via `--env` (required)**; run any command without
+`--env` to list the environments found under `iac/terraform/environments/`.
+
+> **Runner**: terraform runs inside a Docker container built from
+> `iac/runner/Dockerfile` (no local terraform install needed). `aws`,
+> `docker build/push` and `dude iac login` stay on the host. Override with
+> `DUDE_IAC_RUNNER=host` to use native tools.
+
+## First deploy, start to finish
+
+```bash
+# 0. AWS credentials for the env (profile convention: {{projectName}}-dev)
+dude iac login --env dev
+
+# 1. One-time shared backend: S3 state bucket + DynamoDB lock + ECR repo
+dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes
+
+# 2. Provision the infrastructure
+dude iac init --env dev
+dude iac plan --env dev
+dude iac apply --env dev
+
+# 3. Build + push + deploy the image (tag defaults to the git short SHA)
+dude iac ship --env dev
+
+# 4. First time only: configure the bench and create the frappe site
+#    (writes common_site_config.json on the EFS volume, then bench new-site
+#    against RDS with the admin password from Secrets Manager)
+dude iac create-site --env dev
+
+# 5. Check
+dude iac status --env dev
+dude iac output --env dev        # app_url, db endpoint, secret ARNs, …
+```
+
+Log in as `Administrator` with the password stored in Secrets Manager
+(`<project>-<env>/admin-password` — see `dude iac output --env dev`).
+
+## Everyday loop
+
+```bash
+dude iac ship --env dev          # build + push + deploy
+dude iac migrate --env dev       # after any DocType/patch/fixture change
+dude iac logs --env dev --service backend --follow
+dude iac status --env dev --service worker
+dude iac shell --env dev         # terraform/aws toolbox scoped to the env
+```
+
+`deploy` records the image tag in `environments/<env>/terraform.tfvars`
+(`image_tag = "…"`) — the file is the source of truth for what the env runs,
+and a plain `apply` never silently changes the deployed version.
+
+## More environments
+
+```bash
+dude iac new-env --env staging          # copies dev's tfvars/backend.hcl
+dude iac init --env staging && dude iac apply --env staging
+```
+
+The state bucket, lock table and ECR repository are shared across
+environments (created once by `bootstrap`); each env has its own state `key`.
+Images are promoted between envs by tag: `dude iac deploy --env prod --tag <sha>`.
+
+## Custom domain + HTTPS
+
+Set in `environments/<env>/terraform.tfvars`:
+
+```hcl
+domain_name       = "helpdesk.example.com"
+route53_zone_name = "example.com"
+```
+
+then `dude iac apply`. An ACM certificate is issued and validated via DNS,
+HTTP redirects to HTTPS, and an alias record points the domain at the ALB.
+
+## Architecture notes
+
+- **One image, many roles** — the frappe_docker pattern: only the container
+  command differs per service. `docker/Dockerfile.prod` bakes frappe{{#if withHelpdesk}},
+  Helpdesk{{/if}} and `apps/ticketing` in.
+- **`sites/` on EFS** — site config, uploaded files and built assets must be
+  shared and durable (Fargate storage is ephemeral). The image keeps a baked
+  copy of the assets; the `configurator`/`migrate` one-off tasks sync it onto
+  the volume.
+- **nginx proxies everything** — the ALB only targets the frontend; frappe's
+  nginx config forwards API traffic to `backend.<project>-<env>.internal:8000`
+  and `/socket.io` to the websocket service (Cloud Map service discovery).
+- **The site name is not the domain** — nginx pins `FRAPPE_SITE_NAME_HEADER`
+  to `site_name` (default: the project name), so the same site answers on the
+  ALB DNS name or any custom domain.
+- **Costs (dev defaults)** — single-AZ `db.t4g.micro` RDS, one
+  `cache.t4g.micro` Redis node, five small Fargate tasks, no NAT gateway
+  (tasks run in public subnets, locked down by security groups).
+
+## Teardown
+
+```bash
+dude iac destroy --env dev
+```
+
+Destroys the environment; the shared bootstrap (state bucket + lock table +
+ECR) is removed only when no other environment still uses it
+(`--keep-backend` to force-keep it).

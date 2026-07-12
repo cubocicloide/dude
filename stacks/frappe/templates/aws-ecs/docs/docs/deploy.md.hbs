@@ -1,0 +1,53 @@
+# Deploy to AWS (ECS Fargate)
+
+This project ships Terraform + a `dude iac …` command group that deploy the
+ticketing system to AWS ECS Fargate. The full reference lives in
+`iac/README.md` in the repo — this page is the short version.
+
+## What gets provisioned
+
+| Piece | Purpose |
+| ----- | ------- |
+| ECS Fargate ×5 | `frontend` (nginx, ALB target), `backend` (gunicorn), `websocket` (socketio), `worker`, `scheduler` — all from ONE image |
+| ALB | Internet-facing entry point; HTTPS when a domain is configured |
+| RDS MariaDB | The frappe database (master creds in Secrets Manager) |
+| ElastiCache Redis | frappe's cache (`/0`) and queue + socketio (`/1`) brokers |
+| EFS | The shared, durable `sites/` volume (site config, files, assets) |
+| S3 + DynamoDB + ECR | Terraform remote state + the shared image registry (created once by `bootstrap`) |
+
+One-off Fargate tasks (run by the CLI, never as services): **configurator**
+(writes `common_site_config.json`, refreshes assets), **create-site**
+(`bench new-site`, first deploy only) and **migrate** (`bench --site all migrate`).
+
+## First deploy
+
+```bash
+dude iac login --env dev
+dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes
+dude iac init --env dev
+dude iac apply --env dev
+dude iac ship --env dev          # build + push + deploy the image
+dude iac create-site --env dev   # first time only
+dude iac status --env dev
+```
+
+The app URL is in `dude iac output --env dev` (`app_url`). Log in as
+`Administrator` with the password stored in the `…/admin-password` secret.
+
+## Everyday loop
+
+```bash
+dude iac ship --env dev          # after code changes
+dude iac migrate --env dev       # after DocType/patch/fixture changes
+dude iac logs --env dev --service backend --follow
+```
+
+## Where things are configured
+
+- `iac/terraform/environments/<env>/terraform.tfvars` — region, sizing,
+  `image_tag` (written by `deploy`), optional `domain_name` +
+  `route53_zone_name` for HTTPS.
+- `docker/Dockerfile.prod` — the production image (frappe{{#if withHelpdesk}} + Helpdesk{{/if}} +
+  `apps/ticketing`). Add your own apps with extra `COPY` + `pip install -e`
+  lines, mirroring `ticketing`.
+- New environments: `dude iac new-env --env staging`.

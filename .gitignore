@@ -9,6 +9,8 @@ build/
 !stacks/react-fastapi/src/commands/iac/providers/*/commands/build/
 !stacks/fastmcp/src/commands/iac/providers/*/commands/build/
 !stacks/react-django/src/commands/iac/providers/*/commands/build/
+!stacks/airflow/src/commands/iac/providers/*/commands/build/
+!stacks/frappe/src/commands/iac/providers/*/commands/build/
 # Allow the tauri stack's `build` command folder (named after the dude command, not a build artifact)
 !stacks/tauri/src/commands/build/
 *.tsbuildinfo

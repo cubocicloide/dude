@@ -1,0 +1,109 @@
+# Welcome
+
+This is the documentation for **{{projectName}}** — a ticketing system built on
+the [Frappe Framework](https://frappeframework.com){{#if withHelpdesk}} and
+[Frappe Helpdesk](https://github.com/frappe/helpdesk){{/if}}, scaffolded with
+[`dude`](https://github.com/cubocicloide/dude).
+
+Beyond running out of the box, this project is a **worked example of Frappe's
+core building blocks**: the custom app `apps/ticketing/` demonstrates DocTypes,
+controllers, form scripts, portal pages, whitelisted APIs, scheduled tasks,
+document-event hooks, workflows and fixtures. The
+[Frappe core concepts](frappe.md) page walks through each one, and
+[Extending the app](extending.md) is the "how do I add X?" cookbook.
+
+---
+
+## Getting started
+
+`dude` is the project CLI. It ships as a **private package** on GitHub Packages,
+so first authenticate the registry, then install the global launcher, then
+provision and start the app.
+
+```bash
+# 1. One-time machine setup — authenticate the private @cubocicloide registry.
+#    Add to ~/.npmrc:
+#      @cubocicloide:registry=https://npm.pkg.github.com
+#      //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+#    …and export a GitHub token with the `read:packages` scope:
+export GITHUB_TOKEN=ghp_your_token_here
+
+# 2. Install the dude launcher globally (the only global install).
+npm install -g @cubocicloide/dude-launcher
+
+# 3. Scaffold the project (how {{projectName}} was created). Already inside it
+#    or cloned it? Skip this and go straight to `pnpm install`.
+dude init {{projectName}}
+cd {{projectName}}
+
+# 4. Provision the project's pinned toolchain (CLI + stack) from the lockfile.
+pnpm install
+
+# 5. Start everything. The FIRST boot provisions the bench and the site
+#    (downloads Frappe{{#if withHelpdesk}}, installs Helpdesk{{/if}}, installs the custom apps) —
+#    this takes several minutes. Watch the progress:
+dude up
+dude logs --service bench
+```
+
+From then on, `dude up` starts everything and `dude down` stops it (the bench
+and database persist in Docker volumes; `dude down --volumes` wipes them). See
+[Working with dude](dude.md) for the full command reference.
+
+To serve this documentation site:
+
+```bash
+dude docs          # → http://localhost:8001
+```
+
+---
+
+## Contents
+
+- [Frappe core concepts](frappe.md) — guided tour of bench, sites, apps, DocTypes, hooks, workflows… each mapped to a concrete file in `apps/ticketing/`.
+- [Extending the app](extending.md) — cookbook: add a DocType, a scheduled task, a workflow, a portal page, an API endpoint, a whole new app.
+- [Working with dude](dude.md) — CLI reference: start the stack, run bench commands, test, lint, and more.
+- [Command reference](api.md) — auto-generated list of every command available in this project.
+- [Writing docs](mkdocs.md) — how to add pages to this documentation site and the Markdown syntax supported.
+{{#if withIac}}
+- [Deploy (AWS ECS)](deploy.md) — provision cloud infrastructure and ship the app.
+{{/if}}
+
+---
+
+## Quick links
+
+Once `dude up` reports the bench running (`dude logs --service bench` shows
+`bench start`), open:
+
+| Resource | URL | Credentials / notes |
+|----------|-----|---------------------|
+| Desk (admin UI) | <http://{{projectName}}.localhost:8000/app> | `Administrator` / `admin` |
+{{#if withHelpdesk}}
+| Helpdesk (agent UI) | <http://{{projectName}}.localhost:8000/helpdesk> | same login |
+{{/if}}
+| Example portal page | <http://{{projectName}}.localhost:8000/ticket_stats> | public web page from `apps/ticketing` |
+| Example API method | <http://{{projectName}}.localhost:8000/api/method/ticketing.api.ticket_stats> | whitelisted RPC endpoint |
+| This docs site | <http://localhost:8001> | `dude docs` |
+
+!!! note "`*.localhost`"
+    Modern browsers resolve `*.localhost` to `127.0.0.1` automatically. If a
+    tool of yours can't, add `127.0.0.1 {{projectName}}.localhost` to `/etc/hosts`.
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Frappe Framework v15 (Python) — bench, Desk, website engine |
+{{#if withHelpdesk}}
+| Ticketing UI | Frappe Helpdesk (`HD Ticket` and friends) |
+{{/if}}
+| Custom app | `apps/ticketing/` — DocTypes, hooks, tasks, API, portal pages |
+| Database | MariaDB 10.6 |
+| Cache / queue | Redis (separate cache and queue instances) |
+| Infra | Docker Compose (`mariadb`, `redis-cache`, `redis-queue`, `bench`) |
+| Testing | `bench run-tests` (FrappeTestCase) via `dude test` |
+| Formatting | ruff (Frappe style — tabs) via `dude format` |
+| Docs | MkDocs Material |

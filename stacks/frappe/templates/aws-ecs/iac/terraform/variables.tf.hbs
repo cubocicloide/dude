@@ -1,0 +1,139 @@
+variable "project_name" {
+  description = "Project slug — prefixes every resource name."
+  type        = string
+  default     = "{{projectName}}"
+}
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod, …)."
+  type        = string
+}
+
+variable "region" {
+  description = "AWS region to deploy into."
+  type        = string
+}
+
+variable "image_tag" {
+  description = "Tag of the production Frappe image to run (written by `dude iac deploy`)."
+  type        = string
+  default     = "latest"
+}
+
+variable "site_name" {
+  description = "Frappe site name served by this environment (default: the project name). nginx pins it via FRAPPE_SITE_NAME_HEADER, so it is independent of the public domain."
+  type        = string
+  default     = ""
+}
+
+variable "allowed_cidrs" {
+  description = "CIDRs allowed to reach the ALB (tighten for non-public environments)."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "domain_name" {
+  description = "Public domain for the app (e.g. helpdesk.example.com). Empty = serve on the ALB DNS name over plain HTTP."
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_name" {
+  description = "Route53 hosted zone that owns domain_name (e.g. example.com). Required when domain_name is set."
+  type        = string
+  default     = ""
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch log retention for every service."
+  type        = number
+  default     = 30
+}
+
+# ── Database / cache ─────────────────────────────────────────────────────────
+
+variable "db_instance_class" {
+  description = "RDS MariaDB instance class."
+  type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "db_allocated_storage" {
+  description = "RDS storage (GiB)."
+  type        = number
+  default     = 20
+}
+
+variable "redis_node_type" {
+  description = "ElastiCache Redis node type."
+  type        = string
+  default     = "cache.t4g.micro"
+}
+
+# ── Task sizing ──────────────────────────────────────────────────────────────
+
+variable "frontend_cpu" {
+  description = "Fargate CPU units for the nginx frontend."
+  type        = number
+  default     = 256
+}
+
+variable "frontend_memory" {
+  description = "Fargate memory (MiB) for the nginx frontend."
+  type        = number
+  default     = 512
+}
+
+variable "frontend_desired_count" {
+  description = "Number of frontend tasks."
+  type        = number
+  default     = 1
+}
+
+variable "backend_cpu" {
+  description = "Fargate CPU units for the gunicorn backend (also used by the one-off tasks)."
+  type        = number
+  default     = 512
+}
+
+variable "backend_memory" {
+  description = "Fargate memory (MiB) for the gunicorn backend (also used by the one-off tasks)."
+  type        = number
+  default     = 1024
+}
+
+variable "backend_desired_count" {
+  description = "Number of backend tasks."
+  type        = number
+  default     = 1
+}
+
+variable "websocket_cpu" {
+  description = "Fargate CPU units for the socketio websocket service."
+  type        = number
+  default     = 256
+}
+
+variable "websocket_memory" {
+  description = "Fargate memory (MiB) for the socketio websocket service."
+  type        = number
+  default     = 512
+}
+
+variable "worker_cpu" {
+  description = "Fargate CPU units for the queue worker."
+  type        = number
+  default     = 512
+}
+
+variable "worker_memory" {
+  description = "Fargate memory (MiB) for the queue worker."
+  type        = number
+  default     = 1024
+}
+
+variable "worker_desired_count" {
+  description = "Number of queue-worker tasks."
+  type        = number
+  default     = 1
+}

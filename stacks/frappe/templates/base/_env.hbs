@@ -1,0 +1,12 @@
+# ── Frappe site ───────────────────────────────────────────────────────────────
+# The bench serves this site by default. `*.localhost` resolves to 127.0.0.1 in
+# modern browsers; add an /etc/hosts entry if your tooling can't resolve it.
+SITE_NAME={{projectName}}.localhost
+ADMIN_PASSWORD=admin
+
+# ── Database (MariaDB) ────────────────────────────────────────────────────────
+MARIADB_ROOT_PASSWORD=admin
+
+# ── Apps ──────────────────────────────────────────────────────────────────────
+# Install Frappe Helpdesk (the ticketing UI) on first boot.
+INSTALL_HELPDESK={{#if withHelpdesk}}true{{else}}false{{/if}}

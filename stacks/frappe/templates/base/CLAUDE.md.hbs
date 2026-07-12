@@ -1,0 +1,49 @@
+# CLAUDE.md — {{projectName}}
+
+Frappe Framework ticketing project scaffolded by `dude` (stack: `frappe`).
+{{#if withHelpdesk}}Frappe Helpdesk provides the ticketing UI; the custom app
+`apps/ticketing/` extends it.{{/if}}
+
+## Architecture
+
+- **Local runtime** — Docker Compose: `mariadb`, `redis-cache`, `redis-queue`
+  and a `bench` container. On first boot `docker/init.sh` creates the bench
+  (`frappe-bench/`, persisted in the `bench_home` volume), the site
+  (`$SITE_NAME` from `.env`), installs {{#if withHelpdesk}}Helpdesk and {{/if}}every
+  custom app found under `apps/`, then runs `bench start`.
+- **Custom apps** — live in `apps/` in this repo and are symlinked into the
+  bench in editable mode. Edit on the host; the dev server reloads.
+- **`apps/ticketing/`** — the example app. Its README maps every Frappe
+  concept (DocType, controller, hooks, tasks, workflow, portal page, API) to
+  a concrete file. Follow its patterns when adding features.
+
+## Rules that matter here
+
+- `dude lint` enforces the structural conventions described in
+  `.claude/rules/{APP,DT,PY}/` — read the matching rule before fixing a
+  violation, and keep new code compliant:
+  - **APP** — app layout and `hooks.py` integrity (dotted paths must resolve,
+    fixtures declared ↔ shipped).
+  - **DT** — DocType conventions (controller + tests present, permissions
+    declared, snake_case fieldnames).
+  - **PY** — Python safety (no guest-exposed whitelisted methods, no
+    interpolated SQL).
+- New DocTypes: create them via the Desk UI with developer mode on (the JSON
+  is written back into the app), or copy
+  `apps/ticketing/ticketing/ticketing/doctype/ticket_escalation_rule/` as a
+  starting point. Always keep `<name>.json`, `<name>.py`, `__init__.py` and a
+  `test_<name>.py` together.
+- Anything that changes the schema or fixtures needs `dude site migrate`
+  (or restart: `docker/init.sh` migrates on boot).
+- Python in `apps/` is formatted with **ruff** (tabs, Frappe style) —
+  `dude format`.
+
+## Commands
+
+`dude help` prints the live catalog. Highlights: `dude up/down/logs/shell`,
+`dude bench <raw args>`, `dude site migrate/console/backup/clear-cache/mariadb`,
+`dude app new/install`, `dude test`, `dude lint`, `dude format`, `dude docs`{{#if withIac}},
+`dude iac …` (Terraform / AWS ECS Fargate — see `iac/README.md`){{/if}}.
+
+Custom project commands can be added under `.dude/commands/` (one file = one
+command; see `.dude/commands/README.md`).

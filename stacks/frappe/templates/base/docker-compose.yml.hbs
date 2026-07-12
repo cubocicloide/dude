@@ -1,0 +1,62 @@
+services:
+  mariadb:
+    image: mariadb:10.6
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-admin}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD | grep -q 'mysqld is alive'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  redis-cache:
+    image: redis:6.2-alpine
+    restart: unless-stopped
+
+  redis-queue:
+    image: redis:6.2-alpine
+    restart: unless-stopped
+
+  # Development bench: provisions the bench + site on first boot (see
+  # docker/init.sh), then runs `bench start` (web, socketio, watcher,
+  # scheduler and workers in one container — dev only).
+  bench:
+    image: frappe/bench:latest
+    restart: unless-stopped
+    command: bash /workspace/docker/init.sh
+    working_dir: /home/frappe
+    environment:
+      SITE_NAME: ${SITE_NAME:-{{projectName}}.localhost}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-admin}
+{{#if withHelpdesk}}
+      INSTALL_HELPDESK: ${INSTALL_HELPDESK:-true}
+{{else}}
+      INSTALL_HELPDESK: ${INSTALL_HELPDESK:-false}
+{{/if}}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis-cache:
+        condition: service_started
+      redis-queue:
+        condition: service_started
+    ports:
+      - "8000:8000" # web (werkzeug dev server)
+      - "9000:9000" # socketio (realtime)
+    volumes:
+      - bench_home:/home/frappe
+      - ./docker:/workspace/docker:ro
+      - ./apps:/workspace/apps
+
+volumes:
+  mariadb_data:
+  bench_home:
