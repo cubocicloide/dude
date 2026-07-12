@@ -33,8 +33,13 @@ RUN bench init \
 WORKDIR /home/frappe/frappe-bench
 {{#if withHelpdesk}}
 
-# Frappe Helpdesk (the ticketing UI).
-RUN bench get-app helpdesk https://github.com/frappe/helpdesk
+# Frappe Helpdesk (the ticketing UI). Helpdesk declares
+# `required_apps = ["telephony"]` (VoIP/calling integration) — the site
+# creation step (bench new-site --install-app helpdesk, run by the
+# `create-site` one-off ECS task) resolves that at install time but does NOT
+# fetch it, so it must already be present in the image.
+RUN bench get-app telephony https://github.com/frappe/telephony \
+ && bench get-app helpdesk https://github.com/frappe/helpdesk
 {{/if}}
 
 # Custom apps from this repo.

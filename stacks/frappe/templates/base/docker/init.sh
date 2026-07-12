@@ -46,8 +46,27 @@ fi
 
 installed_apps() { bench --site "$SITE_NAME" list-apps 2>/dev/null || true; }
 
+# `bench get-app`/`bench new-app` do not reliably leave a trailing newline
+# after the last entry of sites/apps.txt — appending to it naively then
+# concatenates onto the previous line (e.g. "telephony" + "ticketing" ->
+# "telephonyticketing", which frappe then fails to import as a module).
+append_app_txt() {
+  if [ -s sites/apps.txt ] && [ -n "$(tail -c1 sites/apps.txt)" ]; then
+    echo >>sites/apps.txt
+  fi
+  echo "$1" >>sites/apps.txt
+}
+
 # ── 3. Frappe Helpdesk (the ticketing UI) ─────────────────────────────────────
+# Helpdesk declares `required_apps = ["telephony"]` (VoIP/calling
+# integration) — frappe resolves that at install time but does NOT fetch it
+# for you, so it must already be present in the bench or install-app fails
+# with a bare ModuleNotFoundError.
 if [ "$INSTALL_HELPDESK" = "true" ]; then
+  if [ ! -d apps/telephony ]; then
+    log "Fetching Frappe Telephony (Helpdesk's required_apps dependency)…"
+    bench get-app telephony
+  fi
   if [ ! -d apps/helpdesk ]; then
     log "Fetching Frappe Helpdesk…"
     bench get-app helpdesk
@@ -72,7 +91,7 @@ for app_dir in /workspace/apps/*/; do
     log "Linking custom app $app…"
     ln -s "/workspace/apps/$app" "apps/$app"
   fi
-  grep -qx "$app" sites/apps.txt 2>/dev/null || echo "$app" >>sites/apps.txt
+  grep -qx "$app" sites/apps.txt 2>/dev/null || append_app_txt "$app"
   ./env/bin/pip install --quiet -e "apps/$app"
   if ! installed_apps | grep -qw "$app"; then
     log "Installing custom app $app on $SITE_NAME…"
