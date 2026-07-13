@@ -97,6 +97,13 @@ for app_dir in /workspace/apps/*/; do
     log "Installing custom app $app on $SITE_NAME…"
     bench --site "$SITE_NAME" install-app "$app"
   fi
+  # `bench get-app` builds assets on fetch; a symlinked custom app never goes
+  # through that path, so /assets/$app/... (branding images, etc.) would 404
+  # without an explicit build.
+  if [ ! -e "sites/assets/$app" ]; then
+    log "Building assets for $app…"
+    bench build --app "$app"
+  fi
 done
 
 # Apply pending migrations/fixtures from custom-app changes on every boot.

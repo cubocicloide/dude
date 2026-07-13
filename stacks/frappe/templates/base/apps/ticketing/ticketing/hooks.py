@@ -13,6 +13,16 @@ app_description = "Custom ticketing extensions for Frappe Helpdesk — example a
 app_email = "dev@example.com"
 app_license = "mit"
 
+# Branding — Desk navbar logo + default favicon (Website Settings overrides
+# this if set). Swap ticketing/public/images/logo.png and favicon.png with
+# your own files (same names) to rebrand; no code change needed. Helpdesk's
+# own logo/favicon (HD Settings) default to the same files via the
+# set_default_branding patch below.
+app_logo_url = "/assets/ticketing/images/logo.png"
+website_context = {
+	"favicon": "/assets/ticketing/images/favicon.png",
+}
+
 # Document events — run code when documents of *any* app change. This is how
 # you extend Frappe Helpdesk without forking it: HD Ticket belongs to the
 # helpdesk app, the handlers live here. Handlers are dotted paths to plain

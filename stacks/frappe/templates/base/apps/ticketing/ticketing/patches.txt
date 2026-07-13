@@ -2,3 +2,4 @@
 # Use patches for data migrations when a DocType's schema or semantics change.
 # Example:
 #   ticketing.patches.v0_2.backfill_priority
+ticketing.patches.v1_0.set_default_branding
