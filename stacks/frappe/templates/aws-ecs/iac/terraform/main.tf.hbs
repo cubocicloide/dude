@@ -146,7 +146,7 @@ resource "aws_security_group" "app" {
   }
 
   ingress {
-    description = "frontend -> backend/websocket (service discovery)"
+    description = "frontend to backend/websocket (service discovery)"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
