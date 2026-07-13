@@ -1,6 +1,6 @@
 {
   "name": "@cubocicloide/stack-react-django",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "React (Vite) + Django REST Framework stack plugin for the dude CLI.",
   "type": "module",
   "main": "./dist/index.js",
