@@ -1,6 +1,6 @@
 {
   "name": "@cubocicloide/stack-fastmcp",
-  "version": "0.3.2",
+  "version": "1.0.0",
   "description": "FastMCP (Python) server stack plugin for the dude CLI.",
   "type": "module",
   "main": "./dist/index.js",
