@@ -146,7 +146,7 @@ resource "aws_security_group" "app" {
   }
 
   ingress {
-    description = "frontend -> backend/websocket (service discovery)"
+    description = "frontend to backend/websocket (service discovery)"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -1067,6 +1067,7 @@ resource "aws_ecs_task_definition" "configurator" {
       command = ["bash", "-c", join("; ", [
         "set -e",
         "ls -1 apps > sites/apps.txt",
+        "test -f sites/common_site_config.json || echo '{}' > sites/common_site_config.json",
         "bench set-config -g db_host \"$DB_HOST\"",
         "bench set-config -gp db_port 3306",
         "bench set-config -g redis_cache \"$REDIS_CACHE\"",
