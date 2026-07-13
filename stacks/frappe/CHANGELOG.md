@@ -1,5 +1,20 @@
 # @cubocicloide/stack-frappe
 
+## 0.2.3
+
+### Patch Changes
+
+- 45c327e: Fix two issues surfaced by a first `dude iac create-site` run.
+  - The `configurator` ECS task ran `bench set-config -g db_host ...` before `common_site_config.json` existed on a fresh EFS `sites/` volume, crashing with `FileNotFoundError` on the very first deploy. It now seeds an empty `{}` config file first.
+  - `dude iac logs` shells out to `aws logs tail`, which is an AWS CLI **v2** subcommand — on a v1 CLI it fails with a confusing raw argparse "invalid choice" error. Detect a v1 CLI up front and fail with an actionable message (upgrade link + a `filter-log-events` fallback) instead.
+
+- 45c327e: Fix `dude lint` false positives on `__pycache__` and add customizable branding to the `ticketing` example app.
+  - DT001–DT004 and PY003 no longer treat a `doctype/__pycache__/` directory (created by running the bench) as a DocType bundle — `listDoctypeDirs()` now excludes `__pycache__` and dotfiles when listing doctype directory names.
+  - Add `ticketing/public/images/logo.png` and `favicon.png` placeholder assets, wired via `app_logo_url` / `website_context.favicon` in `hooks.py` (Desk + portal) and a new `set_default_branding` patch that points Helpdesk's own `HD Settings.brand_logo` / `favicon` at the same files. Rebranding is a file swap — no code or database change needed.
+  - `docker/init.sh` now runs `bench build --app <app>` for symlinked custom apps (previously only apps fetched via `bench get-app` got their assets built, so a custom app's own static assets — e.g. the new branding images — would 404).
+
+- 45c327e: Fix `terraform apply` failure on the ECS IaC: the `aws_security_group.app` self-ingress rule description used a `->` arrow, and AWS rejects `>` in security group rule descriptions (`"ingress.0.description" doesn't comply with restrictions`). Reworded to "frontend to backend/websocket (service discovery)".
+
 ## 0.2.2
 
 ### Patch Changes
