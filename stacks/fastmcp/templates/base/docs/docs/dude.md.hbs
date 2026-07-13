@@ -66,6 +66,18 @@ To connect a client (Inspector, Claude Desktop, Claude Code), see
 The MCP rules enforced by `dude lint` are documented in
 [Architecture](architecture.md) and in `.claude/rules/MCP/`.
 
+### Project lint rules
+
+`dude lint` also runs any rules you define under `.dude/lint/checks/` — the
+rule code is derived from the path (`.dude/lint/checks/PRJ/001.ts` → `PRJ001`)
+and the contract is the same one the stack's own checks use. See
+`.dude/lint/checks/README.md` and the `PRJ/001.ts` example. To disable a
+built-in rule, list its code in `dude.json`:
+
+```json
+{ "lint": { "disable": ["MCP003"] } }
+```
+
 ---
 
 ## Testing

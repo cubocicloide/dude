@@ -31,6 +31,18 @@ Drop a TypeScript file in `.dude/commands/` — it becomes `dude <filename>`
 (see `.dude/commands/README.md` and the `hello.ts` example). Project commands
 take precedence over stack commands, which take precedence over core ones.
 
+## Project lint rules
+
+`dude lint` also runs any rules you define under `.dude/lint/checks/` — the
+rule code is derived from the path (`.dude/lint/checks/PRJ/001.ts` → `PRJ001`)
+and the contract is the same one the stack's own checks use. See
+`.dude/lint/checks/README.md` and the `PRJ/001.ts` example. To disable a
+built-in rule, list its code in `dude.json`:
+
+```json
+{ "lint": { "disable": ["AF003"] } }
+```
+
 ## Upgrading
 
 ```bash

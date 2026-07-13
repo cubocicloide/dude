@@ -134,12 +134,27 @@ Celery is enabled, drop it in `templates/celery/`; for IaC-only files, use
 
 ## Lint check architecture
 
-Each lint rule is a TypeScript module in `stacks/react-fastapi/src/commands/lint/checks/{BE,FE,E2E}/NNN.ts`.
-Modules are auto-discovered by the build and loaded at runtime — no registration step.
+The lint **engine** lives in the core package (`packages/dude/src/core/lint/`):
+`runLint(root, stackRoot)` auto-discovers and runs checks from two sources
+under one contract (`CheckFn = (root) => RawDiagnostic[] | Promise<…>`,
+diagnostic code derived from the path `checks/<GROUP>/<id>.* → GROUP+id`):
 
-Every lint rule must have a matching prose description in the **generated project's**
-`.claude/rules/` directory:
-`stacks/react-fastapi/templates/base/.claude/rules/{BE,FE,E2E}/NNN.md`
+1. **Stack checks** — compiled modules shipped by the stack at
+   `dist/commands/lint/checks/{GROUP}/{id}.js`
+   (source: `stacks/<stack>/src/commands/lint/checks/{GROUP}/NNN.ts`).
+2. **Project checks** — user-authored TS/JS in the scaffolded project's
+   `.dude/lint/checks/{GROUP}/{id}.ts`, loaded via jiti (same mechanism as
+   `.dude/commands/`).
+
+A code defined twice (stack + project, or twice in the project) is a **hard
+error** — project rules extend, never shadow. Projects disable a stack rule
+via `dude.json` → `lint.disable: ["BE003", …]` (unknown codes produce a
+notice). Every stack registers the command with `defineLintCommand()` from
+`@cubocicloide/dude` — never hand-roll a per-stack lint wrapper.
+
+Every stack lint rule must have a matching prose description in the
+**generated project's** `.claude/rules/` directory:
+`stacks/<stack>/templates/base/.claude/rules/{GROUP}/NNN.md`
 
 **Rule**: when you add or change a lint check, update the corresponding
 `.claude/rules` file in the template so generated projects stay in sync.
@@ -147,7 +162,8 @@ Every lint rule must have a matching prose description in the **generated projec
 ### Adding a new lint check
 
 1. Create `src/commands/lint/checks/BE/NNN.ts` (copy an existing one for structure).
-2. Export a default function `check(projectRoot: string): LintResult[]`.
+2. Export a default function `check(root: string): RawDiagnostic[]`
+   (import `RawDiagnostic` from `@cubocicloide/dude`; async is allowed).
 3. Add `templates/base/.claude/rules/BE/NNN.md` describing what the rule enforces and
    how to fix violations.
 4. Rebuild the stack: `pnpm --filter @cubocicloide/stack-react-fastapi build`
@@ -225,7 +241,7 @@ set (core + active stack + project-custom). Keep this table and the end-user doc
 
 | Command | Flags | Meaning |
 | ------- | ----- | ------- |
-| `dude lint` | — | Run all stack structural checks (BE/FE/E2E conventions). |
+| `dude lint` | `--quiet` | Run all stack structural checks (BE/FE/E2E conventions) plus project checks from `.dude/lint/checks/`; honors `lint.disable` in `dude.json`. |
 | `dude format` | — | `ruff format` (backend) + `prettier` (frontend). |
 | `dude review` | — | lint + ESLint + API-contract review in one pass. |
 
