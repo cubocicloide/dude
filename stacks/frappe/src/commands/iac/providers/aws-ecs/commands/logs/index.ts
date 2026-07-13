@@ -1,10 +1,20 @@
 /** `dude iac logs` — tail a service's CloudWatch logs. */
+import { spawnSync } from 'node:child_process'
 import type { StackCommandDef } from '@cubocicloide/dude'
 import { projectName, run } from '../../../../shared.js'
 import { envArg, hasIac, requireEnv, requireIac, resolveProfile } from '../../lib/terraform.js'
 import { tfOutputRaw, tfvarsValue } from '../../lib/terraform.js'
 
 const SERVICES = ['backend', 'frontend', 'websocket', 'worker', 'scheduler'] as const
+
+/** `aws logs tail` is an AWS CLI v2 subcommand — v1 doesn't have it at all and
+ * fails with a raw "invalid choice" argparse error that reads like a missing
+ * subcommand. Detect v1 up front and fail with an actionable message instead. */
+function awsCliMajorVersion(): number | undefined {
+  const r = spawnSync('aws', ['--version'], { encoding: 'utf8' })
+  const m = /aws-cli\/(\d+)\./.exec(`${r.stdout ?? ''}${r.stderr ?? ''}`)
+  return m ? Number(m[1]) : undefined
+}
 
 export const iacLogsCommand: StackCommandDef = {
   available: hasIac,
@@ -30,6 +40,16 @@ export const iacLogsCommand: StackCommandDef = {
     const which = String(args.service ?? 'backend')
     if (!SERVICES.includes(which as (typeof SERVICES)[number])) {
       process.stderr.write(`\n  ✗  Unknown --service "${which}" (use: ${SERVICES.join(', ')}).\n\n`)
+      process.exit(1)
+    }
+
+    const awsMajor = awsCliMajorVersion()
+    if (awsMajor !== undefined && awsMajor < 2) {
+      process.stderr.write(
+        `\n  ✗  \`aws logs tail\` requires AWS CLI v2 — this machine has v${awsMajor}.\n` +
+          `     Upgrade: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html\n` +
+          `     Or tail logs directly: aws logs filter-log-events --log-group-name /ecs/${projectName(projectRoot)}-${env}-${which}\n\n`,
+      )
       process.exit(1)
     }
 
