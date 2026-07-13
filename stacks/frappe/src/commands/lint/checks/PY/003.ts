@@ -38,7 +38,7 @@ function listDoctypeDirs(root: string): DoctypeDir[] {
       let names: string[] = []
       try {
         names = readdirSync(path.join(pkg, mod, 'doctype'), { withFileTypes: true })
-          .filter((e) => e.isDirectory())
+          .filter((e) => e.isDirectory() && !e.name.startsWith('.') && e.name !== '__pycache__')
           .map((e) => e.name)
       } catch {
         continue

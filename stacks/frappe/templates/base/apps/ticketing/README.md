@@ -23,6 +23,14 @@ own apps.
   escalation rules behind an approval flow) and synced on `bench migrate`.
 - `ticketing/templates/pages/ticket_stats.*` — a public portal page at
   `/ticket-stats` (Jinja template + Python context).
+- `ticketing/public/images/logo.png`, `favicon.png` — branding. Referenced by
+  `app_logo_url` / `website_context` in `hooks.py` (Desk + portal) and, via
+  the `set_default_branding` patch, by Helpdesk's own `HD Settings`. **To
+  rebrand: replace these two files with your own, keeping the same
+  filenames** — no code or database change needed.
+- `ticketing/patches/` — one-off data migrations run once per site on
+  `bench migrate` (registered in `patches.txt`), for changes fixtures can't
+  express (e.g. seeding a Single doctype like `HD Settings`).
 
 ## Everyday commands
 
