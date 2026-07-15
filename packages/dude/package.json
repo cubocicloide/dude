@@ -1,6 +1,6 @@
 {
   "name": "@cubocicloide/dude",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Cubocicloide's project scaffolding & code quality CLI.",
   "type": "module",
   "main": "./dist/index.js",

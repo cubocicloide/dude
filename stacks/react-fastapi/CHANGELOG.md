@@ -1,5 +1,13 @@
 # @cubocicloide/stack-react-fastapi
 
+## 13.0.0
+
+### Patch Changes
+
+- 628eb2b: Document the `dude upgrade --next` flag in the generated project's docs (Code quality → Upgrading pinned versions).
+- Updated dependencies [628eb2b]
+  - @cubocicloide/dude@0.13.0
+
 ## 12.0.0
 
 ### Minor Changes
