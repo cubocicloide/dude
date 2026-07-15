@@ -1,5 +1,11 @@
 # @cubocicloide/stack-react-fastapi
 
+## 13.0.4
+
+### Patch Changes
+
+- 12f0855: Add a short "Search" note to the generated project's "Writing docs" page (`docs/docs/mkdocs.md`), pointing out the MkDocs Material search shortcut (`/`).
+
 ## 13.0.3
 
 ### Patch Changes
