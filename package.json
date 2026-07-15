@@ -19,7 +19,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yml,yaml}\"",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "turbo run build && changeset publish"
+    "release": "turbo run build && changeset publish --tag next"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",

@@ -4,6 +4,12 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
+# Optional local secrets (gitignored). Currently just GITHUB_TOKEN_ADMIN — a
+# write:packages token used by `make promote`/`make dist-tags` so maintainers
+# don't need a more-privileged token in their everyday shell GITHUB_TOKEN.
+-include .env
+export GITHUB_TOKEN_ADMIN
+
 # Pass extra args to the local CLI: `make cli ARGS="init --stack react-fastapi"`
 ARGS  ?=
 
@@ -183,3 +189,56 @@ version: ## Apply pending changesets to package.json and CHANGELOGs
 .PHONY: release
 release: ## Build and publish updated packages to GitHub Packages (emergency/manual only — CI handles normal releases)
 	pnpm run release
+
+# ── Release channels ─────────────────────────────────────────────────────────
+# Every publish (CI or manual) lands on the `next` dist-tag: the candidate
+# channel. `latest` (the stable channel — what `dude init` resolves by default)
+# only moves when a maintainer explicitly promotes a verified version:
+#
+#   make promote PKG=stack-react-fastapi              # promote current `next`
+#   make promote PKG=dude VERSION=0.13.0              # promote a specific version
+#
+# Promotion needs a token with the `write:packages` scope, picked up (in order)
+# from GITHUB_TOKEN_ADMIN in .env, then GITHUB_TOKEN in the shell environment.
+
+.PHONY: promote
+promote: ## Promote a published version to stable — make promote PKG=<name> [VERSION=<x.y.z>]
+	@if [ -z "$(PKG)" ]; then \
+		printf "  \033[31m✗\033[0m  Usage: make promote PKG=<name> [VERSION=<x.y.z>]\n"; \
+		printf "     e.g. make promote PKG=stack-react-fastapi\n"; \
+		exit 1; \
+	fi
+	@export GITHUB_TOKEN="$${GITHUB_TOKEN_ADMIN:-$$GITHUB_TOKEN}"; \
+	if [ -z "$$GITHUB_TOKEN" ]; then \
+		printf "  \033[31m✗\033[0m  No token found — set GITHUB_TOKEN_ADMIN in .env or GITHUB_TOKEN in your shell (needs write:packages).\n"; \
+		exit 1; \
+	fi; \
+	name="$(PKG)"; case "$$name" in @*) ;; *) name="@cubocicloide/$$name";; esac; \
+	version="$(VERSION)"; \
+	if [ -z "$$version" ]; then \
+		version=$$(npm view "$$name" dist-tags.next 2>/dev/null); \
+		if [ -z "$$version" ]; then \
+			printf "  \033[31m✗\033[0m  %s has no \`next\` dist-tag to promote — pass VERSION=<x.y.z>\n" "$$name"; \
+			exit 1; \
+		fi; \
+	fi; \
+	current=$$(npm view "$$name" dist-tags.latest 2>/dev/null); \
+	printf "  \033[33m→\033[0m  Promoting %s@%s to \`latest\` (currently: %s)\n" "$$name" "$$version" "$${current:-none}"; \
+	npm dist-tag add "$$name@$$version" latest || { \
+		printf "  \033[31m✗\033[0m  Promotion failed — does the token have write:packages?\n"; \
+		exit 1; \
+	}; \
+	printf "  \033[32m✓\033[0m  Channels now:\n"; \
+	npm dist-tag ls "$$name" | sed 's/^/     /'
+
+.PHONY: dist-tags
+dist-tags: ## Show release channels (dist-tags) of every publishable package
+	@export GITHUB_TOKEN="$${GITHUB_TOKEN_ADMIN:-$$GITHUB_TOKEN}"; \
+	for dir in packages/* stacks/*; do \
+		name=$$(node -p "require('./$$dir/package.json').name" 2>/dev/null); \
+		[ -n "$$name" ] || continue; \
+		printf "\n  \033[1m%s\033[0m\n" "$$name"; \
+		npm dist-tag ls "$$name" 2>/dev/null | sed 's/^/     /' \
+			|| printf "     (not published)\n"; \
+	done; \
+	printf "\n"

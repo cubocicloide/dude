@@ -26,6 +26,16 @@ export function shouldUseShell(platform: NodeJS.Platform = process.platform): bo
   return platform === 'win32'
 }
 
+/**
+ * Release channel (npm dist-tag) used when delegating project-less commands to
+ * the published CLI. Defaults to `latest` (the stable channel); maintainers can
+ * set DUDE_CHANNEL=next to run the newest published candidate instead.
+ */
+export function cliChannel(env: NodeJS.ProcessEnv = process.env): string {
+  const raw = env.DUDE_CHANNEL?.trim()
+  return raw ? raw : 'latest'
+}
+
 /** Walk up from `startDir` looking for the nearest directory containing dude.json. */
 export function findProjectRoot(startDir: string): string | null {
   let dir = startDir
@@ -162,9 +172,10 @@ export function run(argv: string[] = process.argv.slice(2), cwd: string = proces
   // No project in scope.
   const cmd = argv[0]
   if (cmd === undefined || GLOBAL_SAFE.has(cmd)) {
-    // Delegate project-less commands (notably `init`) to the latest published
-    // CLI; npx handles the download and its own cache.
-    const res = spawnSync('npx', ['--yes', `${CLI_PACKAGE}@latest`, ...argv], {
+    // Delegate project-less commands (notably `init`) to the published CLI —
+    // stable channel by default, DUDE_CHANNEL=next for the newest candidate;
+    // npx handles the download and its own cache.
+    const res = spawnSync('npx', ['--yes', `${CLI_PACKAGE}@${cliChannel()}`, ...argv], {
       cwd,
       stdio: 'inherit',
       shell: shouldUseShell(),

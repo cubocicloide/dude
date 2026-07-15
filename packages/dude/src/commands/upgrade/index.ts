@@ -19,29 +19,40 @@ function shouldUseShell(platform: NodeJS.Platform = process.platform): boolean {
   return platform === 'win32'
 }
 
-function resolvePublishedVersion(packageName: string, requestedVersion?: string): string {
+function resolvePublishedVersion(
+  packageName: string,
+  requestedVersion?: string,
+  channel: string = 'latest',
+): string {
   if (requestedVersion) return requestedVersion
 
-  const spec = requestedVersion ? `${packageName}@${requestedVersion}` : packageName
-
+  let tags: Record<string, string>
   try {
-    const output = execFileSync('npm', ['view', spec, 'version', '--json'], {
+    const output = execFileSync('npm', ['view', packageName, 'dist-tags', '--json'], {
       env: { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: shouldUseShell(),
     })
-    const parsed: unknown = JSON.parse(output.toString().trim())
-    if (typeof parsed === 'string' && parsed.length > 0) return parsed
-    if (Array.isArray(parsed) && parsed.length > 0) return String(parsed[parsed.length - 1])
-    throw new Error('Unexpected npm view output')
+    tags = JSON.parse(output.toString().trim()) as Record<string, string>
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     throw new Error(
-      `Could not resolve latest version of ${packageName} from the registry.\n` +
+      `Could not resolve the "${channel}" version of ${packageName} from the registry.\n` +
         `Configure npm auth for the package registry or pass an explicit version flag instead.\n` +
         `Examples: --cli-version 0.6.1, --stack-version 5.0.5\n${msg}`,
     )
   }
+
+  const version = tags[channel]
+  if (typeof version !== 'string' || version.length === 0) {
+    const available = Object.keys(tags).join(', ') || 'none'
+    throw new Error(
+      `The "${channel}" channel has no published release for ${packageName} ` +
+        `(available dist-tags: ${available}).\n` +
+        `Pass an explicit version flag instead, e.g. --cli-version 0.6.1 / --stack-version 5.0.5.`,
+    )
+  }
+  return version
 }
 
 /**
@@ -97,6 +108,13 @@ export const upgradeCommand = defineCommand({
       description: 'Target stack version. Defaults to the latest published version.',
       required: false,
     },
+    next: {
+      type: 'boolean',
+      description:
+        'Resolve target versions from the `next` channel (newest published candidate) ' +
+        'instead of the latest stable release.',
+      default: false,
+    },
   },
   async run({ args }) {
     const cwd = process.cwd()
@@ -105,6 +123,7 @@ export const upgradeCommand = defineCommand({
 
     const cliOnly = Boolean(args.cli)
     const stackOnly = Boolean(args.stack)
+    const channel = args.next ? 'next' : 'latest'
     const upgradeCli = cliOnly || (!cliOnly && !stackOnly)
     const upgradeStack = stackOnly || (!cliOnly && !stackOnly)
 
@@ -119,6 +138,7 @@ export const upgradeCommand = defineCommand({
       const targetCliVersion = resolvePublishedVersion(
         '@cubocicloide/dude',
         typeof args.cliVersion === 'string' ? args.cliVersion : undefined,
+        channel,
       )
       const changed = updateDependency(pkg, '@cubocicloide/dude', targetCliVersion)
       let manifestChanged = false
@@ -163,6 +183,7 @@ export const upgradeCommand = defineCommand({
       const targetStackVersion = resolvePublishedVersion(
         manifest.stack,
         typeof args.stackVersion === 'string' ? args.stackVersion : undefined,
+        channel,
       )
 
       if (manifest.stackVersion === targetStackVersion) {

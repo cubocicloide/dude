@@ -33,6 +33,13 @@ export const initCommand = defineCommand({
       description: 'Accept all defaults; do not prompt.',
       default: false,
     },
+    next: {
+      type: 'boolean',
+      description:
+        'Resolve the stack from the `next` channel (newest published candidate) ' +
+        'instead of the latest stable release.',
+      default: false,
+    },
   },
   async run({ args, rawArgs }) {
     p.intro('dude — project scaffolding')
@@ -61,12 +68,13 @@ export const initCommand = defineCommand({
 
     const registry = await loadRegistry(packageRoot)
     const { spec: resolvedSpec } = resolveStackSpec(registry, stackSpec)
-    logger.info(`Loading stack: ${resolvedSpec}`)
+    const channel = args.next ? 'next' : 'latest'
+    logger.info(`Loading stack: ${resolvedSpec}${args.next ? ' (channel: next)' : ''}`)
     const {
       definition: stack,
       root: stackRoot,
       version: stackVersion,
-    } = await loadStack(resolvedSpec, cwd)
+    } = await loadStack(resolvedSpec, cwd, undefined, channel)
 
     // 2. Collect answers. Any CLI flag matching a declared stack variable
     //    (e.g. `--database postgres`, `--celery`) becomes a non-interactive
