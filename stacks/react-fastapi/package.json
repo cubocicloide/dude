@@ -25,9 +25,6 @@
     "lint": "echo \"(lint placeholder)\"",
     "clean": "rm -rf dist .turbo"
   },
-  "peerDependencies": {
-    "@cubocicloide/dude": "workspace:^"
-  },
   "dependencies": {
     "openapi-typescript": "^7.13.0",
     "pathe": "^1.1.2",
