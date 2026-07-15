@@ -1,6 +1,6 @@
 {
   "name": "@cubocicloide/dude-launcher",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Tiny global launcher for dude — resolves and runs each project's pinned CLI + stack.",
   "type": "module",
   "bin": {
