@@ -4,6 +4,12 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
+# Optional local secrets (gitignored). Currently just GITHUB_TOKEN_ADMIN — a
+# write:packages token used by `make promote`/`make dist-tags` so maintainers
+# don't need a more-privileged token in their everyday shell GITHUB_TOKEN.
+-include .env
+export GITHUB_TOKEN_ADMIN
+
 # Pass extra args to the local CLI: `make cli ARGS="init --stack react-fastapi"`
 ARGS  ?=
 
@@ -192,7 +198,8 @@ release: ## Build and publish updated packages to GitHub Packages (emergency/man
 #   make promote PKG=stack-react-fastapi              # promote current `next`
 #   make promote PKG=dude VERSION=0.13.0              # promote a specific version
 #
-# Promotion needs a GITHUB_TOKEN with the `write:packages` scope in ~/.npmrc.
+# Promotion needs a token with the `write:packages` scope, picked up (in order)
+# from GITHUB_TOKEN_ADMIN in .env, then GITHUB_TOKEN in the shell environment.
 
 .PHONY: promote
 promote: ## Promote a published version to stable — make promote PKG=<name> [VERSION=<x.y.z>]
@@ -201,7 +208,12 @@ promote: ## Promote a published version to stable — make promote PKG=<name> [V
 		printf "     e.g. make promote PKG=stack-react-fastapi\n"; \
 		exit 1; \
 	fi
-	@name="$(PKG)"; case "$$name" in @*) ;; *) name="@cubocicloide/$$name";; esac; \
+	@export GITHUB_TOKEN="$${GITHUB_TOKEN_ADMIN:-$$GITHUB_TOKEN}"; \
+	if [ -z "$$GITHUB_TOKEN" ]; then \
+		printf "  \033[31m✗\033[0m  No token found — set GITHUB_TOKEN_ADMIN in .env or GITHUB_TOKEN in your shell (needs write:packages).\n"; \
+		exit 1; \
+	fi; \
+	name="$(PKG)"; case "$$name" in @*) ;; *) name="@cubocicloide/$$name";; esac; \
 	version="$(VERSION)"; \
 	if [ -z "$$version" ]; then \
 		version=$$(npm view "$$name" dist-tags.next 2>/dev/null); \
@@ -213,7 +225,7 @@ promote: ## Promote a published version to stable — make promote PKG=<name> [V
 	current=$$(npm view "$$name" dist-tags.latest 2>/dev/null); \
 	printf "  \033[33m→\033[0m  Promoting %s@%s to \`latest\` (currently: %s)\n" "$$name" "$$version" "$${current:-none}"; \
 	npm dist-tag add "$$name@$$version" latest || { \
-		printf "  \033[31m✗\033[0m  Promotion failed — is GITHUB_TOKEN set with write:packages?\n"; \
+		printf "  \033[31m✗\033[0m  Promotion failed — does the token have write:packages?\n"; \
 		exit 1; \
 	}; \
 	printf "  \033[32m✓\033[0m  Channels now:\n"; \
@@ -221,7 +233,8 @@ promote: ## Promote a published version to stable — make promote PKG=<name> [V
 
 .PHONY: dist-tags
 dist-tags: ## Show release channels (dist-tags) of every publishable package
-	@for dir in packages/* stacks/*; do \
+	@export GITHUB_TOKEN="$${GITHUB_TOKEN_ADMIN:-$$GITHUB_TOKEN}"; \
+	for dir in packages/* stacks/*; do \
 		name=$$(node -p "require('./$$dir/package.json').name" 2>/dev/null); \
 		[ -n "$$name" ] || continue; \
 		printf "\n  \033[1m%s\033[0m\n" "$$name"; \

@@ -263,8 +263,9 @@ dude init my-check --stack react-fastapi --next --yes
 cd my-check && pnpm install && dude lint
 ```
 
-**3. Promote to stable** — once the candidate has proven itself
-(requires `GITHUB_TOKEN` with `write:packages`):
+**3. Promote to stable** — once the candidate has proven itself (needs a
+`write:packages` token; `make promote`/`make dist-tags` read `GITHUB_TOKEN_ADMIN`
+from a repo-root `.env`, gitignored, falling back to `GITHUB_TOKEN`):
 
 ```bash
 make promote PKG=stack-react-fastapi          # promote what `next` points to

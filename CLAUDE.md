@@ -386,7 +386,8 @@ make changeset    # interactively bump versions (patch/minor/major)
 #    would shadow the published package inside the clone)
 cd "$(mktemp -d)" && dude init my-check --stack react-fastapi --next --yes
 
-# 3. Promote to stable once verified (needs GITHUB_TOKEN with write:packages)
+# 3. Promote to stable once verified (needs a write:packages token — set
+#    GITHUB_TOKEN_ADMIN in a repo-root .env, gitignored, or GITHUB_TOKEN)
 make promote PKG=stack-react-fastapi          # promote what `next` points to
 make dist-tags                                # inspect all channels
 ```

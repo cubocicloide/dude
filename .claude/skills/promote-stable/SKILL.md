@@ -27,12 +27,21 @@ promote the CLI, and vice versa.
 
 ## Step 0 — Prerequisites
 
-A `GITHUB_TOKEN` with **`write:packages`** must be available to npm (the
-repo's `~/.npmrc` maps `@cubocicloide` → npm.pkg.github.com and reads the
-token from the environment):
+A token with **`write:packages`** scope must be available for `make promote` /
+`make dist-tags` — these targets read `GITHUB_TOKEN_ADMIN` from the repo-root
+`.env` (gitignored) if present, falling back to `GITHUB_TOKEN` in the shell.
+Keeping it in `.env` as `GITHUB_TOKEN_ADMIN` means the everyday `GITHUB_TOKEN`
+(often only `read:packages`, per the README setup) doesn't need elevating:
+
+```ini
+# .env (repo root, gitignored)
+GITHUB_TOKEN_ADMIN=ghp_your_write_packages_token
+```
+
+Verify it resolves:
 
 ```bash
-npm whoami --registry=https://npm.pkg.github.com   # must print a username
+make dist-tags   # lists channels for every package — fails loudly if no token is found
 ```
 
 ## Step 1 — Identify the candidate
