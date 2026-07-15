@@ -217,6 +217,13 @@ Renders as:
 
 ---
 
+### Search
+
+Press <kbd>/</kbd> anywhere on the site to jump straight to the search box —
+MkDocs Material indexes every page's content, not just titles.
+
+---
+
 ## File structure
 
 ```
