@@ -1,5 +1,11 @@
 # @cubocicloide/stack-react-fastapi
 
+## 13.0.2
+
+### Patch Changes
+
+- 9e04258: Add an "Extending this site" callout to the generated project's docs home page (`docs/docs/index.md`), pointing to `docs/docs/` as the source and linking to the "Writing docs" page.
+
 ## 13.0.1
 
 ### Patch Changes
