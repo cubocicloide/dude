@@ -9,15 +9,15 @@ monorepo. Read it fully before making changes.
 
 **dude** is a monorepo that ships these packages:
 
-| Package                  | npm name                            | Purpose                                                                               |
-| ------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------- |
-| `packages/dude/`         | `@cubocicloide/dude`                | The CLI runtime — `dude init`, `dude lint`, `dude up`, …                              |
-| `packages/dude-launcher/`| `@cubocicloide/dude-launcher`       | Tiny global shim; runs each project's pinned CLI + stack (the only global install)    |
-| `stacks/react-fastapi/`  | `@cubocicloide/stack-react-fastapi` | A stack plugin that teaches `dude` how to scaffold and lint a React + FastAPI project |
-| `stacks/react-django/`   | `@cubocicloide/stack-react-django`  | Stack plugin for React + Django REST Framework (drf-spectacular; optional S3 storage — MinIO locally; Celery); IaC = AWS ECS Fargate (`--iac aws-ecs`) |
-| `stacks/fastmcp/`        | `@cubocicloide/stack-fastmcp`       | Stack plugin for a FastMCP (Python) server — modular MCP feature sub-servers; optional AWS ECS IaC |
-| `stacks/tauri/`          | `@cubocicloide/stack-tauri`         | Stack plugin for a Tauri 2 app (desktop + iOS/Android) — React + antd, Rust backend   |
-| `stacks/frappe/`         | `@cubocicloide/stack-frappe`        | Stack plugin for a Frappe Framework ticketing system (Frappe Helpdesk + worked-example custom app); IaC = AWS ECS Fargate (`--iac aws-ecs`) |
+| Package                   | npm name                            | Purpose                                                                                                                                                |
+| ------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/dude/`          | `@cubocicloide/dude`                | The CLI runtime — `dude init`, `dude lint`, `dude up`, …                                                                                               |
+| `packages/dude-launcher/` | `@cubocicloide/dude-launcher`       | Tiny global shim; runs each project's pinned CLI + stack (the only global install)                                                                     |
+| `stacks/react-fastapi/`   | `@cubocicloide/stack-react-fastapi` | A stack plugin that teaches `dude` how to scaffold and lint a React + FastAPI project                                                                  |
+| `stacks/react-django/`    | `@cubocicloide/stack-react-django`  | Stack plugin for React + Django REST Framework (drf-spectacular; optional S3 storage — MinIO locally; Celery); IaC = AWS ECS Fargate (`--iac aws-ecs`) |
+| `stacks/fastmcp/`         | `@cubocicloide/stack-fastmcp`       | Stack plugin for a FastMCP (Python) server — modular MCP feature sub-servers; optional AWS ECS IaC                                                     |
+| `stacks/tauri/`           | `@cubocicloide/stack-tauri`         | Stack plugin for a Tauri 2 app (desktop + iOS/Android) — React + antd, Rust backend                                                                    |
+| `stacks/frappe/`          | `@cubocicloide/stack-frappe`        | Stack plugin for a Frappe Framework ticketing system (Frappe Helpdesk + worked-example custom app); IaC = AWS ECS Fargate (`--iac aws-ecs`)            |
 
 Everything is TypeScript + ESM. Toolchain: **pnpm workspaces**, **Turbo**, **tsup**.
 
@@ -102,6 +102,7 @@ After building, re-run your dude command.
 ```
 
 **Resolution order** (`loadStack`):
+
 1. Explicit filesystem path (spec starts with `.` or `/`).
 2. Node's `require.resolve` — finds the package in project `node_modules` (normal installed use).
 3. pnpm-workspace scan — walks up from `cwd` and from the CLI package dir looking for `pnpm-workspace.yaml`, then matches by `package.json` `name`. This is the source-checkout path.
@@ -221,63 +222,63 @@ set (core + active stack + project-custom). Keep this table and the end-user doc
 
 ### Core (CLI runtime — always present)
 
-| Command | Flags | Meaning |
-| ------- | ----- | ------- |
-| `dude init [<dir>]` | `--stack <id>`, `--yes`, `--database postgres`, `--celery`, `--celerybeat`, `--iac aws-eks` | Scaffold a new project. Stack-answer flags (`--database`, …) make it non-interactive; `--yes` accepts all defaults. |
-| `dude upgrade` | `--cli`, `--stack`, `--cli-version <v>`, `--stack-version <v>` | Move the CLI and/or stack pin (in `package.json` **and** `dude.json`). Run `pnpm install` after. Does not migrate files. |
-| `dude version` | — | Print the resolved CLI + stack versions. |
-| `dude help [group] [cmd]` | `--format md\|json` | Live merged catalog; `dude help <group> <sub>` shows a subcommand's flags. `--format md\|json` emits the whole catalog (used to generate the docs `api.md`). |
+| Command                   | Flags                                                                                                 | Meaning                                                                                                                                                                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `dude init [<dir>]`       | `--stack <id>`, `--yes`, `--next`, `--database postgres`, `--celery`, `--celerybeat`, `--iac aws-eks` | Scaffold a new project. Stack-answer flags (`--database`, …) make it non-interactive; `--yes` accepts all defaults. By default the stack resolves from the **stable** channel (`latest` dist-tag); `--next` resolves the newest published candidate instead. |
+| `dude upgrade`            | `--cli`, `--stack`, `--next`, `--cli-version <v>`, `--stack-version <v>`                              | Move the CLI and/or stack pin (in `package.json` **and** `dude.json`). Targets the latest **stable** by default; `--next` targets the newest candidate. Run `pnpm install` after. Does not migrate files.                                                    |
+| `dude version`            | —                                                                                                     | Print the resolved CLI + stack versions.                                                                                                                                                                                                                     |
+| `dude help [group] [cmd]` | `--format md\|json`                                                                                   | Live merged catalog; `dude help <group> <sub>` shows a subcommand's flags. `--format md\|json` emits the whole catalog (used to generate the docs `api.md`).                                                                                                 |
 
 ### Infrastructure (Docker Compose)
 
-| Command | Flags | Meaning |
-| ------- | ----- | ------- |
-| `dude up` | `--build` | `docker compose up -d`; `--build` rebuilds images first. |
-| `dude down` | — | Stop and remove containers. |
-| `dude logs [service]` | — | Follow logs; omit `service` for all. |
-| `dude shell <service>` | — | Interactive shell in a running container. |
+| Command                | Flags     | Meaning                                                  |
+| ---------------------- | --------- | -------------------------------------------------------- |
+| `dude up`              | `--build` | `docker compose up -d`; `--build` rebuilds images first. |
+| `dude down`            | —         | Stop and remove containers.                              |
+| `dude logs [service]`  | —         | Follow logs; omit `service` for all.                     |
+| `dude shell <service>` | —         | Interactive shell in a running container.                |
 
 ### Code quality
 
-| Command | Flags | Meaning |
-| ------- | ----- | ------- |
-| `dude lint` | `--quiet` | Run all stack structural checks (BE/FE/E2E conventions) plus project checks from `.dude/lint/checks/`; honors `lint.disable` in `dude.json`. |
-| `dude format` | — | `ruff format` (backend) + `prettier` (frontend). |
-| `dude review` | — | lint + ESLint + API-contract review in one pass. |
+| Command       | Flags     | Meaning                                                                                                                                      |
+| ------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dude lint`   | `--quiet` | Run all stack structural checks (BE/FE/E2E conventions) plus project checks from `.dude/lint/checks/`; honors `lint.disable` in `dude.json`. |
+| `dude format` | —         | `ruff format` (backend) + `prettier` (frontend).                                                                                             |
+| `dude review` | —         | lint + ESLint + API-contract review in one pass.                                                                                             |
 
 ### API contract (OpenAPI)
 
-| Command | Flags | Meaning |
-| ------- | ----- | ------- |
-| `dude api sync` | — | Fetch the OpenAPI spec from the running backend → regenerate the typed client. |
-| `dude api review` | — | Validate `frontend/src/openapi/` against the saved spec. |
+| Command           | Flags | Meaning                                                                        |
+| ----------------- | ----- | ------------------------------------------------------------------------------ |
+| `dude api sync`   | —     | Fetch the OpenAPI spec from the running backend → regenerate the typed client. |
+| `dude api review` | —     | Validate `frontend/src/openapi/` against the saved spec.                       |
 
 ### Database — requires `--database postgres`
 
-| Command | Flags | Meaning |
-| ------- | ----- | ------- |
-| `dude db makemigration` | `--message <text>` | Generate a new Alembic migration (autogenerate). |
-| `dude db migrate` | `--revision <rev>` (default `head`) | Apply pending migrations. |
-| `dude db rollback` | `--revision <rev>` (default `-1`) | Downgrade by one revision. |
+| Command                 | Flags                               | Meaning                                          |
+| ----------------------- | ----------------------------------- | ------------------------------------------------ |
+| `dude db makemigration` | `--message <text>`                  | Generate a new Alembic migration (autogenerate). |
+| `dude db migrate`       | `--revision <rev>` (default `head`) | Apply pending migrations.                        |
+| `dude db rollback`      | `--revision <rev>` (default `-1`)   | Downgrade by one revision.                       |
 
 ### Testing
 
-| Command | Flags | Meaning |
-| ------- | ----- | ------- |
+| Command     | Flags                                        | Meaning                                                                                                 |
+| ----------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `dude test` | `--backend`, `--e2e`, `--headed`, `--report` | Run suites. No flag → all; `--headed` shows the browser; `--report` writes HTML+JSON to `e2e/reports/`. |
 
 ### Security scanning
 
-| Command | Flags | Meaning |
-| ------- | ----- | ------- |
-| `dude security scan` | `--only <s,…>`, `--min-severity <LVL>`, `--fail-on <LVL>`, `--update-baseline` | Run scanners (bandit, semgrep, trivy-fs, trivy-image); fail on new findings ≥ threshold. |
-| `dude security accept` | — | Re-scan and absorb all findings into `security/baseline.json`. |
-| `dude security verify` | `--rule-id <ids>`, `--remove-resolved` | Confirm specific findings are fixed; prune resolved ones from the baseline. |
+| Command                | Flags                                                                          | Meaning                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `dude security scan`   | `--only <s,…>`, `--min-severity <LVL>`, `--fail-on <LVL>`, `--update-baseline` | Run scanners (bandit, semgrep, trivy-fs, trivy-image); fail on new findings ≥ threshold. |
+| `dude security accept` | —                                                                              | Re-scan and absorb all findings into `security/baseline.json`.                           |
+| `dude security verify` | `--rule-id <ids>`, `--remove-resolved`                                         | Confirm specific findings are fixed; prune resolved ones from the baseline.              |
 
 ### Documentation
 
-| Command | Flags | Meaning |
-| ------- | ----- | ------- |
+| Command     | Flags        | Meaning                                                   |
+| ----------- | ------------ | --------------------------------------------------------- |
 | `dude docs` | `--port <n>` | Serve `docs/` (MkDocs Material) at http://localhost:8001. |
 
 ### Infrastructure as code — requires `--iac aws-eks`
@@ -287,25 +288,25 @@ default)** — run any without `--env` to list the environments discovered under
 `iac/terraform/environments/`. Most also accept `--profile <name>` (defaults to
 `<project>-<env>`, or `$AWS_PROFILE`).
 
-| Command | Key flags | Meaning |
-| ------- | --------- | ------- |
-| `dude iac login` | `--env` | Configure/verify AWS credentials (maps `--env` → an AWS profile). |
-| `dude iac bootstrap` | `--state-bucket-prefix <p>` (required), `--region <r>`, `--env`, `--yes` | One-time: create the shared backend (S3 + DynamoDB) **and** ECR repos, then wire `backend.hcl`. |
-| `dude iac new-env` | `--env <name>` (required), `--from <env>` (default `dev`) | Scaffold a new environment by copying an existing one. |
-| `dude iac init` | `--env` | `terraform init` — (re)configures the S3 backend for the env. |
-| `dude iac plan` | `--env` | `terraform plan`. |
-| `dude iac apply` | `--env`, `--yes` | Provision/update infrastructure. |
-| `dude iac output` | `--env`, `--json` | Print Terraform outputs (cluster, ECR URLs, RDS endpoint…). |
-| `dude iac fmt` | `--env` | `terraform fmt -recursive`. |
-| `dude iac validate` | `--env` | `terraform validate`. |
-| `dude iac kubeconfig` | `--env` | Point `kubectl`/`helm` at the provisioned cluster. |
-| `dude iac build` | `--env`, `--tag <t>`, `--platform <p>` | Build BE+FE prod images (default tag = git short SHA; default platform `linux/amd64`). |
-| `dude iac push` | `--env`, `--tag`, `--platform` | ECR login + `docker push` BE+FE. |
-| `dude iac deploy` | `--env`, `--tag`, `--namespace <n>` | `helm upgrade --install` (auto-wires ECR registry + image tag). |
-| `dude iac ship` | `--env`, `--tag`, `--platform`, `--namespace` | build + push + deploy in one step. |
-| `dude iac status` | `--env`, `--namespace` | Release status + pods. |
-| `dude iac shell` | `--env` | Interactive shell inside the IaC runner container (terraform, kubectl, helm, k9s, aws), scoped to the env. |
-| `dude iac destroy` | `--env`, `--yes`, `--namespace`, `--skip-helm`, `--skip-tf`, `--keep-backend` | Tear down the env (helm uninstall → ALB cleanup → Route53 cleanup → `terraform destroy`). The shared bootstrap (backend + ECR) is torn down only when no other env still uses it, unless `--keep-backend`. |
+| Command               | Key flags                                                                     | Meaning                                                                                                                                                                                                    |
+| --------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dude iac login`      | `--env`                                                                       | Configure/verify AWS credentials (maps `--env` → an AWS profile).                                                                                                                                          |
+| `dude iac bootstrap`  | `--state-bucket-prefix <p>` (required), `--region <r>`, `--env`, `--yes`      | One-time: create the shared backend (S3 + DynamoDB) **and** ECR repos, then wire `backend.hcl`.                                                                                                            |
+| `dude iac new-env`    | `--env <name>` (required), `--from <env>` (default `dev`)                     | Scaffold a new environment by copying an existing one.                                                                                                                                                     |
+| `dude iac init`       | `--env`                                                                       | `terraform init` — (re)configures the S3 backend for the env.                                                                                                                                              |
+| `dude iac plan`       | `--env`                                                                       | `terraform plan`.                                                                                                                                                                                          |
+| `dude iac apply`      | `--env`, `--yes`                                                              | Provision/update infrastructure.                                                                                                                                                                           |
+| `dude iac output`     | `--env`, `--json`                                                             | Print Terraform outputs (cluster, ECR URLs, RDS endpoint…).                                                                                                                                                |
+| `dude iac fmt`        | `--env`                                                                       | `terraform fmt -recursive`.                                                                                                                                                                                |
+| `dude iac validate`   | `--env`                                                                       | `terraform validate`.                                                                                                                                                                                      |
+| `dude iac kubeconfig` | `--env`                                                                       | Point `kubectl`/`helm` at the provisioned cluster.                                                                                                                                                         |
+| `dude iac build`      | `--env`, `--tag <t>`, `--platform <p>`                                        | Build BE+FE prod images (default tag = git short SHA; default platform `linux/amd64`).                                                                                                                     |
+| `dude iac push`       | `--env`, `--tag`, `--platform`                                                | ECR login + `docker push` BE+FE.                                                                                                                                                                           |
+| `dude iac deploy`     | `--env`, `--tag`, `--namespace <n>`                                           | `helm upgrade --install` (auto-wires ECR registry + image tag).                                                                                                                                            |
+| `dude iac ship`       | `--env`, `--tag`, `--platform`, `--namespace`                                 | build + push + deploy in one step.                                                                                                                                                                         |
+| `dude iac status`     | `--env`, `--namespace`                                                        | Release status + pods.                                                                                                                                                                                     |
+| `dude iac shell`      | `--env`                                                                       | Interactive shell inside the IaC runner container (terraform, kubectl, helm, k9s, aws), scoped to the env.                                                                                                 |
+| `dude iac destroy`    | `--env`, `--yes`, `--namespace`, `--skip-helm`, `--skip-tf`, `--keep-backend` | Tear down the env (helm uninstall → ALB cleanup → Route53 cleanup → `terraform destroy`). The shared bootstrap (backend + ECR) is torn down only when no other env still uses it, unless `--keep-backend`. |
 
 > **IaC runner (Docker).** `dude iac *` runs terraform/kubectl/helm/k9s inside a
 > container built from the scaffold's `iac/runner/Dockerfile` (image tagged by a
@@ -331,7 +332,9 @@ default)** — run any without `--env` to list the environments discovered under
 | `make cli ARGS=…` | Run the local CLI, e.g. `make cli ARGS="lint"`           |
 | `make dev-init`   | Scaffold `private/examples/test-local/` from local stack |
 | `make changeset`  | Record a changeset for the next release                  |
-| `make release`    | Publish to GitHub Packages                               |
+| `make release`    | Publish to GitHub Packages (lands on the `next` channel) |
+| `make promote`    | Promote a published version to stable — `PKG=<name>`     |
+| `make dist-tags`  | Show release channels of every publishable package       |
 | `make clean`      | Remove `dist/` and `node_modules/`                       |
 
 ## Project version pinning
@@ -368,11 +371,30 @@ previous version again.
 
 ## Release workflow
 
+Releases move through **two channels** (npm dist-tags on GitHub Packages):
+**`next`** = candidate (every publish lands here), **`latest`** = stable (what
+`dude init` / `dude upgrade` resolve by default; moves only on explicit
+promotion). Promotion is per-package and independent.
+
 ```bash
+# 1. Publish a candidate (CI publishes under the `next` dist-tag)
 make changeset    # interactively bump versions (patch/minor/major)
 # → push; CI opens a "Version Packages" PR
 # → merging that PR triggers publish to GitHub Packages automatically
+
+# 2. Verify: scaffold from the registry OUTSIDE this repo (the workspace scan
+#    would shadow the published package inside the clone)
+cd "$(mktemp -d)" && dude init my-check --stack react-fastapi --next --yes
+
+# 3. Promote to stable once verified (needs GITHUB_TOKEN with write:packages)
+make promote PKG=stack-react-fastapi          # promote what `next` points to
+make dist-tags                                # inspect all channels
 ```
+
+See `.claude/skills/release/` (publish) and `.claude/skills/promote-stable/`
+(promotion) for the step-by-step flows. Rollback = re-promote the previous
+version. A brand-new package has no `latest` tag until its first promotion —
+`dude init` refuses it with a hint to use `--next`.
 
 ---
 

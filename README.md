@@ -209,6 +209,8 @@ section. The ones you'll reach for most:
 | `make test-stack` | Test the stack package only                                          |
 | `make check`      | `lint + typecheck + test` — the CI pre-flight                        |
 | `make changeset`  | Record a changeset for the next release                              |
+| `make promote`    | Promote a published version to stable — `PKG=<name> [VERSION=<v>]`   |
+| `make dist-tags`  | Show the release channels of every publishable package               |
 | `make clean`      | Remove `dist/`, `node_modules/`, `.turbo/`                           |
 
 ---
@@ -233,14 +235,48 @@ Run `make check` before opening a PR.
 
 ## Releasing
 
+Releases move through **two channels**, implemented as npm dist-tags on
+GitHub Packages:
+
+| Channel   | dist-tag | Who gets it                                                                 |
+| --------- | -------- | --------------------------------------------------------------------------- |
+| Candidate | `next`   | Opt-in only: `dude init --next`, `dude upgrade --next`, `DUDE_CHANNEL=next` |
+| Stable    | `latest` | Everyone by default (`dude init`, `dude upgrade`, `npm i`)                  |
+
+**1. Publish a candidate** — record intent; CI does the rest:
+
 ```bash
 make changeset    # interactively record a version bump (patch/minor/major)
 # → push; CI opens a "Version Packages" PR
-# → merging that PR publishes to GitHub Packages automatically
+# → merging that PR publishes to GitHub Packages under the `next` dist-tag
 ```
 
+At this point `latest` has **not** moved: existing users are untouched.
+
+**2. Verify the candidate** — scaffold from the registry (outside this repo,
+so the workspace checkout doesn't shadow the published package) and exercise
+it:
+
+```bash
+cd "$(mktemp -d)"
+dude init my-check --stack react-fastapi --next --yes
+cd my-check && pnpm install && dude lint
+```
+
+**3. Promote to stable** — once the candidate has proven itself
+(requires `GITHUB_TOKEN` with `write:packages`):
+
+```bash
+make promote PKG=stack-react-fastapi          # promote what `next` points to
+make promote PKG=dude VERSION=0.13.0          # or a specific version
+make dist-tags                                # inspect all channels
+```
+
+Promotion only moves the `latest` dist-tag — nothing is republished. Rollback
+is the same command pointed at the previous version.
+
 `make release` exists for emergency/manual publishes only — CI handles the
-normal path.
+normal path (and it, too, publishes to `next`).
 
 ---
 

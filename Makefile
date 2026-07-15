@@ -183,3 +183,49 @@ version: ## Apply pending changesets to package.json and CHANGELOGs
 .PHONY: release
 release: ## Build and publish updated packages to GitHub Packages (emergency/manual only — CI handles normal releases)
 	pnpm run release
+
+# ── Release channels ─────────────────────────────────────────────────────────
+# Every publish (CI or manual) lands on the `next` dist-tag: the candidate
+# channel. `latest` (the stable channel — what `dude init` resolves by default)
+# only moves when a maintainer explicitly promotes a verified version:
+#
+#   make promote PKG=stack-react-fastapi              # promote current `next`
+#   make promote PKG=dude VERSION=0.13.0              # promote a specific version
+#
+# Promotion needs a GITHUB_TOKEN with the `write:packages` scope in ~/.npmrc.
+
+.PHONY: promote
+promote: ## Promote a published version to stable — make promote PKG=<name> [VERSION=<x.y.z>]
+	@if [ -z "$(PKG)" ]; then \
+		printf "  \033[31m✗\033[0m  Usage: make promote PKG=<name> [VERSION=<x.y.z>]\n"; \
+		printf "     e.g. make promote PKG=stack-react-fastapi\n"; \
+		exit 1; \
+	fi
+	@name="$(PKG)"; case "$$name" in @*) ;; *) name="@cubocicloide/$$name";; esac; \
+	version="$(VERSION)"; \
+	if [ -z "$$version" ]; then \
+		version=$$(npm view "$$name" dist-tags.next 2>/dev/null); \
+		if [ -z "$$version" ]; then \
+			printf "  \033[31m✗\033[0m  %s has no \`next\` dist-tag to promote — pass VERSION=<x.y.z>\n" "$$name"; \
+			exit 1; \
+		fi; \
+	fi; \
+	current=$$(npm view "$$name" dist-tags.latest 2>/dev/null); \
+	printf "  \033[33m→\033[0m  Promoting %s@%s to \`latest\` (currently: %s)\n" "$$name" "$$version" "$${current:-none}"; \
+	npm dist-tag add "$$name@$$version" latest || { \
+		printf "  \033[31m✗\033[0m  Promotion failed — is GITHUB_TOKEN set with write:packages?\n"; \
+		exit 1; \
+	}; \
+	printf "  \033[32m✓\033[0m  Channels now:\n"; \
+	npm dist-tag ls "$$name" | sed 's/^/     /'
+
+.PHONY: dist-tags
+dist-tags: ## Show release channels (dist-tags) of every publishable package
+	@for dir in packages/* stacks/*; do \
+		name=$$(node -p "require('./$$dir/package.json').name" 2>/dev/null); \
+		[ -n "$$name" ] || continue; \
+		printf "\n  \033[1m%s\033[0m\n" "$$name"; \
+		npm dist-tag ls "$$name" 2>/dev/null | sed 's/^/     /' \
+			|| printf "     (not published)\n"; \
+	done; \
+	printf "\n"

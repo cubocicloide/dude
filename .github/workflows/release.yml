@@ -35,6 +35,10 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      # Publishes every package under the `next` dist-tag (candidate channel).
+      # `latest` (stable) only moves via an explicit promotion:
+      #   make promote PKG=<name> [VERSION=<v>]
+      # See .claude/skills/promote-stable/ and README "Releasing".
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
         with:

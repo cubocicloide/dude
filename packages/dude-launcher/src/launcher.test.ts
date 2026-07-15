@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  cliChannel,
   detectPackageManager,
   findProjectRoot,
   installedVersion,
@@ -81,6 +82,25 @@ describe('shouldUseShell', () => {
   it('does not use shell execution on non-Windows platforms', () => {
     expect(shouldUseShell('linux')).toBe(false)
     expect(shouldUseShell('darwin')).toBe(false)
+  })
+})
+
+describe('cliChannel', () => {
+  it('defaults to the stable channel (latest)', () => {
+    expect(cliChannel({})).toBe('latest')
+  })
+
+  it('returns latest when DUDE_CHANNEL is empty or blank', () => {
+    expect(cliChannel({ DUDE_CHANNEL: '' })).toBe('latest')
+    expect(cliChannel({ DUDE_CHANNEL: '   ' })).toBe('latest')
+  })
+
+  it('honors DUDE_CHANNEL=next', () => {
+    expect(cliChannel({ DUDE_CHANNEL: 'next' })).toBe('next')
+  })
+
+  it('passes through custom dist-tags', () => {
+    expect(cliChannel({ DUDE_CHANNEL: 'canary' })).toBe('canary')
   })
 })
 

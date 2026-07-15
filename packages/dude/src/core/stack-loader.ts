@@ -48,8 +48,13 @@ interface ResolvedRoot {
  * Registry-driven resolution and on-demand npm download will arrive in a
  * later phase; the contract here is forward-compatible.
  */
-export async function loadStack(spec: string, cwd: string, version?: string): Promise<LoadedStack> {
-  const { root, source } = await resolveStackRoot(spec, cwd, version)
+export async function loadStack(
+  spec: string,
+  cwd: string,
+  version?: string,
+  channel: string = 'latest',
+): Promise<LoadedStack> {
+  const { root, source } = await resolveStackRoot(spec, cwd, version, channel)
   const pkgJsonPath = resolvePath(root, 'package.json')
   if (!existsSync(pkgJsonPath)) {
     throw new Error(`Stack at "${root}" is missing a package.json`)
@@ -144,6 +149,7 @@ async function resolveStackRoot(
   spec: string,
   cwd: string,
   version?: string,
+  channel: string = 'latest',
 ): Promise<ResolvedRoot> {
   // Filesystem path?
   if (spec.startsWith('.') || spec.startsWith('/') || isAbsolute(spec)) {
@@ -165,7 +171,7 @@ async function resolveStackRoot(
   if (workspaceMatch) return { root: workspaceMatch, source: 'workspace' }
 
   // Last resort: install from the registry into the dude cache dir.
-  return { root: installStack(spec, version), source: 'cache' }
+  return { root: installStack(spec, version, channel), source: 'cache' }
 }
 
 /**
@@ -173,11 +179,13 @@ async function resolveStackRoot(
  * path to the installed package root. Subsequent calls with the same
  * name + version are no-ops (the cached copy is reused).
  *
- * When no version is provided, the latest version is resolved from the npm
- * registry first. Auth is handled via the user's `~/.npmrc`.
+ * When no version is provided, the version is resolved from the npm registry
+ * by dist-tag: `latest` (the stable channel) by default, or whichever channel
+ * the caller asked for (e.g. `next` for the newest published candidate).
+ * Auth is handled via the user's `~/.npmrc`.
  */
-function installStack(packageName: string, version?: string): string {
-  const resolvedVersion = version ?? resolveLatestVersion(packageName)
+function installStack(packageName: string, version?: string, channel: string = 'latest'): string {
+  const resolvedVersion = version ?? resolveChannelVersion(packageName, channel)
   const safeName = packageName.replace(/\//g, '__').replace(/@/g, '')
   const cacheDir = resolvePath(
     homedir(),
@@ -223,28 +231,49 @@ function installStack(packageName: string, version?: string): string {
 }
 
 /**
- * Query the npm registry for the latest version of a package.
+ * Query the npm registry for the version a release channel (dist-tag) points
+ * to: `latest` is the stable channel, `next` the newest published candidate.
  * Uses the user's ~/.npmrc for authentication (scope → registry mapping).
  */
-function resolveLatestVersion(packageName: string): string {
+function resolveChannelVersion(packageName: string, channel: string = 'latest'): string {
+  let tags: Record<string, string>
   try {
-    const output = execFileSync('npm', ['view', packageName, 'version', '--json'], {
+    const output = execFileSync('npm', ['view', packageName, 'dist-tags', '--json'], {
       env: { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: shouldUseShell(),
     })
-    const parsed: unknown = JSON.parse(output.toString().trim())
-    // npm may return a string or an array (dist-tags case); take the last item.
-    if (typeof parsed === 'string') return parsed
-    if (Array.isArray(parsed) && parsed.length > 0) return String(parsed[parsed.length - 1])
-    throw new Error('Unexpected npm view output')
+    tags = JSON.parse(output.toString().trim()) as Record<string, string>
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     throw new Error(
-      `Could not resolve latest version of "${packageName}" from the registry.\n` +
+      `Could not resolve the "${channel}" version of "${packageName}" from the registry.\n` +
         `Make sure your ~/.npmrc is configured with a valid token.\n${msg}`,
     )
   }
+
+  return pickChannelVersion(tags, channel, packageName)
+}
+
+/**
+ * Pick the version a channel (dist-tag) points to out of a package's dist-tag
+ * map, with actionable errors when the channel is absent. Exported for tests.
+ */
+export function pickChannelVersion(
+  tags: Record<string, string>,
+  channel: string,
+  packageName: string,
+): string {
+  const version = tags[channel]
+  if (typeof version === 'string' && version.length > 0) return version
+
+  const available = Object.keys(tags).join(', ') || 'none'
+  const hint =
+    channel === 'latest'
+      ? `No release of "${packageName}" has been promoted to stable yet.\n` +
+        `Pass --next to use the newest published candidate, or ask a maintainer to promote one.`
+      : `The "${channel}" channel has no published release for "${packageName}".`
+  throw new Error(`${hint}\n(available dist-tags: ${available})`)
 }
 
 function findInPnpmWorkspace(startDir: string, pkgName: string): string | null {

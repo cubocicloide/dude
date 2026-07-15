@@ -12,6 +12,13 @@ the monorepo (`@cubocicloide/dude` and/or `@cubocicloide/stack-react-fastapi`).
 The release flow uses **Changesets** + **GitHub Actions** CI. You do not publish
 directly — you record the intent and CI does the rest.
 
+> **Release channels.** CI publishes every version on the **`next`** dist-tag
+> (candidate channel). The **`latest`** tag (stable — what `dude init` and
+> `dude upgrade` resolve by default) does **not** move on publish: it moves only
+> when a maintainer promotes a verified version (see the `promote-stable`
+> skill / `make promote`). So "releasing" makes a version _available for
+> testing_ (`dude init --next`), not generally available.
+
 ---
 
 ## Step 1 — Verify working tree is clean
@@ -89,9 +96,23 @@ mcp: github_repo → get workflow run details
 ## Step 5 — Verify the published package
 
 ```bash
-# Confirm the new version appears in the registry
-npm view @cubocicloide/dude --registry=https://npm.pkg.github.com
-npm view @cubocicloide/stack-react-fastapi --registry=https://npm.pkg.github.com
+# Confirm the new version appears on the `next` channel (latest is unchanged)
+make dist-tags
+```
+
+The new version must show under `next` for each released package; `latest`
+still points at the previous stable — that is expected.
+
+---
+
+## Step 6 — Later: promote to stable
+
+Once the candidate has been verified in real use (maintainers run it via
+`dude init --next` / `DUDE_CHANNEL=next`), promote it with the
+**`promote-stable`** skill or directly:
+
+```bash
+make promote PKG=<name>          # e.g. PKG=stack-react-fastapi
 ```
 
 ---
