@@ -42,8 +42,8 @@ importers:
         specifier: ^2.4.2
         version: 2.7.0
       pathe:
-        specifier: ^1.1.2
-        version: 1.1.2
+        specifier: ^2.0.3
+        version: 2.0.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -85,8 +85,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/dude
       pathe:
-        specifier: ^1.1.2
-        version: 1.1.2
+        specifier: ^2.0.3
+        version: 2.0.3
     devDependencies:
       '@types/node':
         specifier: ^22.7.5
@@ -107,8 +107,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/dude
       pathe:
-        specifier: ^1.1.2
-        version: 1.1.2
+        specifier: ^2.0.3
+        version: 2.0.3
     devDependencies:
       '@types/node':
         specifier: ^22.7.5
@@ -129,8 +129,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/dude
       pathe:
-        specifier: ^1.1.2
-        version: 1.1.2
+        specifier: ^2.0.3
+        version: 2.0.3
     devDependencies:
       '@types/node':
         specifier: ^22.7.5
@@ -154,8 +154,8 @@ importers:
         specifier: ^7.13.0
         version: 7.13.0(typescript@5.9.3)
       pathe:
-        specifier: ^1.1.2
-        version: 1.1.2
+        specifier: ^2.0.3
+        version: 2.0.3
       yaml:
         specifier: ^2.6.0
         version: 2.9.0
@@ -182,8 +182,8 @@ importers:
         specifier: ^7.13.0
         version: 7.13.0(typescript@5.9.3)
       pathe:
-        specifier: ^1.1.2
-        version: 1.1.2
+        specifier: ^2.0.3
+        version: 2.0.3
       yaml:
         specifier: ^2.6.0
         version: 2.9.0
@@ -207,8 +207,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/dude
       pathe:
-        specifier: ^1.1.2
-        version: 1.1.2
+        specifier: ^2.0.3
+        version: 2.0.3
     devDependencies:
       '@types/node':
         specifier: ^22.7.5
