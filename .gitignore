@@ -49,4 +49,7 @@ coverage/
 # Local testing — not tracked by git
 private/
 
+# MkDocs build output (root docs/ site — served via `make docs`)
+docs/site/
+
 .mcp.json

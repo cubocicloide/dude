@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & discussion
+    url: https://github.com/cubocicloide/dude/discussions
+    about: Have a "how do I…?" question or an idea to float? Start a discussion — issues are for bugs and concrete feature requests.
+  - name: 📖 Documentation
+    url: https://github.com/cubocicloide/dude#readme
+    about: Check the README and per-stack docs before opening an issue.

@@ -1,0 +1,14 @@
+# Code owners for cubocicloide/dude
+#
+# These owners are requested for review automatically when someone opens a pull
+# request that changes matching files. See:
+# https://docs.github.com/en/repositories/managing-your-repos-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo.
+*                       @cubocicloide
+
+# Release-sensitive configuration.
+/.github/               @cubocicloide
+/.changeset/            @cubocicloide
+/turbo.json             @cubocicloide
+/pnpm-workspace.yaml    @cubocicloide

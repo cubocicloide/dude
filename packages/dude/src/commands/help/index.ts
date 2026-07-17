@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 import { initCommand } from '../init/index.js'
 import { upgradeCommand } from '../upgrade/index.js'
+import { infoCommand } from '../info/index.js'
 import { loadStack } from '../../core/stack-loader.js'
 import { loadCustomCommands } from '../../core/custom-commands.js'
 import type { StackCommandDef, StackCommandArg } from '../../core/stack-contract.js'
@@ -95,6 +96,7 @@ function buildCoreCatalog(): Catalog {
   const coreCmds: [string, AnyCittyCmdDef][] = [
     ['init', initCommand as AnyCittyCmdDef],
     ['upgrade', upgradeCommand as AnyCittyCmdDef],
+    ['info', infoCommand as AnyCittyCmdDef],
   ]
   for (const [name, def] of coreCmds) flat.set(name, fromCittyDef(name, def))
   return { flat, groups, custom }
