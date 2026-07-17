@@ -1,5 +1,12 @@
 # @cubocicloide/stack-react-fastapi
 
+## 13.0.6
+
+### Patch Changes
+
+- Updated dependencies [e38638f]
+  - @cubocicloide/dude@0.15.0
+
 ## 13.0.5
 
 ### Patch Changes
