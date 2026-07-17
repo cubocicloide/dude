@@ -160,7 +160,7 @@ export function run(argv: string[] = process.argv.slice(2), cwd: string = proces
         }
         if (install.status !== 0) {
           process.stderr.write(
-            'dude: toolchain install failed. Ensure GITHUB_TOKEN is set, then retry.\n',
+            'dude: toolchain install failed. Check your network/registry access, then retry.\n',
           )
           return install.status ?? 1
         }

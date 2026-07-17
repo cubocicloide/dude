@@ -8,19 +8,12 @@ entry point for all development tasks. Run `dude help` for a live overview, and
 
 ## Installation
 
-`dude` ships as a **private package** on GitHub Packages. What you install
+`dude` is published on the public npm registry. What you install
 globally is the tiny **launcher** (`@cubocicloide/dude-launcher`); it then runs
 each project's *pinned* CLI + stack automatically — no manual version switching.
 
 ```bash
-# 1. One-time machine setup — authenticate the private @cubocicloide registry.
-#    Add these two lines to ~/.npmrc:
-#      @cubocicloide:registry=https://npm.pkg.github.com
-#      //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-#    …and export a GitHub token with the `read:packages` scope:
-export GITHUB_TOKEN=ghp_your_token_here
-
-# 2. Install the launcher globally (the only global install).
+# 1. Install the launcher globally (the only global install).
 npm install -g @cubocicloide/dude-launcher
 ```
 

@@ -98,7 +98,7 @@ scaffolding to delete.
 ## Release channels
 
 Every publishable package moves through two channels, implemented as npm
-dist-tags on GitHub Packages:
+dist-tags on npmjs.com:
 
 | Channel       | dist-tag | Who gets it                                                         |
 | ------------- | -------- | ------------------------------------------------------------------- |

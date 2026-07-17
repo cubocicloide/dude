@@ -334,7 +334,7 @@ default)** — run any without `--env` to list the environments discovered under
 | `make cli ARGS=…` | Run the local CLI, e.g. `make cli ARGS="lint"`           |
 | `make dev-init`   | Scaffold `private/examples/test-local/` from local stack |
 | `make changeset`  | Record a changeset for the next release                  |
-| `make release`    | Publish to GitHub Packages (lands on the `next` channel) |
+| `make release`    | Publish to npmjs.com (lands on the `next` channel)       |
 | `make promote`    | Promote a published version to stable — `PKG=<name>`     |
 | `make dist-tags`  | Show release channels of every publishable package       |
 | `make clean`      | Remove `dist/` and `node_modules/`                       |
@@ -373,7 +373,7 @@ previous version again.
 
 ## Release workflow
 
-Releases move through **two channels** (npm dist-tags on GitHub Packages):
+Releases move through **two channels** (npm dist-tags on npmjs.com):
 **`next`** = candidate (every publish lands here), **`latest`** = stable (what
 `dude init` / `dude upgrade` resolve by default; moves only on explicit
 promotion). Promotion is per-package and independent.
@@ -382,14 +382,14 @@ promotion). Promotion is per-package and independent.
 # 1. Publish a candidate (CI publishes under the `next` dist-tag)
 make changeset    # interactively bump versions (patch/minor/major)
 # → push; CI opens a "Version Packages" PR
-# → merging that PR triggers publish to GitHub Packages automatically
+# → merging that PR triggers publish to npmjs.com automatically
 
 # 2. Verify: scaffold from the registry OUTSIDE this repo (the workspace scan
 #    would shadow the published package inside the clone)
 cd "$(mktemp -d)" && dude init my-check --stack react-fastapi --next --yes
 
-# 3. Promote to stable once verified (needs a write:packages token — set
-#    GITHUB_TOKEN_ADMIN in a repo-root .env, gitignored, or GITHUB_TOKEN)
+# 3. Promote to stable once verified (needs npm publish auth on @cubocicloide —
+#    set NPM_TOKEN in a repo-root .env, gitignored, or run `npm login`)
 make promote PKG=stack-react-fastapi          # promote what `next` points to
 make dist-tags                                # inspect all channels
 ```

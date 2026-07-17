@@ -21,7 +21,7 @@ get identical behaviour from a single `dude` command.
 npm install -g @cubocicloide/dude-launcher
 ```
 
-(Requires a `~/.npmrc` with a GitHub Packages token for the `@cubocicloide` scope.)
+(Published on the public npm registry — no auth or token required to install.)
 
 ## How it works
 

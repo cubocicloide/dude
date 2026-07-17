@@ -76,10 +76,9 @@ export default defineStack({
       logger.info('')
       logger.info('Next steps:')
       logger.info(`  1. cd ${name}`)
-      logger.info('  2. export GITHUB_TOKEN=<token with read:packages>  # for @cubocicloide registry')
-      logger.info('  3. pnpm install')
-      logger.info('  4. dude doctor   # verify Rust + platform prerequisites')
-      logger.info('  5. dude dev      # run the desktop app with hot-reload')
+      logger.info('  2. pnpm install')
+      logger.info('  3. dude doctor   # verify Rust + platform prerequisites')
+      logger.info('  4. dude dev      # run the desktop app with hot-reload')
       logger.info('')
       logger.info('Useful commands: dude lint · dude test · dude build · dude docs · dude help')
     },

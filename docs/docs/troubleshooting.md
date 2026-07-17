@@ -21,11 +21,12 @@ in that output (wrong Node version, Docker not installed, a stale pin).
 
 ## Common issues
 
-### `401 Unauthorized` when installing
+### `404 Not Found` for a `@cubocicloide/*` package when installing
 
-Your registry auth isn't set up. Confirm `~/.npmrc` has the `@cubocicloide`
-scope and that `GITHUB_TOKEN` is exported with the `read:packages` scope. See
-[Getting started → authenticate the registry](getting-started.md#1-authenticate-the-registry-one-time-per-machine).
+`dude` is published on the public npm registry and needs no auth to install. A
+404 usually means either a typo in the package name, or a project `.npmrc` that
+points the `@cubocicloide` scope at a different registry — remove any
+`@cubocicloide:registry=…` line so it resolves from the default public registry.
 
 ### "Stack entry point not found" / `dist/index.js` missing
 

@@ -9,29 +9,9 @@ Scaffolded with [`dude`](https://github.com/cubocicloide/dude) using the
 
 - **Docker Desktop** — running (the whole stack runs in containers).
 - **Node.js ≥ 20** and **pnpm** — to provision the project toolchain.
-- **Access to the private `@cubocicloide` registry.** The `dude` CLI and its
-  stack ship as **private GitHub Packages**, so you need a GitHub
-  [personal access token](https://github.com/settings/tokens) with the
-  `read:packages` scope.
 
-### One-time machine setup (private registry auth)
-
-Point the `@cubocicloide` scope at GitHub Packages and give it your token. Add
-this to your `~/.npmrc`:
-
-```ini
-@cubocicloide:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-…and export the token from your shell profile (`~/.zshrc`, `~/.bashrc`):
-
-```bash
-export GITHUB_TOKEN=ghp_your_token_here
-```
-
-> This project already ships an `.npmrc` with the same two lines, so the
-> project-local `pnpm install` is covered too — you only need `GITHUB_TOKEN` set.
+The `dude` CLI and its stack are published on the public npm registry, so no
+registry auth or token is needed to install them.
 
 ---
 
@@ -40,8 +20,8 @@ export GITHUB_TOKEN=ghp_your_token_here
 The full lifecycle — install the launcher once, scaffold, provision, run:
 
 ```bash
-# 1. Install the dude launcher globally (private package — needs the token above).
-#    This is the ONLY global install. It auto-runs each project's pinned CLI.
+# 1. Install the dude launcher globally — the ONLY global install.
+#    It auto-runs each project's pinned CLI.
 npm install -g @cubocicloide/dude-launcher
 
 # 2. Scaffold the project (this is how {{projectName}} was created).
