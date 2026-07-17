@@ -22,9 +22,9 @@
     "release": "turbo run build && changeset publish --tag next"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.9",
-    "prettier": "^3.3.3",
-    "turbo": "^2.2.3",
+    "@changesets/cli": "^2.31.1",
+    "prettier": "^3.9.5",
+    "turbo": "^2.10.5",
     "typescript": "^5.6.3"
   }
 }
