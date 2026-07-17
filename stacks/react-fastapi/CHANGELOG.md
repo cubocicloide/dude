@@ -1,5 +1,11 @@
 # @cubocicloide/stack-react-fastapi
 
+## 13.0.7
+
+### Patch Changes
+
+- f331a76: Document `dude info` and `dude report` in the generated project's "Working with dude" docs page, so a bug in dude itself (rather than the app) has a clear, discoverable path to a well-formed report.
+
 ## 13.0.6
 
 ### Patch Changes
