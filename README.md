@@ -1,5 +1,8 @@
 # dude
 
+[![CI](https://github.com/cubocicloide/dude/actions/workflows/ci.yml/badge.svg)](https://github.com/cubocicloide/dude/actions/workflows/ci.yml)
+[![License: source-available](https://img.shields.io/badge/license-source--available-blue.svg)](LICENSE)
+
 > Cubocicloide's project scaffolding & code-quality CLI.
 > Multi-stack, plugin-based, distributed via GitHub Packages.
 
