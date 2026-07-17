@@ -66,11 +66,22 @@ dude init my-app --stack <new-stack> --next
 
 ## Filing a bug report
 
-Bugs are tracked as GitHub issues on
-[cubocicloide/dude](https://github.com/cubocicloide/dude/issues). Opening a new
-issue presents a structured form — please use it rather than a blank issue.
+The easiest way is to let dude do it for you:
 
-A good report includes:
+```bash
+dude report
+```
+
+This attaches your `dude info` diagnostics and opens a pre-filled issue form (or
+files it directly via `gh` if you're authenticated). See
+[`dude report`](commands.md#dude-report) for the flags. In an editor assistant
+like Claude Code, you can just say *"report this dude bug"* and let it drive the
+command.
+
+If you'd rather open the issue by hand, bugs are tracked on
+[cubocicloide/dude](https://github.com/cubocicloide/dude/issues) — the new-issue
+form is structured; please use it rather than a blank issue. A good report
+includes:
 
 1. **`dude info` output** — paste the whole block. This is the single most
    useful thing you can provide.
