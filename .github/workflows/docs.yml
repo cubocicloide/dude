@@ -1,0 +1,68 @@
+name: Docs
+
+# Builds the root MkDocs site (docs/) and deploys it to GitHub Pages.
+#
+# The build job also runs on pull requests as a `--strict` link/nav check.
+# The deploy job publishes only from master (and manual dispatch), and requires
+# GitHub Pages to be enabled with "Source: GitHub Actions" in the repo settings
+# (Settings → Pages). Until Pages is enabled, the build still validates the site
+# on every change; only the deploy step needs the setting.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; don't cancel an in-progress publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install MkDocs Material
+        run: pip install mkdocs-material
+
+      - name: Build site (strict)
+        working-directory: docs
+        run: mkdocs build --strict
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/site
+
+  deploy:
+    # Publish only from master / manual runs — never on pull requests.
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

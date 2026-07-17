@@ -1,0 +1,123 @@
+name: 🐛 Bug report
+description: Report something that isn't working as expected in the dude CLI or a stack.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! A few structured fields up front
+        save a lot of back-and-forth during triage.
+
+        **Before you start:** please search [existing issues](../issues?q=is%3Aissue)
+        to check this hasn't already been reported.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of dude is affected?
+      options:
+        - CLI runtime (dude core — init/up/lint/…)
+        - Launcher (global shim)
+        - A stack (select below)
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stack
+    attributes:
+      label: Stack
+      description: If the bug is in a stack, which one? Leave as "N/A" for core/launcher bugs.
+      options:
+        - "N/A"
+        - react-fastapi
+        - react-django
+        - fastmcp
+        - tauri
+        - frappe
+        - airflow
+    validations:
+      required: true
+
+  - type: textarea
+    id: versions
+    attributes:
+      label: Diagnostics
+      description: |
+        Paste the output of `dude info` (run inside your project if you have one).
+        It reports your OS, Node/pnpm/Docker, and the pinned dude + stack versions.
+      placeholder: |
+        $ dude info
+        ```
+        dude info
+
+        CLI:     @cubocicloide/dude 0.13.0
+        Stack:   @cubocicloide/stack-react-fastapi@13.0.3
+        Pinned:  dude 0.13.0 (dude.json)
+
+        OS:      Darwin 25.5.0 (arm64)
+        Node:    v20.17.0
+        pnpm:    9.6.0
+        Docker:  Docker version 27.3.1, build ce1223035a
+        ```
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and output
+      description: The exact command you ran and the full output/error (redact any secrets).
+      placeholder: |
+        $ dude init my-app --stack react-fastapi --database postgres --yes
+        <full output / stack trace here>
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: A minimal, ordered list of steps so we can reproduce it from scratch.
+      placeholder: |
+        1. `dude init my-app --stack react-fastapi --yes`
+        2. `cd my-app`
+        3. `dude up`
+        4. See error …
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else — screenshots, related config, `dude.json`, workarounds tried.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and this hasn't been reported yet.
+          required: true
+        - label: I'm on a supported Node version and ran `pnpm install` for this project.
+          required: true

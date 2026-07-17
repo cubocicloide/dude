@@ -20,6 +20,9 @@ STACK      ?= react-fastapi
 OUT        ?= test-local
 STACK_OPTS ?= --database postgres --celery --celerybeat --iac aws-eks
 
+# Host port for `make docs` (root MkDocs site) — mirrors the scaffold's `dude docs`.
+DOCS_PORT  ?= 8001
+
 # ---------------------------------------------------------------------------
 # Help
 # ---------------------------------------------------------------------------
@@ -104,6 +107,18 @@ dev-init: ## Tear down, re-scaffold, and relink — make dev-init [STACK=react-f
 	@printf "  \033[32m✓\033[0m  Local dude binary linked\n"
 	@printf "  \033[36mℹ\033[0m  Run commands: \033[1mmake dev-run ARGS=\"lint\"\033[0m\n"
 	@printf "  \033[36mℹ\033[0m  For HMR: keep \033[1mmake dev\033[0m running in a second terminal\n\n"
+
+##@ Docs
+
+.PHONY: docs
+docs: ## Serve the project docs (docs/) with live-reload at http://localhost:8001
+	@if ! docker info >/dev/null 2>&1; then \
+		printf "  \033[31m✗\033[0m  Docker is not running. Start Docker Desktop and retry.\n"; \
+		exit 1; \
+	fi
+	@printf "  \033[36mℹ\033[0m  Serving docs at \033[1mhttp://localhost:$(DOCS_PORT)\033[0m (Ctrl+C to stop)\n"
+	docker run --rm -it -p $(DOCS_PORT):8000 -v "$(CURDIR)/docs":/docs \
+		squidfunk/mkdocs-material serve --dev-addr=0.0.0.0:8000
 
 ##@ Quality
 
