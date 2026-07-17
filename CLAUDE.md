@@ -401,6 +401,56 @@ version. A brand-new package has no `latest` tag until its first promotion —
 
 ---
 
+## Issue lifecycle & repo automation
+
+How a report travels from a user's editor to a released fix. Maintenance uses a
+**hybrid model**: deterministic bots run in CI (free on a public repo, no AI);
+the intelligent work runs **on demand, locally**, on a maintainer's machine with
+their own Claude account (cost-shared, and no untrusted issue text ever drives
+an automated CI action).
+
+**1. Report.** Users file via the GitHub issue forms
+(`.github/ISSUE_TEMPLATE/`), or — best — via `dude report`, which attaches
+`dude info` diagnostics and files a pre-filled, correctly-labelled issue on this
+repo (see the core command reference). Both apply the `triage` label.
+
+**2. Triage (local, human-gated).** A maintainer runs the **`triage-issues`**
+skill (`.claude/skills/triage-issues/`): it works the `triage` backlog — assess
+validity, detect duplicates, apply `stack:*` / `needs-repro` labels — and
+**proposes** actions for approval. It never closes a valid issue on its own and
+never touches code.
+
+**3. Fix (local, human-gated).** For issues that are ready, the **`fix-issues`**
+skill (`.claude/skills/fix-issues/`) drives the **`issue-fixer`** agent
+(`.claude/agents/issue-fixer.md`): one issue per isolated git worktree →
+implementation → a pull request. **Never auto-merged** — PRs are reviewed like
+any other.
+
+**4. Release.** The merged fix flows through the normal channel: `make
+changeset` → CI publishes to `next` → `make promote` to `latest` (see Release
+workflow above).
+
+**Deterministic CI bots** (`.github/workflows/`, `.github/dependabot.yml`):
+
+| File | Role |
+| ---- | ---- |
+| `ci.yml` | typecheck + lint + build + tests + Docker global-install smoke |
+| `release.yml` | Changesets publish to the `next` dist-tag |
+| `docs.yml` | build `docs/` (`--strict`) + deploy to Pages (inert until Pages is enabled) |
+| `stale.yml` | age out inactive issues/PRs (60/14 days; exempt `pinned`/`security`/`roadmap`/milestone/assignee) |
+| `greetings.yml` | welcome first-time contributors |
+| `dependabot.yml` | weekly grouped npm + github-actions updates |
+
+> **Promoting triage to CI.** If volume outgrows on-demand triage, the same
+> `triage-issues`/`issue-fixer` logic can move into CI via
+> `anthropics/claude-code-action` + an `ANTHROPIC_API_KEY` secret — but keep
+> destructive/expensive actions (auto-fix, closing) gated behind a maintainer
+> label or `@claude` mention, never auto-triggered on a public event. CodeQL,
+> secret scanning, and push protection are enabled as Settings toggles at
+> go-public time. See `CONTRIBUTING.md` for the maintainer-facing details.
+
+---
+
 ## Key invariants
 
 - **Every lint check ↔ one `.claude/rules/NNN.md`**: always keep them in sync.
