@@ -92,3 +92,29 @@ includes:
 For "how do I…?" questions rather than bugs, use
 [GitHub Discussions](https://github.com/cubocicloide/dude/discussions) instead —
 it keeps the issue tracker focused on actionable defects.
+
+---
+
+## What happens after you report
+
+Knowing the journey helps set expectations:
+
+1. **Triage.** A maintainer reviews the issue, confirms it's reproducible, and
+   labels it — by stack (`stack:react-fastapi`, …) and, if the report is missing
+   information, `needs-repro`. If it duplicates an existing issue, you'll get a
+   link to the original. Triage is AI-assisted but **always confirmed by a
+   human** — nothing valid is closed automatically.
+2. **Fix.** When an issue is ready, a maintainer implements it and opens a pull
+   request. AI tooling may draft the fix, but every change is **reviewed by a
+   person** before it merges — nothing is auto-merged.
+3. **Release.** Once merged, the fix publishes to the **candidate** channel
+   (`next`) and, after verification, is promoted to **stable** (`latest`). Pull
+   it into your project with `dude upgrade` (add `--next` to try the candidate
+   early). See [How it works → release channels](concepts.md#release-channels).
+
+!!! note "Housekeeping"
+    Issues with no activity for a couple of months are marked stale and
+    eventually closed to keep the tracker honest — a comment reopens the
+    conversation any time. Contributors and maintainers run this triage and fix
+    tooling locally with their own Claude accounts; if you'd like to help, see
+    [CONTRIBUTING](https://github.com/cubocicloide/dude/blob/master/CONTRIBUTING.md).

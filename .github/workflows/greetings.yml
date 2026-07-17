@@ -1,0 +1,44 @@
+name: Greetings
+
+# Welcome first-time contributors and point them at the docs and conventions.
+# Only fires on a person's *first* issue or PR in this repo.
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: >
+            👋 Thanks for opening your first issue on **dude**! A couple of
+            pointers so we can help quickly:
+
+            • If this is a bug, the fastest way to file a complete report is
+            `dude report` (it attaches `dude info` diagnostics for you).
+
+            • For "how do I…?" questions, our
+            [Discussions](https://github.com/cubocicloide/dude/discussions) are a
+            better fit than an issue.
+
+            • Our [docs](https://github.com/cubocicloide/dude#documentation) cover
+            most workflows. A maintainer will take a look soon — thanks for the
+            report!
+          pr-message: >
+            🎉 Thanks for your first pull request to **dude**! Please make sure
+            you've skimmed
+            [CONTRIBUTING.md](https://github.com/cubocicloide/dude/blob/master/CONTRIBUTING.md)
+            and the PR checklist. If your change touches a published package,
+            don't forget a changeset (`make changeset`). A maintainer will review
+            shortly — welcome aboard!

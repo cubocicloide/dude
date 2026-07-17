@@ -210,6 +210,48 @@ normal path (and it, too, publishes to `next`).
 
 ---
 
+## Issue triage & automation
+
+Repo maintenance is split into two halves by design.
+
+**Deterministic, always-on (GitHub Actions — free on a public repo, no AI):**
+
+- **Stale bot** (`.github/workflows/stale.yml`) ages out issues/PRs with no
+  activity for 60 days (closes after a further 14). Exempt via the `pinned`,
+  `security`, or `roadmap` labels, a milestone, or an assignee.
+- **Dependabot** (`.github/dependabot.yml`) opens weekly, grouped dependency
+  and GitHub-Actions update PRs.
+- **Greetings** (`.github/workflows/greetings.yml`) welcomes first-time
+  contributors.
+
+**On-demand AI, run locally by maintainers (your own Claude session):**
+
+The intelligent work — triage, duplicate detection, and fixing — runs on a
+maintainer's machine, invoked by hand. There is no hosted AI bot: each
+maintainer or contributor uses their **own** Claude account, so the cost is
+shared rather than centralised, and untrusted issue text never drives an
+automated action in CI.
+
+- **`triage-issues`** skill — work through the `triage`-labelled backlog:
+  assess validity, find duplicates, apply `stack:*` / `needs-repro` labels.
+  It proposes actions and waits for your approval; it never closes a valid
+  issue on its own.
+- **`fix-issues`** skill + **`issue-fixer`** agent — implement a chosen issue in
+  an isolated git worktree and open a PR for review. Never auto-merged.
+
+A typical session: run `triage-issues` to clean and label the backlog, hand the
+ready ones to `fix-issues`, then review the PRs like any other.
+
+> **Promoting triage to CI later.** If issue volume outgrows on-demand triage,
+> the same logic can move into GitHub Actions via `anthropics/claude-code-action`
+> with an `ANTHROPIC_API_KEY` secret — always-on, but metered and requiring
+> care with untrusted input. Keep destructive/expensive actions (auto-fix,
+> closing) gated behind a maintainer label or `@claude` mention, never
+> auto-triggered on a public event. Enable **CodeQL** (default setup, Settings →
+> Security) and **secret scanning + push protection** at go-public time.
+
+---
+
 ## End-user documentation lives in the templates
 
 The documentation that ships _inside generated projects_ — the full `dude` API
