@@ -4,11 +4,12 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-# Optional local secrets (gitignored). Currently just GITHUB_TOKEN_ADMIN — a
-# write:packages token used by `make promote`/`make dist-tags` so maintainers
-# don't need a more-privileged token in their everyday shell GITHUB_TOKEN.
+# Optional local secrets (gitignored). NPM_TOKEN — an npmjs.com automation token
+# used by `make promote`/`make dist-tags`/`make release` so maintainers don't
+# need an interactive `npm login`. If unset, those targets fall back to whatever
+# npm auth is already configured (e.g. after `npm login`).
 -include .env
-export GITHUB_TOKEN_ADMIN
+export NPM_TOKEN
 
 # Pass extra args to the local CLI: `make cli ARGS="init --stack react-fastapi"`
 ARGS  ?=
@@ -166,7 +167,6 @@ test-watch-stack: build ## Watch-test the stack package
 test-install: ## Smoke-test the globally-installed binary end-to-end in Docker (mirrors CI)
 	docker run --rm \
 		-v "$(CURDIR):/dude-src:ro" \
-		--env GITHUB_TOKEN="$${GITHUB_TOKEN}" \
 		node:20 \
 		bash -c 'set -e; mkdir -p /dude; \
 			tar -C /dude-src --exclude=node_modules --exclude=dist --exclude=.git -cf - . | tar -C /dude -xf -; \
@@ -202,7 +202,7 @@ version: ## Apply pending changesets to package.json and CHANGELOGs
 	pnpm run version-packages
 
 .PHONY: release
-release: ## Build and publish updated packages to GitHub Packages (emergency/manual only — CI handles normal releases)
+release: ## Build and publish updated packages to npmjs (emergency/manual only — CI handles normal releases)
 	pnpm run release
 
 # ── Release channels ─────────────────────────────────────────────────────────
@@ -211,10 +211,20 @@ release: ## Build and publish updated packages to GitHub Packages (emergency/man
 # only moves when a maintainer explicitly promotes a verified version:
 #
 #   make promote PKG=stack-react-fastapi              # promote current `next`
-#   make promote PKG=dude VERSION=0.13.0              # promote a specific version
+#   make promote PKG=dude VERSION=0.15.0              # promote a specific version
 #
-# Promotion needs a token with the `write:packages` scope, picked up (in order)
-# from GITHUB_TOKEN_ADMIN in .env, then GITHUB_TOKEN in the shell environment.
+# Promotion writes an npmjs dist-tag, so it needs npm publish auth on the
+# @cubocicloide scope: either `npm login`, or NPM_TOKEN in .env (an npmjs
+# automation token) which these targets pick up automatically.
+
+# Shell prelude shared by promote/dist-tags: if NPM_TOKEN is set, point npm at a
+# throwaway userconfig carrying the auth line (never touches ~/.npmrc).
+NPM_AUTH_PRELUDE = if [ -n "$$NPM_TOKEN" ]; then \
+		tmpnpmrc=$$(mktemp); \
+		printf '//registry.npmjs.org/:_authToken=%s\n' "$$NPM_TOKEN" > "$$tmpnpmrc"; \
+		export npm_config_userconfig="$$tmpnpmrc"; \
+		trap 'rm -f "$$tmpnpmrc"' EXIT; \
+	fi
 
 .PHONY: promote
 promote: ## Promote a published version to stable — make promote PKG=<name> [VERSION=<x.y.z>]
@@ -223,9 +233,9 @@ promote: ## Promote a published version to stable — make promote PKG=<name> [V
 		printf "     e.g. make promote PKG=stack-react-fastapi\n"; \
 		exit 1; \
 	fi
-	@export GITHUB_TOKEN="$${GITHUB_TOKEN_ADMIN:-$$GITHUB_TOKEN}"; \
-	if [ -z "$$GITHUB_TOKEN" ]; then \
-		printf "  \033[31m✗\033[0m  No token found — set GITHUB_TOKEN_ADMIN in .env or GITHUB_TOKEN in your shell (needs write:packages).\n"; \
+	@$(NPM_AUTH_PRELUDE); \
+	if ! npm whoami --registry=https://registry.npmjs.org >/dev/null 2>&1; then \
+		printf "  \033[31m✗\033[0m  Not authenticated to npmjs — run \`npm login\` or set NPM_TOKEN in .env.\n"; \
 		exit 1; \
 	fi; \
 	name="$(PKG)"; case "$$name" in @*) ;; *) name="@cubocicloide/$$name";; esac; \
@@ -240,7 +250,7 @@ promote: ## Promote a published version to stable — make promote PKG=<name> [V
 	current=$$(npm view "$$name" dist-tags.latest 2>/dev/null); \
 	printf "  \033[33m→\033[0m  Promoting %s@%s to \`latest\` (currently: %s)\n" "$$name" "$$version" "$${current:-none}"; \
 	npm dist-tag add "$$name@$$version" latest || { \
-		printf "  \033[31m✗\033[0m  Promotion failed — does the token have write:packages?\n"; \
+		printf "  \033[31m✗\033[0m  Promotion failed — is your npm auth valid (publish rights on the @cubocicloide scope)?\n"; \
 		exit 1; \
 	}; \
 	printf "  \033[32m✓\033[0m  Channels now:\n"; \
@@ -248,7 +258,7 @@ promote: ## Promote a published version to stable — make promote PKG=<name> [V
 
 .PHONY: dist-tags
 dist-tags: ## Show release channels (dist-tags) of every publishable package
-	@export GITHUB_TOKEN="$${GITHUB_TOKEN_ADMIN:-$$GITHUB_TOKEN}"; \
+	@$(NPM_AUTH_PRELUDE); \
 	for dir in packages/* stacks/*; do \
 		name=$$(node -p "require('./$$dir/package.json').name" 2>/dev/null); \
 		[ -n "$$name" ] || continue; \

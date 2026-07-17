@@ -134,19 +134,16 @@ export default defineStack({
 
       ctx.logger.info('Project scaffolded. Next steps:')
       ctx.logger.info('')
-      ctx.logger.info('  1. Set your GitHub token (needed to install the pinned toolchain):')
-      ctx.logger.info('       export GITHUB_TOKEN=<your-pat>')
-      ctx.logger.info('')
-      ctx.logger.info('  2. Install the dude launcher once (globally), then provision the project:')
+      ctx.logger.info('  1. Install the dude launcher once (globally), then provision the project:')
       ctx.logger.info('       npm install -g @cubocicloide/dude-launcher')
       ctx.logger.info(`       cd ${name} && pnpm install`)
       ctx.logger.info('     From now on `dude <cmd>` runs this project’s pinned CLI + stack.')
       ctx.logger.info('')
-      ctx.logger.info('  3. Start the stack:')
+      ctx.logger.info('  2. Start the stack:')
       ctx.logger.info('       dude up --build')
       ctx.logger.info('')
       if (withPostgres) {
-        ctx.logger.info('  4. Run migrations (after the stack is up):')
+        ctx.logger.info('  3. Run migrations (after the stack is up):')
         ctx.logger.info('       dude db migrate')
         ctx.logger.info('       # To create a new migration after model changes:')
         ctx.logger.info('       dude db makemigration --message "describe change"')
@@ -154,7 +151,7 @@ export default defineStack({
       }
       if (withCelery) {
         ctx.logger.info(
-          `  ${withPostgres ? '5' : '4'}. Celery workers are started automatically by docker compose.`,
+          `  ${withPostgres ? '4' : '3'}. Celery workers are started automatically by docker compose.`,
         )
         ctx.logger.info('     To monitor tasks, open http://localhost:5555 (Flower).')
         ctx.logger.info('')

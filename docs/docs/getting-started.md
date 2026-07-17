@@ -8,33 +8,13 @@ This guide takes you from nothing to a running project.
 
 - **Docker Desktop**, running. `dude` runs the whole stack in containers.
 - **Node.js ≥ 20** and **pnpm**.
-- A **GitHub personal access token** with the `read:packages` scope — `dude`
-  ships as a private package on GitHub Packages.
+
+`dude` is published on the public npm registry — no registry auth or token is
+needed to install it.
 
 ---
 
-## 1. Authenticate the registry (one-time per machine)
-
-Add the `@cubocicloide` scope to your `~/.npmrc`:
-
-```ini
-@cubocicloide:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-Then export the token from your shell profile:
-
-```bash
-export GITHUB_TOKEN=ghp_your_token_here
-```
-
-!!! tip "Verify"
-    `npm whoami --registry=https://npm.pkg.github.com` should print your GitHub
-    username once the token is picked up.
-
----
-
-## 2. Install the launcher (the only global install)
+## 1. Install the launcher (the only global install)
 
 ```bash
 npm install -g @cubocicloide/dude-launcher
@@ -47,7 +27,7 @@ how many projects or versions you juggle.
 
 ---
 
-## 3. Scaffold a project
+## 2. Scaffold a project
 
 ```bash
 dude init my-app
@@ -67,7 +47,7 @@ the newest candidate release. See [release channels](concepts.md#release-channel
 
 ---
 
-## 4. Provision the toolchain
+## 3. Provision the toolchain
 
 ```bash
 cd my-app
@@ -79,7 +59,7 @@ single source of truth for which versions this project runs.
 
 ---
 
-## 5. Start everything
+## 4. Start everything
 
 ```bash
 dude up            # build images + start every service
@@ -98,7 +78,7 @@ project exposes:
 
 ---
 
-## 6. Explore
+## 5. Explore
 
 ```bash
 dude help          # live command catalog — reflects your init choices

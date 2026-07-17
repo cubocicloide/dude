@@ -38,7 +38,7 @@ function ensureNodeModules(dir: string, executable?: string): boolean {
       : 'node_modules not found — running npm install…\n',
   )
   // Use npm --prefix to avoid pnpm workspace detection walking up to the
-  // monorepo root, which would fail on machines without GitHub Packages access.
+  // monorepo root, which would resolve against the wrong registry/workspace.
   return exec('npm', ['install', '--prefix', dir, '--silent'], dir)
 }
 

@@ -7,7 +7,7 @@ allowed-tools: 'Bash(git *), Bash(make *), Bash(pnpm *), Bash(npm *)'
 # Skill: promote-stable
 
 Use this skill when asked to promote a released package version to **stable** —
-i.e. move the `latest` dist-tag on GitHub Packages so that `dude init` /
+i.e. move the `latest` dist-tag on npmjs.com so that `dude init` /
 `dude upgrade` start resolving that version by default.
 
 ## Background — the two release channels
@@ -27,21 +27,21 @@ promote the CLI, and vice versa.
 
 ## Step 0 — Prerequisites
 
-A token with **`write:packages`** scope must be available for `make promote` /
-`make dist-tags` — these targets read `GITHUB_TOKEN_ADMIN` from the repo-root
-`.env` (gitignored) if present, falling back to `GITHUB_TOKEN` in the shell.
-Keeping it in `.env` as `GITHUB_TOKEN_ADMIN` means the everyday `GITHUB_TOKEN`
-(often only `read:packages`, per the README setup) doesn't need elevating:
+npm publish auth on the **`@cubocicloide`** scope must be available for
+`make promote` / `make dist-tags`. Either run `npm login` once, or set an npmjs
+**automation token** as `NPM_TOKEN` in the repo-root `.env` (gitignored) — the
+targets pick it up automatically via a throwaway userconfig (never touching
+`~/.npmrc`):
 
 ```ini
 # .env (repo root, gitignored)
-GITHUB_TOKEN_ADMIN=ghp_your_write_packages_token
+NPM_TOKEN=npm_your_automation_token
 ```
 
 Verify it resolves:
 
 ```bash
-make dist-tags   # lists channels for every package — fails loudly if no token is found
+make dist-tags   # lists channels for every package
 ```
 
 ## Step 1 — Identify the candidate

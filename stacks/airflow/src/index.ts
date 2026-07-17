@@ -77,22 +77,19 @@ export default defineStack({
 
       ctx.logger.info('Project scaffolded. Next steps:')
       ctx.logger.info('')
-      ctx.logger.info('  1. Set your GitHub token (needed to install the pinned toolchain):')
-      ctx.logger.info('       export GITHUB_TOKEN=<your-pat>')
-      ctx.logger.info('')
-      ctx.logger.info('  2. Install the dude launcher once (globally), then provision the project:')
+      ctx.logger.info('  1. Install the dude launcher once (globally), then provision the project:')
       ctx.logger.info('       npm install -g @cubocicloide/dude-launcher')
       ctx.logger.info(`       cd ${name} && pnpm install`)
       ctx.logger.info('     From now on `dude <cmd>` runs this project’s pinned CLI + stack.')
       ctx.logger.info('')
       if (withEntraId) {
-        ctx.logger.info('  3. Fill the Entra ID app registration values in .env:')
+        ctx.logger.info('  2. Fill the Entra ID app registration values in .env:')
         ctx.logger.info('       AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET')
         ctx.logger.info('     (see docs/docs/sso.md for the app-registration walkthrough)')
         ctx.logger.info('')
-        ctx.logger.info('  4. Start Airflow:')
-      } else {
         ctx.logger.info('  3. Start Airflow:')
+      } else {
+        ctx.logger.info('  2. Start Airflow:')
       }
       ctx.logger.info('       dude up --build')
       ctx.logger.info('')

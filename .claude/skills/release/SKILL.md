@@ -78,11 +78,11 @@ Or merge it through the GitHub UI.
 
 ---
 
-## Step 4 — CI publishes to GitHub Packages
+## Step 4 — CI publishes to npmjs.com
 
 Merging the "Version Packages" PR triggers the **Publish** job in CI, which
 runs `pnpm publish --filter` for each bumped package and pushes to
-`https://npm.pkg.github.com/@cubocicloide/`.
+`https://registry.npmjs.org/@cubocicloide/` (public, under the `next` dist-tag).
 
 Monitor the Actions run:
 
@@ -131,8 +131,8 @@ make promote PKG=<name>          # e.g. PKG=stack-react-fastapi
 
 - Do **not** manually edit `package.json` version fields — changeset tooling
   manages these.
-- Do **not** run `pnpm publish` locally — the CI job handles auth via
-  `GITHUB_TOKEN`.
+- Do **not** run `pnpm publish` locally — the CI job handles npmjs auth via the
+  `NPM_TOKEN` secret.
 - The `CHANGELOG.md` in each package is auto-generated from changeset summaries;
   the "Unreleased" section in `stacks/react-fastapi/CHANGELOG.md` is a
   hand-maintained supplement for in-progress notes.

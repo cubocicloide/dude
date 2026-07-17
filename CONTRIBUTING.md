@@ -43,13 +43,8 @@ dude/
 
 ## Prerequisites
 
-- Node ≥ 20, `pnpm`, and (for installing the private deps) a `GITHUB_TOKEN`
-  with `read:packages`:
-
-  ```bash
-  export GITHUB_TOKEN=ghp_xxx
-  ```
-
+- Node ≥ 20 and `pnpm`. All `@cubocicloide/*` packages are on the public npm
+  registry, so no token is needed to install.
 - For exercising the IaC overlay end-to-end: `terraform`, `kubectl`, `helm`,
   `docker`, and the `aws` CLI with credentials.
 
@@ -86,7 +81,7 @@ make dev-init
 make dev-init STACK_OPTS="--database postgres"
 
 # Run a command inside the scaffold (uses the linked local binary, not the
-# global launcher — so no GITHUB_TOKEN round-trip):
+# published CLI — so it always exercises your local source):
 make dev-run ARGS="lint"
 make dev-run ARGS="help"
 
@@ -165,7 +160,7 @@ Run `make check` before opening a PR.
 ## Releasing
 
 Releases move through **two channels**, implemented as npm dist-tags on
-GitHub Packages:
+npmjs.com:
 
 | Channel   | dist-tag | Who gets it                                                                 |
 | --------- | -------- | --------------------------------------------------------------------------- |
@@ -177,7 +172,7 @@ GitHub Packages:
 ```bash
 make changeset    # interactively record a version bump (patch/minor/major)
 # → push; CI opens a "Version Packages" PR
-# → merging that PR publishes to GitHub Packages under the `next` dist-tag
+# → merging that PR publishes to npmjs.com under the `next` dist-tag
 ```
 
 At this point `latest` has **not** moved: existing users are untouched.
@@ -192,13 +187,13 @@ dude init my-check --stack react-fastapi --next --yes
 cd my-check && pnpm install && dude lint
 ```
 
-**3. Promote to stable** — once the candidate has proven itself (needs a
-`write:packages` token; `make promote`/`make dist-tags` read `GITHUB_TOKEN_ADMIN`
-from a repo-root `.env`, gitignored, falling back to `GITHUB_TOKEN`):
+**3. Promote to stable** — once the candidate has proven itself (needs npm
+publish auth on the `@cubocicloide` scope; `make promote`/`make dist-tags` use
+`NPM_TOKEN` from a repo-root `.env`, gitignored, falling back to your `npm login`):
 
 ```bash
 make promote PKG=stack-react-fastapi          # promote what `next` points to
-make promote PKG=dude VERSION=0.13.0          # or a specific version
+make promote PKG=dude VERSION=0.15.0          # or a specific version
 make dist-tags                                # inspect all channels
 ```
 

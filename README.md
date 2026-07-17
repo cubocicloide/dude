@@ -4,7 +4,7 @@
 [![License: source-available](https://img.shields.io/badge/license-source--available-blue.svg)](LICENSE)
 
 > Cubocicloide's project scaffolding & code-quality CLI.
-> Multi-stack, plugin-based, distributed via GitHub Packages.
+> Multi-stack, plugin-based, published on npm.
 
 `dude` turns a blank directory into a running, production-shaped project — frontend,
 backend, database, background jobs, tests, security scanning, docs, and cloud
@@ -26,29 +26,17 @@ dude up                 # everything running in Docker
 
 - **Docker Desktop**, running.
 - **Node.js ≥ 20** and **pnpm**.
-- A GitHub [personal access token](https://github.com/settings/tokens) with
-  `read:packages` — `dude` ships as a private GitHub Package.
 
-**1. Authenticate the registry** (one-time per machine). Add to `~/.npmrc`:
+`dude` is published on the public npm registry, so no registry auth or token is
+needed to install it.
 
-```ini
-@cubocicloide:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-…and export a token from your shell profile:
-
-```bash
-export GITHUB_TOKEN=ghp_your_token_here
-```
-
-**2. Install the launcher** — the only global install:
+**1. Install the launcher** — the only global install:
 
 ```bash
 npm install -g @cubocicloide/dude-launcher
 ```
 
-**3. Scaffold and run:**
+**2. Scaffold and run:**
 
 ```bash
 dude init my-app        # pick a stack, answer a few questions

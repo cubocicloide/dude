@@ -6,34 +6,26 @@ This is the documentation for **{{projectName}}** — a full-stack web applicati
 
 ## Getting started
 
-`dude` is the project CLI. It ships as a **private package** on GitHub Packages,
-so first authenticate the registry, then install the global launcher, then
-provision and start the app.
+`dude` is the project CLI, published on the public npm registry. Install the
+global launcher, then provision and start the app.
 
 ```bash
-# 1. One-time machine setup — authenticate the private @cubocicloide registry.
-#    Add to ~/.npmrc:
-#      @cubocicloide:registry=https://npm.pkg.github.com
-#      //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-#    …and export a GitHub token with the `read:packages` scope:
-export GITHUB_TOKEN=ghp_your_token_here
-
-# 2. Install the dude launcher globally (the only global install).
+# 1. Install the dude launcher globally (the only global install).
 npm install -g @cubocicloide/dude-launcher
 
-# 3. Scaffold the project (how {{projectName}} was created). Already inside it
+# 2. Scaffold the project (how {{projectName}} was created). Already inside it
 #    or cloned it? Skip this and go straight to `pnpm install`.
 dude init {{projectName}}
 cd {{projectName}}
 
-# 4. Provision the project's pinned toolchain (CLI + stack) from the lockfile.
+# 3. Provision the project's pinned toolchain (CLI + stack) from the lockfile.
 pnpm install
 
-# 5. Build the images and start every service (first run).
+# 4. Build the images and start every service (first run).
 dude up
 {{#if withPostgres}}
 
-# 6. Apply migrations and seed demo data (first run only — see below).
+# 5. Apply migrations and seed demo data (first run only — see below).
 dude reset
 {{/if}}
 ```

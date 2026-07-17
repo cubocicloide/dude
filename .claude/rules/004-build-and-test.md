@@ -45,7 +45,6 @@ in CI. If it fails only in CI, check:
 
 - The stack was rebuilt before scaffolding (`make build` in CI).
 - Node version matches (`.nvmrc` or `engines` field in `package.json`).
-- GitHub token is set for private package installs.
 
 ## Checking TypeScript errors
 
