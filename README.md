@@ -85,8 +85,8 @@ make docs          # → http://localhost:8001
 
 Inside a **generated project**, run `dude docs` for that project's own reference
 and `dude help` for the live command catalog (it reflects your init choices).
-Stuck? `dude info` prints an environment report you can paste into a bug
-report.
+Stuck? `dude info` prints an environment report, and `dude report` files a
+pre-filled bug report against dude for you.
 
 ---
 

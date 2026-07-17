@@ -92,6 +92,52 @@ Docker:  Docker version 27.3.1, build ce1223035a
 
 ---
 
+## `dude report`
+
+File a bug report about **dude itself** — the CLI or a stack — against the dude
+project, with your `dude info` diagnostics attached automatically. Use it when a
+`dude` command misbehaves (not for bugs in your own application code).
+
+```bash
+dude report
+```
+
+Bare, it opens a pre-filled issue form in your browser — the diagnostics and
+your stack are already filled in; you just add the prose. If you have the
+[GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated, pass
+the details as flags and it files the issue directly:
+
+```bash
+dude report \
+  --title "dude up crashes the backend on a missing migration" \
+  --command "dude up --build" \
+  --expected "backend starts and applies migrations" \
+  --actual "backend exits 1 with an alembic revision error" \
+  --repro "1. dude db rollback
+2. dude up --build"
+```
+
+| Flag | Meaning |
+| ---- | ------- |
+| `--title` | Short summary of the problem. |
+| `--command` | The dude command you ran, plus its output/error. |
+| `--expected` / `--actual` | What you expected vs. what happened. |
+| `--repro` | Steps to reproduce (newline-separated). |
+| `--context` | Any additional context. |
+| `--web` | Force the browser form even if `gh` is available. |
+| `--print` | Assemble and print the report; create or open nothing. |
+
+!!! tip "Reporting from your editor"
+    In an editor assistant like Claude Code, just say *"report this dude bug"* —
+    it can gather the error, run the diagnostics, and drive `dude report` with
+    the flags above. The command owns the target repo and the form mapping, so
+    the report always lands correctly formatted on the right project.
+
+Issues are filed on `cubocicloide/dude`. Set `DUDE_ISSUES_REPO=<owner>/<repo>`
+to target a fork.
+
+---
+
 ## `dude help`
 
 Show the merged command catalog, or the flags of a single command / group.

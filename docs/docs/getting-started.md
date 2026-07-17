@@ -104,6 +104,7 @@ project exposes:
 dude help          # live command catalog — reflects your init choices
 dude docs          # the project's full docs at http://localhost:8001
 dude info          # environment diagnostics (handy for bug reports)
+dude report        # hit a dude bug? file a pre-filled issue for it
 ```
 
 `dude help` and `dude docs` always reflect the **resolved** command set: core
