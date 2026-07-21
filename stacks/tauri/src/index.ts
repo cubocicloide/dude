@@ -6,6 +6,7 @@ import {
   androidInitCommand,
 } from './commands/android/index.js'
 import { buildCommand } from './commands/build/index.js'
+import { convertElectronCommand } from './commands/convert/index.js'
 import { devCommand } from './commands/dev/index.js'
 import { docsCommand } from './commands/docs/index.js'
 import { doctorCommand } from './commands/doctor/index.js'
@@ -76,7 +77,9 @@ export default defineStack({
       logger.info('')
       logger.info('Next steps:')
       logger.info(`  1. cd ${name}`)
-      logger.info('  2. export GITHUB_TOKEN=<token with read:packages>  # for @cubocicloide registry')
+      logger.info(
+        '  2. export GITHUB_TOKEN=<token with read:packages>  # for @cubocicloide registry',
+      )
       logger.info('  3. pnpm install')
       logger.info('  4. dude doctor   # verify Rust + platform prerequisites')
       logger.info('  5. dude dev      # run the desktop app with hot-reload')
@@ -97,6 +100,9 @@ export default defineStack({
     review: reviewCommand,
     test: testCommand,
     docs: docsCommand,
+    convert: {
+      electron: convertElectronCommand,
+    },
     android: {
       init: androidInitCommand,
       dev: androidDevCommand,

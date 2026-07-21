@@ -14,6 +14,7 @@ src-tauri/gen/schemas/
 
 # Scratch / local
 private/
+.dude/cache/
 
 # OS
 .DS_Store

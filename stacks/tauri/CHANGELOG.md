@@ -1,5 +1,15 @@
 # @cubocicloide/stack-tauri
 
+## Unreleased
+
+### Minor Changes
+
+- Add `/convert-electron <path>` to generated Tauri projects and the supporting
+  `dude convert electron --source <path>` analyzer. The workflow inventories a
+  React/Vite Electron app without modifying it, then guides a semantic migration
+  of the renderer, identity, IPC, native integrations, data, tests, and
+  least-privilege capabilities into the clean Dude Tauri scaffold.
+
 ## 2.0.2
 
 ### Patch Changes

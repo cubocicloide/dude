@@ -18,7 +18,8 @@ mobile (iOS, Android) from the same codebase:
 
 Commands: `dude dev`, `dude build`, `dude android init|dev|build`,
 `dude ios init|dev|build`, `dude doctor`, `dude icon`, `dude lint`,
-`dude format`, `dude review`, `dude test`, `dude docs`.
+`dude format`, `dude review`, `dude test`, `dude docs`, and
+`dude convert electron --source <path>`.
 
 `dude lint` enforces the stack's structural conventions: 11 frontend checks
 (FE001–FE011) and 12 Rust/Tauri checks (BE001–BE012), each documented in the
@@ -33,3 +34,18 @@ pnpm install
 dude doctor   # verify Rust + platform prerequisites
 dude dev      # run the desktop app with hot-reload
 ```
+
+## Convert an Electron app
+
+Start from a clean Tauri scaffold, then invoke the generated Claude skill with
+the React/Vite Electron project as its read-only source:
+
+```bash
+dude init --stack tauri new-app
+cd new-app
+/convert-electron C:\path\to\electron-app
+```
+
+The skill calls `dude convert electron --source <path>` to create a deterministic
+inventory, then migrates the renderer, Electron IPC/main-process behavior,
+identity, native integrations, tests, and capabilities into Tauri 2.

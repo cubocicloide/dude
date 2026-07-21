@@ -67,6 +67,7 @@ Run `dude help` for the live catalog (it includes `.dude/commands/` too).
 | `dude build` | Build distributable installers (`--debug`, `--bundles <list>`, `--target <triple>`). |
 | `dude doctor` | Verify Node, Rust and platform prerequisites (desktop + mobile). |
 | `dude icon` | Regenerate `src-tauri/icons/` from `app-icon.png` (`--source <png>`). |
+| `dude convert electron --source <path>` | Analyze a React/Vite Electron source for `/convert-electron`. |
 
 > Installers from `dude build` are **ad-hoc signed** by default: they run on
 > the build machine but show *"damaged"* (macOS) or a SmartScreen warning
@@ -98,6 +99,14 @@ Run `dude help` for the live catalog (it includes `.dude/commands/` too).
 | Command | Meaning |
 | ------- | ------- |
 | `dude docs` | Serve MkDocs at http://localhost:8001 (requires Docker; `--port <n>`). |
+
+### Claude skills
+
+| Skill | Meaning |
+| ----- | ------- |
+| `/convert-electron <path>` | Convert a read-only React/Vite Electron project into this fresh Tauri scaffold. |
+| `/create-command` | Add a Rust command domain and its typed frontend IPC wrappers. |
+| `/create-page` | Add a routed React page following the frontend conventions. |
 
 ---
 
