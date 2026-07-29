@@ -1,5 +1,11 @@
 # @cubocicloide/dude
 
+## 0.15.1
+
+### Patch Changes
+
+- 36aace0: Bump runtime dependencies for the dude CLI.
+
 ## 0.15.0
 
 ### Minor Changes
