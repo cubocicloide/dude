@@ -7,6 +7,7 @@ import { upgradeCommand } from './commands/upgrade/index.js'
 import { versionCommand } from './commands/version/index.js'
 import { infoCommand } from './commands/info/index.js'
 import { reportCommand } from './commands/report/index.js'
+import { serverCommand } from './commands/server/index.js'
 import { loadStack } from './core/stack-loader.js'
 import { resolveCustomCommand } from './core/custom-commands.js'
 import type { StackCommandDef } from './core/stack-contract.js'
@@ -32,6 +33,7 @@ const main = defineCommand({
     help: helpCommand,
     init: initCommand,
     upgrade: upgradeCommand,
+    server: serverCommand,
   },
 })
 

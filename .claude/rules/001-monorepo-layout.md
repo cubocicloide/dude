@@ -16,6 +16,7 @@ paths:
 | `stacks/fastmcp/`         | `@cubocicloide/stack-fastmcp`       | Stack plugin|
 | `stacks/tauri/`           | `@cubocicloide/stack-tauri`         | Stack plugin|
 | `stacks/frappe/`          | `@cubocicloide/stack-frappe`        | Stack plugin|
+| `stacks/airflow/`         | `@cubocicloide/stack-airflow`       | Stack plugin|
 
 ## Adding a new stack
 

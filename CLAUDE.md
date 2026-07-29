@@ -18,6 +18,7 @@ monorepo. Read it fully before making changes.
 | `stacks/fastmcp/`         | `@cubocicloide/stack-fastmcp`       | Stack plugin for a FastMCP (Python) server — modular MCP feature sub-servers; optional AWS ECS IaC                                                     |
 | `stacks/tauri/`           | `@cubocicloide/stack-tauri`         | Stack plugin for a Tauri 2 app (desktop + iOS/Android) — React + antd, Rust backend                                                                    |
 | `stacks/frappe/`          | `@cubocicloide/stack-frappe`        | Stack plugin for a Frappe Framework ticketing system (Frappe Helpdesk + worked-example custom app); IaC = AWS ECS Fargate (`--iac aws-ecs`)            |
+| `stacks/airflow/`         | `@cubocicloide/stack-airflow`       | Stack plugin for an Apache Airflow project — `dag list/errors/trigger/test`; IaC = AWS ECS Fargate (`--iac aws-ecs`, with `secrets`/`migrate`/`logs`)  |
 
 Everything is TypeScript + ESM. Toolchain: **pnpm workspaces**, **Turbo**, **tsup**.
 
@@ -215,8 +216,8 @@ The hello-world example + contract docs are shipped from the stack template at
 
 This is the full catalog as of the current `react-fastapi` stack. Which commands
 appear in a given project depends on the init answers: `db` requires
-`--database postgres`, the Flower monitor requires `--celery`, and the `iac`
-group requires `--iac aws-eks`. `dude help` always reflects the live, resolved
+`--database postgres` and the `iac` group requires an IaC target
+(`--iac aws-eks`/`aws-ecs`). `dude help` always reflects the live, resolved
 set (core + active stack + project-custom). Keep this table and the end-user docs
 (`templates/base/docs/`, `templates/aws-eks/docs/`) in sync when commands change.
 
@@ -230,6 +231,7 @@ set (core + active stack + project-custom). Keep this table and the end-user doc
 | `dude info`               | —                                                                                                     | Print an environment diagnostics report (OS, Node/pnpm/Docker, dude + stack versions, scaffold answers) as a copy-pasteable block for bug reports.                                                                                                            |
 | `dude report`             | `--title`, `--command`, `--expected`, `--actual`, `--repro`, `--context`, `--web`, `--print`          | File a bug report about dude itself (CLI or stack) on `cubocicloide/dude`, with `dude info` attached. Creates via `gh` when authenticated, else opens a pre-filled browser form. `--print` assembles without sending. Target repo overridable via `DUDE_ISSUES_REPO`. |
 | `dude help [group] [cmd]` | `--format md\|json`                                                                                   | Live merged catalog; `dude help <group> <sub>` shows a subcommand's flags. `--format md\|json` emits the whole catalog (used to generate the docs `api.md`).                                                                                                 |
+| `dude server`             | `--port <n>`, `--open`/`--no-open`                                                                    | Start a **local** GUI (binds `127.0.0.1` only) to manage every dude project on this machine: a persistent projects sidebar (name, stack, running/stopped/missing status), create (introspected stack-variables form) + add-existing flows, and a per-project console that runs any stack command and streams output over SSE, with run history and a decoupled **run registry** so commands survive navigation. The UI is fully introspection-driven (`stack.variables` + `buildCatalog`) — no per-command wiring. Security: Host-header + per-session-token gated, argv-array spawns, `textContent`-only output. |
 
 ### Infrastructure (Docker Compose)
 
