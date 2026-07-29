@@ -1,5 +1,12 @@
 # @cubocicloide/stack-airflow
 
+## 2.0.5
+
+### Patch Changes
+
+- Updated dependencies [36aace0]
+  - @cubocicloide/dude@0.15.1
+
 ## 2.0.4
 
 ### Patch Changes

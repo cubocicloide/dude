@@ -1,6 +1,6 @@
 {
   "name": "@cubocicloide/stack-airflow",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "dude stack plugin for an Apache Airflow project — organized DAGs & plugins, native or Entra ID SSO, optional AWS ECS Fargate IaC with the ECS executor.",
   "type": "module",
   "main": "./dist/index.js",
