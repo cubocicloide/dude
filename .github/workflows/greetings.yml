@@ -18,10 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/first-interaction@v3
+      # Pinned to a commit SHA (v3.1.0), not a moving major tag: Dependabot had
+      # already bumped v1 → v3 here without renaming inputs, which is exactly
+      # how this broke — v2 renamed repo-token/issue-message/pr-message to
+      # snake_case, and a floating tag can move again without anyone noticing.
+      - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: >
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: >
             👋 Thanks for opening your first issue on **dude**! A couple of
             pointers so we can help quickly:
 
@@ -35,7 +39,7 @@ jobs:
             • Our [docs](https://github.com/cubocicloide/dude#documentation) cover
             most workflows. A maintainer will take a look soon — thanks for the
             report!
-          pr-message: >
+          pr_message: >
             🎉 Thanks for your first pull request to **dude**! Please make sure
             you've skimmed
             [CONTRIBUTING.md](https://github.com/cubocicloide/dude/blob/master/CONTRIBUTING.md)
