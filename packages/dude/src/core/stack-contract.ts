@@ -64,13 +64,21 @@ const stackDocsPageSchema = z.object({
 
 const stackDocsIacSchema = z.object({
   /**
-   * IaC provider identifier as a string (not a shared enum type) so this
-   * schema — like `stackVariableSchema` — stays plain data: serializable,
-   * diffable, and safe to ship across a process boundary (e.g. to a future
-   * `dude help --format json`-style consumer) without pulling in the type
-   * from wherever the provider list is defined.
+   * IaC provider identifier, deliberately a free-form string rather than a
+   * closed enum: a stack maintainer must be able to ship a new target (GCP,
+   * Azure, a second AWS topology) without first landing a release of
+   * `@cubocicloide/dude` and raising their `minDudeVersion`. Stacks owning
+   * their own documentation facts is the whole point of the manifest.
+   *
+   * Consumers only ever render this value — a matrix cell, a page title — so
+   * none of them needs the set to be closed. Today's values are `aws-eks`
+   * and `aws-ecs`.
+   *
+   * Keeping it a plain string also mirrors `stackVariableSchema`: serializable,
+   * diffable, and safe to pass across a process boundary without importing the
+   * type from wherever the provider list happens to live.
    */
-  provider: z.enum(['aws-eks', 'aws-ecs']),
+  provider: z.string().min(1),
   /** The `dude init` flag value that selects this provider, e.g. `'aws-eks'`. */
   flag: z.string().min(1),
 })
