@@ -1,0 +1,75 @@
+---
+paths:
+  - "docs/**"
+  - "stacks/**"
+  - "scripts/compose-docs.mjs"
+---
+
+# Documentation composition — the stack owns its facts
+
+## The invariant
+
+A stack's documentation facts live **once**, in that stack's source: its
+`StackDefinition` (`description`, `variables`, `minDudeVersion`) plus its
+optional `docs` manifest (`tagline`, `useCases`, `technologies`, `iac`,
+`pages`). Everything the root site says about a stack is **generated** from
+those by `scripts/compose-docs.mjs`.
+
+This exists because each stack has its own maintainer. A maintainer changing
+their stack has no reason to go and edit the root site, so any fact duplicated
+there drifts — structurally, not by carelessness.
+
+## What is generated, and what is not
+
+| Path | Status |
+| ---- | ------ |
+| `docs/docs/stacks/index.md` | **generated** — stack index + comparison matrix |
+| `docs/docs/stacks/<id>.md` | **generated** — one page per stack |
+| `docs/mkdocs.yml` → the `nav:` block between `composed:stacks:start/end` | **generated** |
+| `docs/docs/{index,getting-started,concepts,commands,troubleshooting}.md` | hand-written |
+| `stacks/*/templates/base/docs/**` | hand-written (the project's own site) |
+
+Generated files carry a `<!-- GENERATED FILE — do not edit. -->` banner. To
+change what a generated page says, change either the stack's manifest or the
+renderer in `scripts/compose-docs.mjs` — then run `make docs-data`.
+
+## The workflow
+
+```bash
+make docs-data     # rebuild + regenerate the composed pages
+make docs-check    # regenerate and fail if the committed output differs
+make docs          # regenerate, then serve the site locally
+```
+
+`make docs-check` runs in `ci.yml` (not `docs.yml`). The split is deliberate:
+
+- The composer imports each stack's compiled `dist/index.js`, so it needs a full
+  build — which `ci.yml` already does.
+- Generated output is **committed**, so `docs.yml` stays a pure `mkdocs build`
+  over committed files: no Node in the Pages workflow, and its
+  `paths: docs/**` filter keeps working.
+
+## Consequences to respect
+
+- **Never hand-edit a generated page.** The next `make docs-data` silently
+  discards it, and `make docs-check` will fail in CI meanwhile.
+- **Do not bake a package version into generated output.** `changeset version`
+  rewrites versions mechanically in the Release PR, which would leave the
+  committed pages stale and break `docs-check` on `master` after every release.
+  Link to npm instead. (`minDudeVersion` is fine — it only changes when someone
+  edits the stack by hand, and that person is the one who should regenerate.)
+- **Do not switch on a closed set of IaC providers.** `docs.iac.provider` is a
+  free-form string precisely so a stack can ship a new target without a CLI
+  release; render whatever it declares. A test in
+  `packages/dude/src/core/stack-loader.test.ts` locks this in.
+- **The composer enforces lint↔rule parity.** It harvests both the check tree
+  (`stacks/<id>/src/commands/lint/checks/<GROUP>/`) and the prose rules
+  (`templates/base/.claude/rules/<GROUP>/`) and **fails** when the counts
+  diverge. That makes `.claude/rules/002-lint-template-parity.md` mechanical
+  rather than cultural — a check added without its rule file now breaks CI.
+
+## Adding a stack
+
+Beyond the steps in `001-monorepo-layout.md`, a new stack must declare a `docs`
+manifest, then `make docs-data` — which generates its page, adds its matrix row,
+and inserts it into the site nav. No hand edit to `docs/` is needed or allowed.

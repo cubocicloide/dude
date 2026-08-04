@@ -466,6 +466,11 @@ workflow above).
 ## Key invariants
 
 - **Every lint check ↔ one `.claude/rules/NNN.md`**: always keep them in sync.
+  This is now enforced mechanically — `scripts/compose-docs.mjs` harvests both
+  sides and `make docs-check` fails in CI when they diverge.
+- **The root site's stack pages are generated, never hand-edited**: stack facts
+  live in that stack's `docs` manifest; `make docs-data` regenerates
+  `docs/docs/stacks/` and the site nav. See `.claude/rules/005-docs-composition.md`.
 - **Always rebuild after changing source**: `make build` or per-filter build.
 - **Always validate with the dev scaffold loop**: change templates/lint → `make dev-init` → `dude lint`.
 - **`.hbs` files get Handlebars-processed**: use `{{variable}}` syntax; plain files are copied verbatim.

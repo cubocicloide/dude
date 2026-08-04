@@ -62,8 +62,8 @@ different `dude` versions with no switching. See
   the registry, scaffold your first project.
 - **[How it works](concepts.md)** — the launcher, pinned toolchains, stack
   plugins, template overlays, and release channels.
-- **[Stacks](stacks.md)** — the catalog of available stacks and what each one
-  scaffolds.
+- **[Stacks](stacks/index.md)** — the catalog of available stacks, a comparison
+  matrix, and what each one scaffolds.
 - **[Command reference](commands.md)** — the core CLI commands. Stack-specific
   commands are documented inside each generated project (`dude docs`).
 - **[Troubleshooting](troubleshooting.md)** — common issues and how to file a
