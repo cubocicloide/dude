@@ -3,6 +3,31 @@
 Context for Claude when working in this **FastMCP** server. Read it before making
 changes.
 
+## Start here: `dude cheatsheet`
+
+Before reading further, run:
+
+```bash
+dude cheatsheet --format json
+```
+
+One call returns **this project's** live command catalog, every lint rule with its
+code and title, the verify loop, and the answers it was scaffolded with. It is
+generated from the project itself, so it cannot drift from reality the way a
+hand-written list can — prefer it over any command list in this file.
+
+Then verify your own work before claiming it is done:
+
+```bash
+dude lint     # structural conventions; each code has prose in .claude/rules/
+dude test     # the project's test suites
+```
+
+When `dude lint` reports a code, read `.claude/rules/<GROUP>/<NNN>.md` for why the
+rule exists and how to fix it properly — do not work around a diagnostic.
+
+---
+
 ## What this is
 
 A FastMCP (Python ≥ 3.13) server scaffolded with `dude`. It is a **modular
