@@ -150,6 +150,16 @@ async function collect() {
 
 // ── Render helpers ────────────────────────────────────────────────────────────
 
+/**
+ * Escape a value for use inside a Markdown table cell.
+ *
+ * Backslashes must be escaped BEFORE pipes: escaping only the pipe leaves an
+ * input ending in `\` producing `\\|`, where the backslash escapes itself and
+ * the pipe becomes a live column separator again — splitting the row. (CodeQL's
+ * js/incomplete-sanitization catches exactly this ordering mistake.)
+ */
+const cell = (s) => String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|')
+
 const totalChecks = (s) => Object.values(s.lintGroups).reduce((a, b) => a + b, 0)
 
 const lintGroupLabel = (s) => {
@@ -172,7 +182,7 @@ const flagName = (name) => name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCa
 function variableFlag(v) {
   const flag = flagName(v.name)
   if (v.type === 'boolean') return `\`--${flag}\``
-  if (v.type === 'select') return `\`--${flag} <${v.choices.join('\\|')}>\``
+  if (v.type === 'select') return `\`--${flag} <${v.choices.map(cell).join('\\|')}>\``
   return `\`--${flag} <value>\``
 }
 
@@ -209,7 +219,7 @@ function renderStackPage(s) {
       '| -------- | ---- | ------- |',
     )
     for (const v of d.variables) {
-      const prompt = (v.prompt ?? v.name).replace(/\|/g, '\\|')
+      const prompt = cell(v.prompt ?? v.name)
       out.push(`| ${prompt} | ${variableFlag(v)} | ${variableDefault(v)} |`)
     }
     out.push('')
@@ -264,7 +274,7 @@ function renderStackPage(s) {
     )
     for (const p of m.pages) {
       const when = p.when ? `when \`${p.when}\`` : 'always'
-      out.push(`| \`${p.file}\` | ${p.title} | ${when} |`)
+      out.push(`| \`${cell(p.file)}\` | ${cell(p.title)} | ${when} |`)
     }
     out.push('')
   }
@@ -342,7 +352,7 @@ function renderIndex(stacks) {
     )
     for (const s of withCases) {
       for (const u of s.docs.useCases) {
-        out.push(`| ${u.replace(/\|/g, '\\|')} | [\`${s.id}\`](${s.id}.md) |`)
+        out.push(`| ${cell(u)} | [\`${s.id}\`](${s.id}.md) |`)
       }
     }
     out.push('')
