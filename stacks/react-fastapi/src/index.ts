@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 import yaml from 'yaml'
 import type { OpenAPI3 } from 'openapi-typescript'
-import { defineStack, renderTemplateTree } from '@cubocicloide/dude'
+import { defineStack, renderTemplateTree, defineCheatsheetCommand } from '@cubocicloide/dude'
 import {
   syncCommand,
   reviewCommand as apiReviewCommand,
@@ -195,6 +195,7 @@ export default defineStack({
   rules: [],
 
   commands: {
+    cheatsheet: defineCheatsheetCommand(),
     up: upCommand,
     down: downCommand,
     logs: logsCommand,

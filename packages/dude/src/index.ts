@@ -31,6 +31,19 @@ export { formatDiagnostic, type Diagnostic } from './core/lint/types.js'
 // Shared `lint` command — stacks register it instead of hand-rolling a wrapper
 export { defineLintCommand, type LintCommandOptions } from './core/lint/command.js'
 
+// Cheatsheet — the project's answer-aware quick reference. Stacks register the
+// shared command; the renderer is here so there is exactly one implementation.
+export {
+  defineCheatsheetCommand,
+  type CheatsheetCommandOptions,
+} from './core/cheatsheet/command.js'
+export {
+  generateCheatsheet,
+  collectCheatsheetData,
+  type CheatsheetData,
+  type CheatsheetRule,
+} from './core/cheatsheet/index.js'
+
 // Template rendering — used by stacks that define a custom scaffold
 export { renderTemplateTree } from './core/template-runner.js'
 export type { RenderOptions } from './core/template-runner.js'

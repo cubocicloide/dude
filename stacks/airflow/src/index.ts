@@ -1,5 +1,5 @@
 import path from 'pathe'
-import { defineStack, renderTemplateTree } from '@cubocicloide/dude'
+import { defineStack, renderTemplateTree, defineCheatsheetCommand } from '@cubocicloide/dude'
 import { dagCommands } from './commands/dag/index.js'
 import { docsCommand } from './commands/docs/index.js'
 import { downCommand } from './commands/down/index.js'
@@ -131,6 +131,7 @@ export default defineStack({
   rules: [],
 
   commands: {
+    cheatsheet: defineCheatsheetCommand(),
     up: upCommand,
     down: downCommand,
     logs: logsCommand,
