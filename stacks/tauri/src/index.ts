@@ -1,5 +1,5 @@
 import path from 'pathe'
-import { defineStack, renderTemplateTree } from '@cubocicloide/dude'
+import { defineStack, renderTemplateTree, defineCheatsheetCommand, defineDocsCommand } from '@cubocicloide/dude'
 import {
   androidBuildCommand,
   androidDevCommand,
@@ -7,7 +7,6 @@ import {
 } from './commands/android/index.js'
 import { buildCommand } from './commands/build/index.js'
 import { devCommand } from './commands/dev/index.js'
-import { docsCommand } from './commands/docs/index.js'
 import { doctorCommand } from './commands/doctor/index.js'
 import { formatCommand } from './commands/format/index.js'
 import { iconCommand } from './commands/icon/index.js'
@@ -56,6 +55,7 @@ export default defineStack({
       { file: 'distribute.md', title: 'Distributing' },
       { file: 'dude.md', title: 'Working with dude' },
       { file: 'api.md', title: 'Command reference' },
+      { file: 'cheatsheet.md', title: 'Cheatsheet' },
       { file: 'mkdocs.md', title: 'Writing docs' },
     ],
   },
@@ -108,6 +108,7 @@ export default defineStack({
   rules: [],
 
   commands: {
+    cheatsheet: defineCheatsheetCommand(),
     dev: devCommand,
     build: buildCommand,
     doctor: doctorCommand,
@@ -116,7 +117,7 @@ export default defineStack({
     format: formatCommand,
     review: reviewCommand,
     test: testCommand,
-    docs: docsCommand,
+    docs: defineDocsCommand(),
     android: {
       init: androidInitCommand,
       dev: androidDevCommand,

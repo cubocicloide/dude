@@ -1,0 +1,123 @@
+{
+  "schema": "dude.stack/1",
+  "id": "react-fastapi",
+  "package": "@cubocicloide/stack-react-fastapi",
+  "description": "React (Vite + TypeScript) frontend with a FastAPI backend.",
+  "tagline": "React (Vite) frontend with a FastAPI backend — Postgres, Celery and AWS EKS when you need them.",
+  "technologies": [
+    "React 19",
+    "Vite",
+    "FastAPI",
+    "SQLModel",
+    "Alembic",
+    "Celery"
+  ],
+  "useCases": [
+    "A CRUD/product web app that needs a typed REST API behind a modern SPA",
+    "A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS) once it scales",
+    "Background/async work (Celery + Celery Beat) without leaving the Python backend"
+  ],
+  "requiresDude": "0.1.0",
+  "iac": {
+    "provider": "aws-eks",
+    "flag": "--iac aws-eks"
+  },
+  "init": {
+    "command": "dude init my-app --stack react-fastapi",
+    "variables": [
+      {
+        "name": "projectName",
+        "flag": "--project-name",
+        "type": "string",
+        "prompt": "Project name",
+        "default": "my-app",
+        "choices": null
+      },
+      {
+        "name": "database",
+        "flag": "--database",
+        "type": "select",
+        "prompt": "Database",
+        "default": "none",
+        "choices": [
+          "none",
+          "postgres"
+        ]
+      },
+      {
+        "name": "celery",
+        "flag": "--celery",
+        "type": "boolean",
+        "prompt": "Add Celery worker?",
+        "default": false,
+        "choices": null
+      },
+      {
+        "name": "celeryBeat",
+        "flag": "--celery-beat",
+        "type": "boolean",
+        "prompt": "Add Celery Beat scheduler? (requires Celery — auto-enabled)",
+        "default": false,
+        "choices": null
+      },
+      {
+        "name": "iac",
+        "flag": "--iac",
+        "type": "select",
+        "prompt": "Infrastructure-as-Code (Terraform + Helm)",
+        "default": "none",
+        "choices": [
+          "none",
+          "aws-eks"
+        ]
+      }
+    ],
+    "flagsAreCaseAndDashInsensitive": true
+  },
+  "lint": {
+    "groups": [
+      {
+        "group": "BE",
+        "checks": 11
+      },
+      {
+        "group": "E2E",
+        "checks": 7
+      },
+      {
+        "group": "FE",
+        "checks": 12
+      }
+    ],
+    "totalChecks": 30,
+    "rulePathTemplate": ".claude/rules/<GROUP>/<NNN>.md"
+  },
+  "docsPages": [
+    {
+      "file": "index.md",
+      "title": "Home"
+    },
+    {
+      "file": "dude.md",
+      "title": "Working with dude"
+    },
+    {
+      "file": "api.md",
+      "title": "Command reference"
+    },
+    {
+      "file": "cheatsheet.md",
+      "title": "Cheatsheet"
+    },
+    {
+      "file": "mkdocs.md",
+      "title": "Writing docs"
+    },
+    {
+      "file": "deploy.md",
+      "title": "Deploy (AWS EKS)",
+      "when": "withIac"
+    }
+  ],
+  "cheatsheet": "dude cheatsheet --format json"
+}

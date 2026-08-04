@@ -6,11 +6,34 @@ import path from 'pathe'
 
 import { logger } from '../../core/logger.js'
 import { loadRegistry, resolveStackSpec } from '../../core/registry.js'
-import { loadStack } from '../../core/stack-loader.js'
+import { loadStack, stackLoadFailureMessage } from '../../core/stack-loader.js'
 import { promptVariables } from '../../core/prompts.js'
 import { renderTemplateTree } from '../../core/template-runner.js'
 import { getPackageRoot, getCliVersion } from '../../utils/paths.js'
 import type { StackContext, StackVariable } from '../../core/stack-contract.js'
+
+/**
+ * `loadStack` for the init path.
+ *
+ * `init` is the only way a brand-new project resolves a stack, and it is the most
+ * likely place to meet a stack newer than the CLI: `dude init` takes the CLI from
+ * `npx @cubocicloide/dude@latest` and the stack from the registry's `latest`
+ * independently, and promotion to `latest` is per-package by design. Without this
+ * the failure surfaced as a raw ESM/TypeError trace.
+ */
+async function loadStackOrExplain(
+  spec: string,
+  cwd: string,
+  channel: Parameters<typeof loadStack>[3],
+): ReturnType<typeof loadStack> {
+  try {
+    return await loadStack(spec, cwd, undefined, channel)
+  } catch (e) {
+    process.stderr.write(stackLoadFailureMessage(spec, undefined, getCliVersion(), e))
+    process.exit(1)
+  }
+}
+
 
 export const initCommand = defineCommand({
   meta: {
@@ -74,7 +97,7 @@ export const initCommand = defineCommand({
       definition: stack,
       root: stackRoot,
       version: stackVersion,
-    } = await loadStack(resolvedSpec, cwd, undefined, channel)
+    } = await loadStackOrExplain(resolvedSpec, cwd, channel)
 
     // 2. Collect answers. Any CLI flag matching a declared stack variable
     //    (e.g. `--database postgres`, `--celery`) becomes a non-interactive

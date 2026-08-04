@@ -2,14 +2,13 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 import yaml from 'yaml'
 import type { OpenAPI3 } from 'openapi-typescript'
-import { defineStack, renderTemplateTree } from '@cubocicloide/dude'
+import { defineStack, renderTemplateTree, defineCheatsheetCommand, defineDocsCommand } from '@cubocicloide/dude'
 import {
   syncCommand,
   reviewCommand as apiReviewCommand,
   generateClientFromSpec,
 } from './commands/api/index.js'
 import { makemigrationCommand, migrateCommand, rollbackCommand } from './commands/db/index.js'
-import { docsCommand } from './commands/docs/index.js'
 import { iacCommands } from './commands/iac/index.js'
 import { downCommand } from './commands/down/index.js'
 import { formatCommand } from './commands/format/index.js'
@@ -81,6 +80,7 @@ export default defineStack({
       { file: 'index.md', title: 'Home' },
       { file: 'dude.md', title: 'Working with dude' },
       { file: 'api.md', title: 'Command reference' },
+      { file: 'cheatsheet.md', title: 'Cheatsheet' },
       { file: 'mkdocs.md', title: 'Writing docs' },
       { file: 'deploy.md', title: 'Deploy (AWS EKS)', when: 'withIac' },
     ],
@@ -195,6 +195,7 @@ export default defineStack({
   rules: [],
 
   commands: {
+    cheatsheet: defineCheatsheetCommand(),
     up: upCommand,
     down: downCommand,
     logs: logsCommand,
@@ -203,7 +204,7 @@ export default defineStack({
     format: formatCommand,
     review: reviewCommand,
     test: testCommand,
-    docs: docsCommand,
+    docs: defineDocsCommand(),
     security: {
       scan: securityScanCommand,
       accept: securityAcceptCommand,

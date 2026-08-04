@@ -21,7 +21,7 @@ Scaffold a new project.
 dude init [<dir>] --stack <id> [stack flags] [--yes] [--next]
 ```
 
-- `--stack <id>` — which stack to scaffold (see [Stacks](stacks.md)).
+- `--stack <id>` — which stack to scaffold (see [Stacks](stacks/index.md)).
 - `--yes` — accept all defaults; combined with stack-answer flags, fully
   non-interactive.
 - `--next` — resolve the stack from the candidate channel instead of stable.

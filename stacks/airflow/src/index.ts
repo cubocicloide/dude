@@ -1,7 +1,6 @@
 import path from 'pathe'
-import { defineStack, renderTemplateTree } from '@cubocicloide/dude'
+import { defineStack, renderTemplateTree, defineCheatsheetCommand, defineDocsCommand } from '@cubocicloide/dude'
 import { dagCommands } from './commands/dag/index.js'
-import { docsCommand } from './commands/docs/index.js'
 import { downCommand } from './commands/down/index.js'
 import { formatCommand } from './commands/format/index.js'
 import { iacCommands } from './commands/iac/index.js'
@@ -59,6 +58,7 @@ export default defineStack({
       { file: 'sso.md', title: 'Sign-on (SSO)' },
       { file: 'deploy.md', title: 'Deploy (AWS ECS)', when: 'withIac' },
       { file: 'api.md', title: 'Command reference' },
+      { file: 'cheatsheet.md', title: 'Cheatsheet' },
       { file: 'mkdocs.md', title: 'Writing docs' },
     ],
   },
@@ -131,6 +131,7 @@ export default defineStack({
   rules: [],
 
   commands: {
+    cheatsheet: defineCheatsheetCommand(),
     up: upCommand,
     down: downCommand,
     logs: logsCommand,
@@ -138,7 +139,7 @@ export default defineStack({
     lint: lintCommand,
     format: formatCommand,
     test: testCommand,
-    docs: docsCommand,
+    docs: defineDocsCommand(),
     dag: dagCommands,
     iac: iacCommands,
   },

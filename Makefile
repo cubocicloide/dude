@@ -111,8 +111,38 @@ dev-init: ## Tear down, re-scaffold, and relink — make dev-init [STACK=react-f
 
 ##@ Docs
 
+# ── Composed documentation ───────────────────────────────────────────────────
+# The stack pages and the comparison matrix under docs/docs/stacks/ are
+# GENERATED from each stack's `docs` manifest — never hand-edited. The output is
+# committed, so .github/workflows/docs.yml stays a pure `mkdocs build` over
+# committed files (no Node in the Pages workflow, and its `paths: docs/**` filter
+# keeps working). The anti-drift gate lives in ci.yml, which already builds
+# everything. See .claude/rules/005-docs-composition.md.
+
+.PHONY: docs-data
+docs-data: build ## Regenerate the composed docs pages from the stack manifests
+	node scripts/compose-docs.mjs
+
+.PHONY: docs-check
+docs-check: docs-data ## Fail if the committed composed docs are out of date
+	@# `git status --porcelain` rather than `git diff`: diff compares the index to
+	@# the working tree and is BLIND to untracked files, so a brand-new generated
+	@# page (the "added a stack" case) regenerated into an uncommitted file made the
+	@# gate report success while the file was absent from the PR entirely.
+	@# Scoped to the paths the composer OWNS. `-- docs/` was broader than what this
+	@# verifies, so unrelated work-in-progress on a hand-written page produced
+	@# "Composed docs are out of date" plus advice that fixed nothing.
+	@if [ -n "$$(git status --porcelain -- docs/docs/stacks docs/docs/llms.txt docs/mkdocs.yml)" ]; then \
+		printf "  \033[31m✗\033[0m  Composed docs are out of date.\n"; \
+		printf "      A stack manifest changed without regenerating, or a generated page was never committed.\n"; \
+		printf "      Run \033[1mmake docs-data\033[0m and commit the result.\n\n"; \
+		git --no-pager status --short -- docs/docs/stacks docs/docs/llms.txt docs/mkdocs.yml; \
+		exit 1; \
+	fi
+	@printf "  \033[32m✓\033[0m  Composed docs are up to date.\n"
+
 .PHONY: docs
-docs: ## Serve the project docs (docs/) with live-reload at http://localhost:8001
+docs: docs-data ## Serve the project docs (docs/) with live-reload at http://localhost:8001
 	@if ! docker info >/dev/null 2>&1; then \
 		printf "  \033[31m✗\033[0m  Docker is not running. Start Docker Desktop and retry.\n"; \
 		exit 1; \

@@ -1,0 +1,133 @@
+{
+  "schema": "dude.stack/1",
+  "id": "react-django",
+  "package": "@cubocicloide/stack-react-django",
+  "description": "React (Vite + TypeScript) frontend with a Django REST Framework backend.",
+  "tagline": "React (Vite) frontend with a Django REST Framework backend — optional S3 storage and AWS ECS Fargate IaC.",
+  "technologies": [
+    "React 19",
+    "Vite",
+    "Django REST Framework",
+    "drf-spectacular",
+    "Celery"
+  ],
+  "useCases": [
+    "A CRUD/admin-heavy web app that benefits from Django's batteries (admin, ORM, auth)",
+    "An API that needs auto-generated OpenAPI docs (drf-spectacular) behind a React frontend",
+    "S3-compatible file storage (MinIO locally) with a straightforward path to AWS ECS Fargate"
+  ],
+  "requiresDude": "0.1.0",
+  "iac": {
+    "provider": "aws-ecs",
+    "flag": "--iac aws-ecs"
+  },
+  "init": {
+    "command": "dude init my-app --stack react-django",
+    "variables": [
+      {
+        "name": "projectName",
+        "flag": "--project-name",
+        "type": "string",
+        "prompt": "Project name",
+        "default": "my-app",
+        "choices": null
+      },
+      {
+        "name": "database",
+        "flag": "--database",
+        "type": "select",
+        "prompt": "Database (none = SQLite file, fine for dev)",
+        "default": "none",
+        "choices": [
+          "none",
+          "postgres"
+        ]
+      },
+      {
+        "name": "storage",
+        "flag": "--storage",
+        "type": "select",
+        "prompt": "File storage (s3 = S3-compatible object storage; MinIO locally)",
+        "default": "none",
+        "choices": [
+          "none",
+          "s3"
+        ]
+      },
+      {
+        "name": "celery",
+        "flag": "--celery",
+        "type": "boolean",
+        "prompt": "Add Celery worker?",
+        "default": false,
+        "choices": null
+      },
+      {
+        "name": "celeryBeat",
+        "flag": "--celery-beat",
+        "type": "boolean",
+        "prompt": "Add Celery Beat scheduler? (requires Celery — auto-enabled)",
+        "default": false,
+        "choices": null
+      },
+      {
+        "name": "iac",
+        "flag": "--iac",
+        "type": "select",
+        "prompt": "Infrastructure-as-Code (Terraform, AWS ECS Fargate)",
+        "default": "none",
+        "choices": [
+          "none",
+          "aws-ecs"
+        ]
+      }
+    ],
+    "flagsAreCaseAndDashInsensitive": true
+  },
+  "lint": {
+    "groups": [
+      {
+        "group": "BE",
+        "checks": 14
+      },
+      {
+        "group": "E2E",
+        "checks": 7
+      },
+      {
+        "group": "FE",
+        "checks": 12
+      }
+    ],
+    "totalChecks": 33,
+    "rulePathTemplate": ".claude/rules/<GROUP>/<NNN>.md"
+  },
+  "docsPages": [
+    {
+      "file": "index.md",
+      "title": "Home"
+    },
+    {
+      "file": "dude.md",
+      "title": "Working with dude"
+    },
+    {
+      "file": "api.md",
+      "title": "Command reference"
+    },
+    {
+      "file": "cheatsheet.md",
+      "title": "Cheatsheet"
+    },
+    {
+      "file": "mkdocs.md",
+      "title": "Writing docs"
+    },
+    {
+      "file": "deploy.md",
+      "title": "Deploy (AWS ECS)",
+      "when": "withIac"
+    }
+  ],
+  "cheatsheet": "dude cheatsheet --format json"
+}

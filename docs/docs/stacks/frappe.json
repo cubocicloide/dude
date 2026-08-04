@@ -1,0 +1,109 @@
+{
+  "schema": "dude.stack/1",
+  "id": "frappe",
+  "package": "@cubocicloide/stack-frappe",
+  "description": "Frappe Framework ticketing system (Frappe Helpdesk) with a worked-example custom app.",
+  "tagline": "A Frappe Framework ticketing system (Frappe Helpdesk) with a worked custom-app example and optional AWS ECS Fargate IaC.",
+  "technologies": [
+    "Frappe Framework",
+    "Frappe Helpdesk",
+    "MariaDB"
+  ],
+  "useCases": [
+    "A ticketing/helpdesk system running Frappe Helpdesk out of the box",
+    "A team learning Frappe's core building blocks via a worked custom-app example",
+    "A DocType/workflow-driven backend with a straightforward path to AWS ECS Fargate"
+  ],
+  "requiresDude": "0.1.0",
+  "iac": {
+    "provider": "aws-ecs",
+    "flag": "--iac aws-ecs"
+  },
+  "init": {
+    "command": "dude init my-app --stack frappe",
+    "variables": [
+      {
+        "name": "projectName",
+        "flag": "--project-name",
+        "type": "string",
+        "prompt": "Project name",
+        "default": "my-helpdesk",
+        "choices": null
+      },
+      {
+        "name": "helpdesk",
+        "flag": "--helpdesk",
+        "type": "boolean",
+        "prompt": "Install Frappe Helpdesk (the ticketing UI)?",
+        "default": true,
+        "choices": null
+      },
+      {
+        "name": "iac",
+        "flag": "--iac",
+        "type": "select",
+        "prompt": "Infrastructure-as-Code (Terraform, AWS ECS Fargate)",
+        "default": "none",
+        "choices": [
+          "none",
+          "aws-ecs"
+        ]
+      }
+    ],
+    "flagsAreCaseAndDashInsensitive": true
+  },
+  "lint": {
+    "groups": [
+      {
+        "group": "APP",
+        "checks": 4
+      },
+      {
+        "group": "DT",
+        "checks": 4
+      },
+      {
+        "group": "PY",
+        "checks": 3
+      }
+    ],
+    "totalChecks": 11,
+    "rulePathTemplate": ".claude/rules/<GROUP>/<NNN>.md"
+  },
+  "docsPages": [
+    {
+      "file": "index.md",
+      "title": "Home"
+    },
+    {
+      "file": "frappe.md",
+      "title": "Frappe core concepts"
+    },
+    {
+      "file": "extending.md",
+      "title": "Extending the app"
+    },
+    {
+      "file": "dude.md",
+      "title": "Working with dude"
+    },
+    {
+      "file": "api.md",
+      "title": "Command reference"
+    },
+    {
+      "file": "cheatsheet.md",
+      "title": "Cheatsheet"
+    },
+    {
+      "file": "mkdocs.md",
+      "title": "Writing docs"
+    },
+    {
+      "file": "deploy.md",
+      "title": "Deploy (AWS ECS)",
+      "when": "withIac"
+    }
+  ],
+  "cheatsheet": "dude cheatsheet --format json"
+}

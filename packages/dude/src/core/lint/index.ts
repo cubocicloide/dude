@@ -49,12 +49,24 @@ interface DiscoveredCheck {
   load: () => Promise<unknown>
 }
 
-/** Read `lint.disable` from the project's dude.json (missing bits → empty). */
-function readDisabledCodes(root: string): Set<string> {
+/**
+ * Read `lint.disable` from the project's dude.json (missing bits → empty).
+ *
+ * Exported because anything that *reports* which rules apply must agree with what
+ * the engine actually runs — the cheatsheet listed disabled codes as enforced
+ * until it started using this.
+ */
+export function readDisabledCodes(root: string): Set<string> {
   const dudeJsonPath = path.join(root, 'dude.json')
   if (!existsSync(dudeJsonPath)) return new Set()
-  const manifest = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as {
-    lint?: { disable?: unknown }
+  // Tolerates a malformed dude.json: callers that already reported the parse
+  // failure (the cheatsheet) must not then crash on a second, silent re-parse.
+  // Whoever owns the file's validity reports it; this function only reads a hint.
+  let manifest: { lint?: { disable?: unknown } }
+  try {
+    manifest = JSON.parse(readFileSync(dudeJsonPath, 'utf8'))
+  } catch {
+    return new Set()
   }
   const disable = manifest.lint?.disable
   if (!Array.isArray(disable)) return new Set()
@@ -62,12 +74,12 @@ function readDisabledCodes(root: string): Set<string> {
 }
 
 /** Group directories → check files, code derived as GROUP+id. */
-function scanChecksDir(
+function scanChecksDir<T>(
   checksDir: string,
   extensions: Set<string>,
-  toCheck: (group: string, id: string, filePath: string) => DiscoveredCheck,
-): DiscoveredCheck[] {
-  const found: DiscoveredCheck[] = []
+  toCheck: (group: string, id: string, filePath: string) => T,
+): T[] {
+  const found: T[] = []
   for (const groupEntry of readdirSync(checksDir, { withFileTypes: true })) {
     if (!groupEntry.isDirectory()) continue
     const group = groupEntry.name
@@ -81,8 +93,9 @@ function scanChecksDir(
       found.push(toCheck(group, id, path.join(checksDir, group, fileEntry.name)))
     }
   }
-  // Deterministic order: by code, then file (stable collision reporting).
-  return found.sort((a, b) => a.code.localeCompare(b.code) || a.file.localeCompare(b.file))
+  // Ordering is the caller's concern now that this is generic; both callers sort
+  // by code so collision reporting stays deterministic.
+  return found
 }
 
 /**
@@ -95,6 +108,76 @@ function scanChecksDir(
  * skipped entirely (never executed); a disabled code that matches no check
  * produces a notice instead of an error.
  */
+/** A check the engine would run, discovered without loading it. */
+export interface DiscoveredCode {
+  code: string
+  group: string
+  id: string
+  source: 'stack' | 'project'
+  file: string
+}
+
+/**
+ * Discover every check `runLint` would execute — same directories, same
+ * extensions, same `.test.` exclusion — without importing any of them.
+ *
+ * Exists so anything that *reports* which rules apply agrees with what actually
+ * runs. `dude cheatsheet` previously listed the project's `.claude/rules/` prose
+ * files instead, which is a different, independently-mutable directory: a stale
+ * rule file made it omit an enforced rule, a stray one made it invent a rule that
+ * never runs, and its own copy of the extension list had already lost `.mts`.
+ *
+ * `collisions` reports codes claimed twice. `runLint` treats that as fatal (it
+ * refuses to run at all), so a reporter must surface it rather than pick a winner.
+ */
+export function discoverCheckCodes(
+  root: string,
+  stackRoot: string,
+): { codes: DiscoveredCode[]; disabled: Set<string>; collisions: string[] } {
+  const found: DiscoveredCode[] = []
+
+  const stackChecksDir = path.join(stackRoot, 'dist', 'commands', 'lint', 'checks')
+  if (existsSync(stackChecksDir)) {
+    found.push(
+      ...scanChecksDir(stackChecksDir, new Set(['.js']), (group, id, filePath) => ({
+        code: `${group}${id}`,
+        group,
+        id,
+        source: 'stack' as const,
+        file: filePath,
+      })),
+    )
+  }
+
+  const projectChecksDir = path.join(root, PROJECT_CHECKS_DIR)
+  if (existsSync(projectChecksDir)) {
+    found.push(
+      ...scanChecksDir(projectChecksDir, LOADABLE, (group, id, filePath) => ({
+        code: `${group}${id}`,
+        group,
+        id,
+        source: 'project' as const,
+        file: filePath,
+      })),
+    )
+  }
+
+  const seen = new Set<string>()
+  const collisions: string[] = []
+  const codes: DiscoveredCode[] = []
+  for (const c of found) {
+    if (seen.has(c.code)) {
+      if (!collisions.includes(c.code)) collisions.push(c.code)
+      continue
+    }
+    seen.add(c.code)
+    codes.push(c)
+  }
+
+  codes.sort((a, b) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0))
+  return { codes, disabled: readDisabledCodes(root), collisions: collisions.sort() }
+}
+
 export async function runLint(root: string, stackRoot: string): Promise<LintResult> {
   const stackChecksDir = path.join(stackRoot, 'dist', 'commands', 'lint', 'checks')
 
@@ -105,7 +188,7 @@ export async function runLint(root: string, stackRoot: string): Promise<LintResu
     )
   }
 
-  const checks = scanChecksDir(stackChecksDir, new Set(['.js']), (group, id, filePath) => ({
+  const checks: DiscoveredCheck[] = scanChecksDir(stackChecksDir, new Set(['.js']), (group, id, filePath) => ({
     code: `${group}${id}`,
     file: filePath,
     source: 'stack' as const,
@@ -126,6 +209,9 @@ export async function runLint(root: string, stackRoot: string): Promise<LintResu
       })),
     )
   }
+
+  // Deterministic order: by code, then file (stable collision reporting).
+  checks.sort((a, b) => a.code.localeCompare(b.code) || a.file.localeCompare(b.file))
 
   // Collision gate: every code must have exactly one definition. Project
   // checks may not shadow stack checks — disable the stack rule and re-add

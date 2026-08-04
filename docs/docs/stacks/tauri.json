@@ -1,0 +1,94 @@
+{
+  "schema": "dude.stack/1",
+  "id": "tauri",
+  "package": "@cubocicloide/stack-tauri",
+  "description": "A Tauri 2 desktop app — React + Ant Design frontend, Rust backend.",
+  "tagline": "A Tauri 2 desktop app — React + Ant Design frontend, Rust backend, with iOS/Android targets.",
+  "technologies": [
+    "Tauri 2",
+    "React 19",
+    "Ant Design",
+    "Rust"
+  ],
+  "useCases": [
+    "A cross-platform desktop app (macOS/Windows/Linux) with a native feel and small binaries",
+    "The same codebase extended to iOS and Android",
+    "A React + Ant Design UI backed by a Rust core for performance-sensitive logic"
+  ],
+  "requiresDude": "0.1.0",
+  "iac": null,
+  "init": {
+    "command": "dude init my-app --stack tauri",
+    "variables": [
+      {
+        "name": "projectName",
+        "flag": "--project-name",
+        "type": "string",
+        "prompt": "Project name",
+        "default": "my-app",
+        "choices": null
+      },
+      {
+        "name": "database",
+        "flag": "--database",
+        "type": "select",
+        "prompt": "Local database",
+        "default": "none",
+        "choices": [
+          "none",
+          "sqlite"
+        ]
+      }
+    ],
+    "flagsAreCaseAndDashInsensitive": true
+  },
+  "lint": {
+    "groups": [
+      {
+        "group": "BE",
+        "checks": 12
+      },
+      {
+        "group": "FE",
+        "checks": 11
+      }
+    ],
+    "totalChecks": 23,
+    "rulePathTemplate": ".claude/rules/<GROUP>/<NNN>.md"
+  },
+  "docsPages": [
+    {
+      "file": "index.md",
+      "title": "Home"
+    },
+    {
+      "file": "architecture.md",
+      "title": "Architecture"
+    },
+    {
+      "file": "mobile.md",
+      "title": "Mobile (iOS/Android)"
+    },
+    {
+      "file": "distribute.md",
+      "title": "Distributing"
+    },
+    {
+      "file": "dude.md",
+      "title": "Working with dude"
+    },
+    {
+      "file": "api.md",
+      "title": "Command reference"
+    },
+    {
+      "file": "cheatsheet.md",
+      "title": "Cheatsheet"
+    },
+    {
+      "file": "mkdocs.md",
+      "title": "Writing docs"
+    }
+  ],
+  "cheatsheet": "dude cheatsheet --format json"
+}
