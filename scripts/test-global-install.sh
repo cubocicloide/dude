@@ -70,13 +70,33 @@ echo "$HELP"
 dude help > /dev/null 2>&1 || fail "dude help exited non-zero"
 ok "dude help exits 0"
 
-for cmd in init upgrade; do
-  echo "$HELP" | grep -q "$cmd" || fail "'dude help' is missing '$cmd'"
-  ok "help contains '$cmd'"
+# Assert on command NAMES from the catalog, not substrings of the rendered page:
+# descriptions legitimately mention words like "format" (e.g. `help` documenting
+# its own `--format` flag), which makes a grep over the whole page a false
+# positive. `--format json` is the machine-readable form of the same catalog.
+catalog_names() {
+  dude help --format json 2>/dev/null | node -e '
+    let s = ""
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const j = JSON.parse(s)
+      const names = [
+        ...j.commands.map((c) => c.name),
+        ...j.groups.map((g) => g.name),
+        ...(j.projectCommands ?? []).map((c) => c.name),
+      ]
+      process.stdout.write(names.join("\n") + "\n")
+    })'
+}
+
+GLOBAL_NAMES="$(catalog_names)"
+
+for cmd in init upgrade version info report help; do
+  echo "$GLOBAL_NAMES" | grep -qx "$cmd" || fail "core command '$cmd' is missing from the catalog"
+  ok "catalog lists core command '$cmd'"
 done
 
 for cmd in up down logs shell lint format review; do
-  echo "$HELP" | grep -qw "$cmd" && fail "'dude help' unexpectedly shows stack command '$cmd' outside a project" || true
+  echo "$GLOBAL_NAMES" | grep -qx "$cmd" && fail "'dude help' unexpectedly shows stack command '$cmd' outside a project" || true
   ok "global help does not contain stack command '$cmd'"
 done
 
@@ -98,10 +118,31 @@ cd "$PROJECT_DIR"
 PROJECT_HELP="$(dude help 2>&1)"
 echo "$PROJECT_HELP"
 
-for cmd in up down logs shell lint format review; do
-  echo "$PROJECT_HELP" | grep -q "$cmd" || fail "'dude help' from project is missing stack command '$cmd'"
+PROJECT_NAMES="$(catalog_names)"
+
+for cmd in up down logs shell lint format review cheatsheet; do
+  echo "$PROJECT_NAMES" | grep -qx "$cmd" || fail "'dude help' from project is missing stack command '$cmd'"
   ok "project help contains '$cmd'"
 done
+
+# The db group only exists because this scaffold chose --database postgres; iac
+# was never enabled, so its absence proves the catalog is answer-aware.
+echo "$PROJECT_NAMES" | grep -qx "db" || fail "the db group is missing despite --database postgres"
+ok "catalog is answer-aware: db present"
+echo "$PROJECT_NAMES" | grep -qx "iac" && fail "the iac group appeared without --iac" || true
+ok "catalog is answer-aware: iac absent"
+
+header "dude cheatsheet (project context)"
+dude cheatsheet --format json > /tmp/cheatsheet.json 2>/dev/null \
+  || fail "dude cheatsheet --format json exited non-zero"
+node -e '
+  const j = JSON.parse(require("node:fs").readFileSync("/tmp/cheatsheet.json", "utf8"))
+  if (j.schema !== "dude.cheatsheet/1") throw new Error("unexpected schema: " + j.schema)
+  if (!Array.isArray(j.rules) || j.rules.length === 0) throw new Error("no lint rules harvested")
+  if (!j.verify.includes("dude lint")) throw new Error("verify loop is missing dude lint")
+  if (!j.catalog?.commands?.length) throw new Error("catalog not embedded")
+' || fail "dude cheatsheet --format json produced an unusable payload"
+ok "cheatsheet json carries schema, rules, verify loop and the embedded catalog"
 
 header "Linting the scaffold (dude lint)"
 dude lint || fail "dude lint exited non-zero on a fresh scaffold"
