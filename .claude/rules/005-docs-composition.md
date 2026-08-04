@@ -70,11 +70,24 @@ make docs          # regenerate, then serve the site locally
   free-form string precisely so a stack can ship a new target without a CLI
   release; render whatever it declares. A test in
   `packages/dude/src/core/stack-loader.test.ts` locks this in.
-- **The composer enforces lint↔rule parity.** It harvests both the check tree
-  (`stacks/<id>/src/commands/lint/checks/<GROUP>/`) and the prose rules
-  (`templates/base/.claude/rules/<GROUP>/`) and **fails** when the counts
-  diverge. That makes `.claude/rules/002-lint-template-parity.md` mechanical
-  rather than cultural — a check added without its rule file now breaks CI.
+- **The composer enforces lint↔rule parity by id, not by count.** It harvests the
+  check ids from `stacks/<id>/src/commands/lint/checks/<GROUP>/` and the rule ids
+  from `templates/base/.claude/rules/<GROUP>/`, then reports orphans in **both**
+  directions. Counting was not enough: renaming `BE/001.md` to `099.md` keeps a
+  group at 11/11 while `BE001` has lost its prose. This makes
+  `.claude/rules/002-lint-template-parity.md` mechanical rather than cultural.
+- **`make docs-check` uses `git status --porcelain`, not `git diff`.** `git diff`
+  compares the index to the working tree and is blind to **untracked** files, so a
+  newly generated page that was never committed — the "added a stack" case — made
+  the gate report success while the file was absent from the diff entirely.
+- **Every generated table row goes through `row()`**, which escapes each cell.
+  Interpolating into a template literal is how three sites (`variableDefault`,
+  `iac.provider`, `page.when`) shipped unescaped and could split a row on a pipe.
+  A helper that wraps user data in markup escapes it itself and is passed as
+  `raw()`; `raw()` means "markup I already made safe", never "skip escaping".
+- **`llms.txt` links are prefixed from `site_url`.** mkdocs copies static files
+  verbatim without rewriting their links, and a project repo is served from a
+  subpath on GitHub Pages — bare `/stacks/…` paths 404 in production.
 
 ## Adding a stack
 

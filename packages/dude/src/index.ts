@@ -25,7 +25,7 @@ export type { DudeConfig } from './core/config.js'
 export type { RawDiagnostic, CheckFn, Severity } from './core/lint/types.js'
 
 // Lint engine — used by stacks that expose a `lint` command
-export { runLint, PROJECT_CHECKS_DIR, type LintResult } from './core/lint/index.js'
+export { runLint, PROJECT_CHECKS_DIR, readDisabledCodes, type LintResult } from './core/lint/index.js'
 export { formatDiagnostic, type Diagnostic } from './core/lint/types.js'
 
 // Shared `lint` command — stacks register it instead of hand-rolling a wrapper

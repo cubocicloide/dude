@@ -75,7 +75,14 @@ ok "dude help exits 0"
 # its own `--format` flag), which makes a grep over the whole page a false
 # positive. `--format json` is the machine-readable form of the same catalog.
 catalog_names() {
-  dude help --format json 2>/dev/null | node -e '
+  # Capture first so a real crash of `dude help --format json` produces a named
+  # failure instead of a bare `SyntaxError: Unexpected end of JSON input` from
+  # JSON.parse(""), which reads as a parser bug rather than a broken CLI.
+  local json
+  json="$(dude help --format json 2>/dev/null)" \
+    || fail "dude help --format json exited non-zero"
+  [ -n "$json" ] || fail "dude help --format json produced no output"
+  printf '%s' "$json" | node -e '
     let s = ""
     process.stdin.on("data", (d) => (s += d)).on("end", () => {
       const j = JSON.parse(s)

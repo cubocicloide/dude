@@ -15,13 +15,16 @@
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'pathe'
-import { buildCatalog, catalogToJson } from '../../commands/help/index.js'
+import { buildCatalog, catalogToJson, catalogToMarkdown } from '../../commands/help/index.js'
+import { readDisabledCodes, PROJECT_CHECKS_DIR } from '../lint/index.js'
 
 /** A lint rule as advertised to the reader: its code and its one-line title. */
 export interface CheatsheetRule {
   code: string
   group: string
   title: string
+  /** Where the rule comes from: the stack's template, or the project itself. */
+  source: 'stack' | 'project'
 }
 
 export interface CheatsheetData {
@@ -31,8 +34,10 @@ export interface CheatsheetData {
   dudeVersion?: string
   /** The init answers this project was scaffolded with. */
   answers: Record<string, unknown>
-  /** Lint rules shipped for this project, grouped by area, code-sorted. */
+  /** Lint rules that will actually run here, code-sorted. Excludes disabled ones. */
   rules: CheatsheetRule[]
+  /** Codes switched off via `dude.json` → `lint.disable`, stated not hidden. */
+  disabledRules: string[]
   /** Top-level directories present in the project. */
   layout: string[]
   /** The verify loop, as concrete commands that exist in this project. */
@@ -63,20 +68,57 @@ function ruleTitle(file: string, code: string): string {
   }
 }
 
+/**
+ * The rules that will actually run against this project.
+ *
+ * Two sources, matching what the lint engine itself merges:
+ *
+ *  - the stack's prose rules under `.claude/rules/<GROUP>/<NNN>.md`;
+ *  - the project's own checks under `.dude/lint/checks/<GROUP>/<id>.ts`, which
+ *    run but are not required to ship a prose file.
+ *
+ * Codes listed in `dude.json` → `lint.disable` are **excluded**, because the
+ * engine never executes them (`runLint` skips them outright). Listing a disabled
+ * code here would tell a coding agent a rule is enforced when it is not — the one
+ * thing this page must never do.
+ */
 function harvestRules(root: string): CheatsheetRule[] {
-  const dir = path.join(root, RULES_DIR)
-  if (!existsSync(dir)) return []
+  const disabled = readDisabledCodes(root)
   const rules: CheatsheetRule[] = []
-  for (const group of readdirSync(dir, { withFileTypes: true })) {
-    if (!group.isDirectory()) continue
-    const groupDir = path.join(dir, group.name)
-    for (const f of readdirSync(groupDir)) {
-      if (!f.endsWith('.md')) continue
-      const code = `${group.name}${path.basename(f, '.md')}`
-      rules.push({ code, group: group.name, title: ruleTitle(path.join(groupDir, f), code) })
+  const seen = new Set<string>()
+
+  const scan = (dir: string, source: CheatsheetRule['source'], ext: RegExp): void => {
+    if (!existsSync(dir)) return
+    for (const group of readdirSync(dir, { withFileTypes: true })) {
+      if (!group.isDirectory()) continue
+      const groupDir = path.join(dir, group.name)
+      for (const f of readdirSync(groupDir)) {
+        if (!ext.test(f) || f.includes('.test.')) continue
+        const id = f.replace(ext, '')
+        const code = `${group.name}${id}`
+        if (disabled.has(code) || seen.has(code)) continue
+        seen.add(code)
+        rules.push({
+          code,
+          group: group.name,
+          title: source === 'stack' ? ruleTitle(path.join(groupDir, f), code) : code,
+          source,
+        })
+      }
     }
   }
-  return rules.sort((a, b) => a.code.localeCompare(b.code))
+
+  scan(path.join(root, RULES_DIR), 'stack', /\.md$/)
+  // Project checks are code, not prose; a co-located .md is optional, so the
+  // title falls back to the bare code unless one exists next to the check.
+  scan(path.join(root, PROJECT_CHECKS_DIR), 'project', /\.(ts|js|mjs|cjs)$/)
+
+  return rules.sort((a, b) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0))
+}
+
+/** Codes disabled via `dude.json` → `lint.disable`, reported rather than hidden. */
+function harvestDisabled(root: string): string[] {
+  return [...readDisabledCodes(root)].sort()
 }
 
 /** Top-level project directories, so an agent knows where things belong. */
@@ -106,8 +148,19 @@ function buildVerifyLoop(flat: Set<string>, groups: Map<string, Set<string>>): s
   return steps
 }
 
-export async function collectCheatsheetData(cwd: string): Promise<CheatsheetData> {
-  const { catalog } = await buildCatalog(cwd)
+/**
+ * Gather everything the cheatsheet reports.
+ *
+ * Accepts an already-built catalog so a caller that needs one anyway resolves the
+ * stack exactly once — `buildCatalog` re-reads the stack package, re-validates its
+ * manifest, and re-instantiates jiti to transpile every `.dude/commands/` file, so
+ * calling it twice per render was pure waste (three times per `dude docs`).
+ */
+export async function collectCheatsheetData(
+  cwd: string,
+  prebuilt?: Awaited<ReturnType<typeof buildCatalog>>,
+): Promise<CheatsheetData> {
+  const { catalog } = prebuilt ?? (await buildCatalog(cwd))
 
   const flat = new Set(catalog.flat.keys())
   const groups = new Map(
@@ -124,9 +177,15 @@ export async function collectCheatsheetData(cwd: string): Promise<CheatsheetData
   if (existsSync(dudeJson)) {
     try {
       manifest = JSON.parse(readFileSync(dudeJson, 'utf8'))
-    } catch {
-      // A malformed dude.json must not break the cheatsheet — the command list
-      // is still useful, and `dude info` is the place that diagnoses config.
+    } catch (e) {
+      // A malformed dude.json must not break the cheatsheet — the command list is
+      // still useful. But it must not be silent either: without this the "This
+      // project" section just vanishes and the page looks like a stack-less
+      // project, which is a lie about the reason.
+      process.stderr.write(
+        `warning: dude.json could not be parsed (${(e as Error).message}); ` +
+          `the cheatsheet will omit the project's stack and answers.\n`,
+      )
     }
   }
 
@@ -138,6 +197,7 @@ export async function collectCheatsheetData(cwd: string): Promise<CheatsheetData
     dudeVersion: manifest.dudeVersion,
     answers,
     rules: harvestRules(cwd),
+    disabledRules: harvestDisabled(cwd),
     layout: harvestLayout(cwd),
     verify: buildVerifyLoop(flat, groups),
   }
@@ -147,25 +207,6 @@ export async function collectCheatsheetData(cwd: string): Promise<CheatsheetData
 
 /** Escape a value for a Markdown table cell — backslash before pipe. */
 const cell = (s: string) => s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')
-
-/**
- * Splice the catalog's command reference into this page.
- *
- * `catalogToMarkdown` renders a standalone page: an H1, then a banner telling the
- * reader to re-run `dude docs` to refresh it. Both are wrong inside a cheatsheet —
- * the banner would hand an agent the wrong refresh command — so keep only the
- * body after the catalog's own `## Commands` heading.
- */
-function embedCatalog(catalogMd: string): string {
-  const marker = '\n## Commands\n'
-  const at = catalogMd.indexOf(marker)
-  if (at === -1) {
-    // Renderer changed shape; fall back to dropping just the H1 rather than
-    // silently emitting nothing.
-    return catalogMd.replace(/^# .*\n/, '').replace(/^\n+/, '')
-  }
-  return catalogMd.slice(at + marker.length).replace(/^\n+/, '')
-}
 
 function renderMarkdown(data: CheatsheetData, catalogMd: string): string {
   const out: string[] = []
@@ -225,18 +266,33 @@ function renderMarkdown(data: CheatsheetData, catalogMd: string): string {
     out.push(
       '## Conventions enforced here',
       '',
-      `\`dude lint\` checks **${data.rules.length} rules**. Each one has prose in`,
-      '`.claude/rules/<GROUP>/<NNN>.md` explaining why it exists and how to fix a',
-      'violation — read that file before working around a diagnostic.',
+      `\`dude lint\` runs **${data.rules.length} rules** in this project. Stack rules have`,
+      'prose in `.claude/rules/<GROUP>/<NNN>.md` explaining why they exist and how to',
+      'fix a violation — read that file before working around a diagnostic.',
       '',
     )
     for (const group of [...byGroup.keys()].sort()) {
-      out.push(`### ${group}`, '', '| Code | Rule |', '| ---- | ---- |')
+      out.push(`### ${group}`, '', '| Code | Rule | Source |', '| ---- | ---- | ------ |')
       for (const r of byGroup.get(group)!) {
-        out.push(`| \`${r.code}\` | ${cell(r.title)} |`)
+        const source = r.source === 'project' ? '`.dude/lint/checks/`' : 'stack'
+        out.push(`| \`${r.code}\` | ${cell(r.title)} | ${source} |`)
       }
       out.push('')
     }
+  }
+
+  // Disabled codes are stated, not omitted: an agent that sees a rule missing
+  // cannot tell "not enforced here" from "the page is out of date".
+  if (data.disabledRules.length) {
+    out.push(
+      '### Disabled here',
+      '',
+      'These are switched off for this project via `dude.json` → `lint.disable`, so',
+      '`dude lint` will never report them. Do not reintroduce them as conventions:',
+      '',
+      data.disabledRules.map((c) => `\`${c}\``).join(' · '),
+      '',
+    )
   }
 
   // ── Layout ────────────────────────────────────────────────────────────────
@@ -254,7 +310,7 @@ function renderMarkdown(data: CheatsheetData, catalogMd: string): string {
 
   // ── Commands ──────────────────────────────────────────────────────────────
   out.push('## Commands available here', '')
-  out.push(embedCatalog(catalogMd))
+  out.push(catalogMd.replace(/^\n+/, ''))
 
   return out.join('\n')
 }
@@ -268,8 +324,9 @@ export async function generateCheatsheet(
   cwd: string,
   format: 'md' | 'json' = 'md',
 ): Promise<string> {
-  const data = await collectCheatsheetData(cwd)
-  const { catalog, stackName } = await buildCatalog(cwd)
+  const built = await buildCatalog(cwd)
+  const { catalog, stackName } = built
+  const data = await collectCheatsheetData(cwd, built)
 
   if (format === 'json') {
     return (
@@ -284,6 +341,7 @@ export async function generateCheatsheet(
           verify: data.verify,
           layout: data.layout,
           rules: data.rules,
+          disabledRules: data.disabledRules,
           catalog: JSON.parse(catalogToJson(catalog, stackName)),
         },
         null,
@@ -292,6 +350,7 @@ export async function generateCheatsheet(
     )
   }
 
-  const { catalogToMarkdown } = await import('../../commands/help/index.js')
-  return renderMarkdown(data, catalogToMarkdown(catalog, stackName))
+  // standalone: false drops the page H1 and the "re-run `dude docs`" banner —
+  // wrong guidance inside a cheatsheet — so no string-splicing is needed.
+  return renderMarkdown(data, catalogToMarkdown(catalog, stackName, { standalone: false }))
 }

@@ -23,8 +23,10 @@ need.
   conventions, workflows, and what not to do. Written for Claude Code, but it is
   plain Markdown and applies to any agent.
 - **`.claude/rules/<GROUP>/<NNN>.md`** — one file per lint rule, explaining why
-  it exists and how to fix a violation. When `dude lint` reports `BE003`, read
-  `.claude/rules/BE/003.md`.
+  it exists and how to fix a violation. A reported code maps to its file by
+  splitting group from number: `<GROUP><NNN>` lives at
+  `.claude/rules/<GROUP>/<NNN>.md`. Run `dude cheatsheet` to see this project's
+  actual codes — the groups differ per stack.
 
 ## 3. Verify your own work
 

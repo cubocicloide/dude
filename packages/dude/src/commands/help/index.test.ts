@@ -3,19 +3,29 @@
  */
 import { describe, expect, it } from 'vitest'
 import { runCLI } from '../../utils/testing.js'
+import { coreCommands, coreCommandNames } from './index.js'
 
 describe('dude help', () => {
   it('exits 0', () => {
     expect(runCLI(['help']).status).toBe(0)
   })
 
-  it('lists every core command registered in cli.ts', () => {
-    // Asserted against the catalog rather than raw stdout: the catalog is what
-    // `--format json` publishes, and a command missing from it is invisible to a
-    // coding agent even if the word happens to appear somewhere in the output.
+  it('lists every core command, derived from the registry rather than a literal', () => {
+    // Derived from `coreCommands` on purpose. A hardcoded array would still pass
+    // if someone registered a 7th core command and forgot the catalog — which is
+    // exactly the bug this test exists to prevent, since a command missing from
+    // the catalog is invisible to any agent reading `--format json`.
     const { stdout } = runCLI(['help', '--format', 'json'])
     const names = (JSON.parse(stdout).commands as { name: string }[]).map((c) => c.name)
-    expect(names.sort()).toEqual(['help', 'info', 'init', 'report', 'upgrade', 'version'])
+    expect(names.sort()).toEqual(Object.keys(coreCommands).sort())
+  })
+
+  it('registers the same set citty dispatches, so the two cannot drift', () => {
+    // `cli.ts` builds citty's `subCommands` from this same object, so this pins
+    // the property that mattered: one registry, no second hand-maintained list.
+    expect(Object.keys(coreCommands).sort()).toEqual([...coreCommandNames].sort())
+    expect(Object.keys(coreCommands)).toContain('help')
+    expect(Object.keys(coreCommands)).toContain('version')
   })
 
   it('advertises its own --format flag, so the catalog is self-describing', () => {

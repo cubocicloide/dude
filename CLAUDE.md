@@ -279,9 +279,15 @@ set (core + active stack + project-custom). Keep this table and the end-user doc
 
 ### Documentation
 
-| Command     | Flags        | Meaning                                                   |
-| ----------- | ------------ | --------------------------------------------------------- |
-| `dude docs` | `--port <n>` | Serve `docs/` (MkDocs Material) at http://localhost:8001. |
+| Command           | Flags                            | Meaning                                                                                                                                                                                                 |
+| ----------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dude docs`       | `--port <n>`                     | Serve `docs/` (MkDocs Material) at http://localhost:8001. Regenerates `api.md` and `cheatsheet.md` first, so the site always matches the real project.                                                    |
+| `dude cheatsheet` | `--format md\|json`, `--out <f>` | One dense reference for **this** project: how it was scaffolded, the verify loop, every lint rule that will actually run (disabled codes excluded, and stated separately), the layout, and the full catalog. `--format json` is the agent-facing form. |
+
+> Both are shared commands: the implementation lives in the CLI
+> (`defineDocsCommand()`, `defineCheatsheetCommand()`) and each stack registers it.
+> Never hand-roll a per-stack copy — see the note in the lint section, which
+> applies identically here.
 
 ### Infrastructure as code — requires `--iac aws-eks`
 
@@ -466,8 +472,19 @@ workflow above).
 ## Key invariants
 
 - **Every lint check ↔ one `.claude/rules/NNN.md`**: always keep them in sync.
-  This is now enforced mechanically — `scripts/compose-docs.mjs` harvests both
-  sides and `make docs-check` fails in CI when they diverge.
+  This is now enforced mechanically — `scripts/compose-docs.mjs` harvests the
+  **ids** on both sides and `make docs-check` fails in CI on any orphan, in either
+  direction.
+- **A command every stack exposes identically lives in the CLI, not in six
+  copies.** `lint`, `docs` and `cheatsheet` are registered via
+  `defineLintCommand()`, `defineDocsCommand()`, `defineCheatsheetCommand()`. If
+  you find yourself copying a command into each stack, that is the signal to move
+  it into `packages/dude/src/core/` and have stacks register it. The `docs` command
+  was six byte-identical 117-line files before this rule was written down.
+  A stack registering a shared command needs a CLI that exports it: `cli.ts`
+  catches a failed stack load and tells the user to run `dude upgrade --cli`,
+  because `minDudeVersion` cannot help — reading it requires the import to have
+  already succeeded.
 - **The root site's stack pages are generated, never hand-edited**: stack facts
   live in that stack's `docs` manifest; `make docs-data` regenerates
   `docs/docs/stacks/` and the site nav. See `.claude/rules/005-docs-composition.md`.

@@ -49,8 +49,14 @@ interface DiscoveredCheck {
   load: () => Promise<unknown>
 }
 
-/** Read `lint.disable` from the project's dude.json (missing bits → empty). */
-function readDisabledCodes(root: string): Set<string> {
+/**
+ * Read `lint.disable` from the project's dude.json (missing bits → empty).
+ *
+ * Exported because anything that *reports* which rules apply must agree with what
+ * the engine actually runs — the cheatsheet listed disabled codes as enforced
+ * until it started using this.
+ */
+export function readDisabledCodes(root: string): Set<string> {
   const dudeJsonPath = path.join(root, 'dude.json')
   if (!existsSync(dudeJsonPath)) return new Set()
   const manifest = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as {

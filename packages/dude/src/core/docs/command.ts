@@ -36,8 +36,15 @@ export interface DocsCommandOptions {
  *
  * The renderers are imported directly — this code now lives inside the CLI, so
  * there is no cross-package boundary to guard with a dynamic import the way the
- * old per-stack copies did. What replaces that guard is `minDudeVersion`: a stack
- * registering this command declares the CLI version that first exported it.
+ * old per-stack copies did.
+ *
+ * What that removal costs, stated plainly: the old per-stack copy tolerated an
+ * older CLI by checking `typeof dude.generateApiDoc !== 'function'` and skipping
+ * the refresh. Now a stack newer than the CLI fails while its own module is being
+ * imported — it calls `defineDocsCommand` before any of this runs. `minDudeVersion`
+ * cannot catch that: reading it requires the import to have already succeeded.
+ * The guard is instead in `cli.ts`, which wraps `loadStack()` and turns any load
+ * failure into an actionable "run `dude upgrade --cli`" message.
  */
 const GENERATED_PAGES = [
   {

@@ -1,5 +1,5 @@
 import path from 'pathe'
-import { defineStack, renderTemplateTree, defineCheatsheetCommand } from '@cubocicloide/dude'
+import { defineStack, renderTemplateTree, defineCheatsheetCommand, defineDocsCommand } from '@cubocicloide/dude'
 import {
   androidBuildCommand,
   androidDevCommand,
@@ -7,7 +7,6 @@ import {
 } from './commands/android/index.js'
 import { buildCommand } from './commands/build/index.js'
 import { devCommand } from './commands/dev/index.js'
-import { docsCommand } from './commands/docs/index.js'
 import { doctorCommand } from './commands/doctor/index.js'
 import { formatCommand } from './commands/format/index.js'
 import { iconCommand } from './commands/icon/index.js'
@@ -118,7 +117,7 @@ export default defineStack({
     format: formatCommand,
     review: reviewCommand,
     test: testCommand,
-    docs: docsCommand,
+    docs: defineDocsCommand(),
     android: {
       init: androidInitCommand,
       dev: androidDevCommand,

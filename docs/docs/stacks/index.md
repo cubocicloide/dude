@@ -87,6 +87,8 @@ However different the technologies, the workflow is the same across stacks:
 - `dude lint` — enforce the stack's structural conventions.
 - `dude test` — run the project's test suites.
 - `dude docs` — serve the project's own documentation site.
+- `dude cheatsheet` — one dense reference for the project, `--format json`
+  for coding agents.
 - Optional `dude iac …` — provision and ship to the cloud, when the stack
   supports it and you enabled IaC at init.
 

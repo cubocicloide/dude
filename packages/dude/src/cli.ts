@@ -1,12 +1,7 @@
 import { defineCommand, runMain } from 'citty'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
-import { initCommand } from './commands/init/index.js'
-import { helpCommand } from './commands/help/index.js'
-import { upgradeCommand } from './commands/upgrade/index.js'
-import { versionCommand } from './commands/version/index.js'
-import { infoCommand } from './commands/info/index.js'
-import { reportCommand } from './commands/report/index.js'
+import { coreCommands, coreCommandNames } from './commands/help/index.js'
 import { loadStack } from './core/stack-loader.js'
 import { resolveCustomCommand } from './core/custom-commands.js'
 import type { StackCommandDef } from './core/stack-contract.js'
@@ -25,14 +20,10 @@ const main = defineCommand({
     version: getCliVersion(),
     description: "Cubocicloide's project scaffolding & code quality CLI.",
   },
-  subCommands: {
-    version: versionCommand,
-    info: infoCommand,
-    report: reportCommand,
-    help: helpCommand,
-    init: initCommand,
-    upgrade: upgradeCommand,
-  },
+  // Derived from the single core-command registry in commands/help — see the note
+  // there. Registering a command in two places is what let `version` and `help`
+  // fall out of the published catalog.
+  subCommands: coreCommands,
 })
 
 // ---------------------------------------------------------------------------
@@ -121,17 +112,60 @@ async function tryProjectDispatch(): Promise<boolean> {
   // ── 2. Stack commands ──────────────────────────────────────────────────────
   if (!dudeJson.stack) return false
 
-  const { definition, root: stackRoot } = await loadStack(
-    dudeJson.stack,
-    cwd,
-    dudeJson.stackVersion,
-  )
+  // A stack's module body runs during this import, and it calls the helpers the
+  // CLI exports (`defineLintCommand`, `defineDocsCommand`, …) while building its
+  // `commands` map. So a stack newer than the running CLI fails *here* — before
+  // the `minDudeVersion` gate below can report anything, and for every command
+  // rather than only the one that needs the new API.
+  //
+  // Without this catch the user sees a raw ESM/TypeError trace from
+  // `bin/dude.mjs`'s top-level handler. `minDudeVersion` cannot cover this case
+  // by construction: reading it requires the import to have already succeeded.
+  let definition: Awaited<ReturnType<typeof loadStack>>['definition']
+  let stackRoot: string
+  try {
+    const loaded = await loadStack(dudeJson.stack, cwd, dudeJson.stackVersion)
+    definition = loaded.definition
+    stackRoot = loaded.root
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e)
+    const advice =
+      `A stack built against a newer dude CLI fails this way — the stack calls an\n` +
+      `API this CLI (${getCliVersion()}) does not export yet. If you ran\n` +
+      `\`dude upgrade --stack\` without \`--cli\`, the pins are out of step:\n\n` +
+      `  dude upgrade --cli && pnpm install\n`
+
+    // Core commands must survive a broken stack — `dude upgrade` is the way out
+    // of exactly this situation, so killing it here would strand the user with
+    // advice they cannot follow. Warn and fall through to citty, which owns them.
+    // (A stack may legitimately override a core command; that override is simply
+    // unavailable while the stack cannot load.)
+    if (coreCommandNames.includes(first)) {
+      process.stderr.write(
+        `warning: stack "${dudeJson.stack}" could not be loaded, so any stack\n` +
+          `overrides are unavailable. Running the built-in \`dude ${first}\` instead.\n\n` +
+          `${detail}\n\n${advice}\n`,
+      )
+      return false
+    }
+
+    process.stderr.write(
+      `error: could not load stack "${dudeJson.stack}"` +
+        `${dudeJson.stackVersion ? `@${dudeJson.stackVersion}` : ''}.\n\n` +
+        `${detail}\n\n` +
+        `${advice}\n` +
+        `Core commands (\`dude version\`, \`dude upgrade\`, \`dude info\`) do not need the\n` +
+        `stack, so they remain available to fix this.\n`,
+    )
+    process.exit(1)
+  }
   const entry = definition.commands?.[first]
   if (!entry) return false
 
   // Compatibility gate: refuse to run a stack command under a CLI older than the
-  // stack requires. Core commands (version, upgrade, …) are NOT routed here, so
-  // they remain available to remediate the mismatch.
+  // stack requires. Core commands do reach this function, but they return above
+  // (no stack entry of that name), and a stack that fails to load falls through
+  // for them — so `dude upgrade`/`dude version` stay available to remediate.
   const cliVersion = getCliVersion()
   if (definition.minDudeVersion && !satisfiesMinVersion(cliVersion, definition.minDudeVersion)) {
     process.stderr.write(

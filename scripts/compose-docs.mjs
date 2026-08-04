@@ -49,6 +49,31 @@ const banner = (self) =>
 
 // ── Harvest ───────────────────────────────────────────────────────────────────
 
+/**
+ * The site's deployed base path, from `site_url` in mkdocs.yml.
+ *
+ * `llms.txt` is a static file: mkdocs copies it verbatim and never rewrites links
+ * inside it, unlike the `.md` pages whose relative links it resolves. A project
+ * repo is served from `https://<org>.github.io/<repo>/`, so bare `/stacks/...`
+ * paths would 404 in production — the one file whose job is discoverability.
+ */
+function sitePathPrefix() {
+  const yml = readFileSync(MKDOCS_YML, 'utf8')
+  const m = yml.match(/^site_url:\s*(\S+)\s*$/m)
+  if (!m) {
+    throw new Error(
+      'docs/mkdocs.yml has no `site_url`. The composer needs it to emit links in\n' +
+        'llms.txt that resolve under the deployed base path.',
+    )
+  }
+  try {
+    const p = new URL(m[1]).pathname
+    return p.endsWith('/') ? p : `${p}/`
+  } catch {
+    throw new Error(`docs/mkdocs.yml has an unparseable site_url: ${m[1]}`)
+  }
+}
+
 function loadRegistry() {
   const file = path.join(REPO, 'packages', 'dude', 'registry.json')
   const { stacks } = JSON.parse(readFileSync(file, 'utf8'))
@@ -73,59 +98,74 @@ async function loadDefinition(id) {
   return mod.default
 }
 
-/** Lint check groups and their counts, derived from the source tree. */
-function harvestLintGroups(id) {
+/**
+ * Group → Set of check ids (`'001'`, `'002'`, …) from the stack's source tree.
+ * Ids, not counts: parity has to compare the actual codes (see
+ * `assertLintRuleParity`).
+ */
+function harvestLintChecks(id) {
   const root = path.join(REPO, 'stacks', id, 'src', 'commands', 'lint', 'checks')
   if (!existsSync(root)) return {}
   const groups = {}
   for (const group of readdirSync(root, { withFileTypes: true })) {
     if (!group.isDirectory()) continue
-    const checks = readdirSync(path.join(root, group.name)).filter(
-      (f) => /\.(ts|js)$/.test(f) && !f.endsWith('.test.ts') && !f.endsWith('.test.js'),
-    )
-    if (checks.length) groups[group.name] = checks.length
+    const ids = readdirSync(path.join(root, group.name))
+      .filter((f) => /\.(ts|js)$/.test(f) && !/\.test\.(ts|js)$/.test(f))
+      .map((f) => f.replace(/\.(ts|js)$/, ''))
+    if (ids.length) groups[group.name] = new Set(ids)
   }
   return groups
 }
 
-/** Prose rule files shipped in the stack's template, keyed by group. */
+/** Group → Set of prose rule ids shipped in the stack's template. */
 function harvestRuleFiles(id) {
   const root = path.join(REPO, 'stacks', id, 'templates', 'base', '.claude', 'rules')
   if (!existsSync(root)) return {}
   const groups = {}
   for (const group of readdirSync(root, { withFileTypes: true })) {
     if (!group.isDirectory()) continue
-    const rules = readdirSync(path.join(root, group.name)).filter((f) => f.endsWith('.md'))
-    if (rules.length) groups[group.name] = rules.length
+    const ids = readdirSync(path.join(root, group.name))
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => f.replace(/\.md$/, ''))
+    if (ids.length) groups[group.name] = new Set(ids)
   }
   return groups
 }
 
 /**
  * Enforce the lint↔rule parity invariant (`.claude/rules/002`) mechanically.
- * Every stack check must ship a matching prose rule file, and vice versa. This
- * used to be a convention only; harvesting both sides here makes it checkable,
- * so `make docs-check` in CI now catches a check added without its rule file.
+ *
+ * Compares the actual **ids** on both sides, not per-group counts. Counting was
+ * not enough: renaming `.claude/rules/BE/001.md` to `099.md` leaves the group at
+ * 11/11 while `BE001` has lost its prose and `BE099` documents nothing — exactly
+ * the drift rule 002 exists to prevent, waved through by a matching total.
  */
 function assertLintRuleParity(stacks) {
   const problems = []
   for (const s of stacks) {
-    const groups = new Set([...Object.keys(s.lintGroups), ...Object.keys(s.ruleGroups)])
+    const groups = new Set([...Object.keys(s.lintChecks), ...Object.keys(s.ruleFiles)])
     for (const g of [...groups].sort()) {
-      const checks = s.lintGroups[g] ?? 0
-      const rules = s.ruleGroups[g] ?? 0
-      if (checks !== rules) {
+      const checks = s.lintChecks[g] ?? new Set()
+      const rules = s.ruleFiles[g] ?? new Set()
+      const missingRule = [...checks].filter((id) => !rules.has(id)).sort()
+      const orphanRule = [...rules].filter((id) => !checks.has(id)).sort()
+      for (const id of missingRule) {
         problems.push(
-          `  ${s.id} group ${g}: ${checks} check(s) but ${rules} rule file(s) — ` +
-            `see .claude/rules/002-lint-template-parity.md`,
+          `  ${s.id}: check ${g}${id} has no templates/base/.claude/rules/${g}/${id}.md`,
+        )
+      }
+      for (const id of orphanRule) {
+        problems.push(
+          `  ${s.id}: rule file ${g}/${id}.md documents ${g}${id}, but no such check exists`,
         )
       }
     }
   }
   if (problems.length) {
     throw new Error(
-      `Lint↔rule parity is broken (every stack check needs a matching ` +
-        `templates/base/.claude/rules/<GROUP>/NNN.md):\n\n${problems.join('\n')}\n`,
+      `Lint↔rule parity is broken — every stack check needs a matching prose rule ` +
+        `file with the SAME id, and vice versa ` +
+        `(see .claude/rules/002-lint-template-parity.md):\n\n${problems.join('\n')}\n`,
     )
   }
 }
@@ -173,8 +213,8 @@ async function collect() {
       minimumSupported: entry.minimumSupported,
       definition,
       docs: definition.docs,
-      lintGroups: harvestLintGroups(entry.id),
-      ruleGroups: harvestRuleFiles(entry.id),
+      lintChecks: harvestLintChecks(entry.id),
+      ruleFiles: harvestRuleFiles(entry.id),
     })
   }
   assertLintRuleParity(stacks)
@@ -193,11 +233,30 @@ async function collect() {
  */
 const cell = (s) => String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|')
 
-const totalChecks = (s) => Object.values(s.lintGroups).reduce((a, b) => a + b, 0)
+/**
+ * Build a Markdown table row, escaping every cell.
+ *
+ * Use this instead of interpolating into a template literal: the previous round of
+ * escaping fixes was applied cell-by-cell and still missed three sites
+ * (`variableDefault`, `iac.provider`, `page.when`), each of which could split a
+ * row. Routing rows through one function makes forgetting impossible rather than
+ * unlikely. Pass pre-formatted markup (links, code spans) via `raw()`.
+ */
+const row = (...cells) => `| ${cells.map((c) => (c instanceof Raw ? c.value : cell(c))).join(' | ')} |`
+
+/** Marks a cell as already-safe markup that must not be escaped. */
+class Raw {
+  constructor(value) {
+    this.value = value
+  }
+}
+const raw = (value) => new Raw(value)
+
+const totalChecks = (s) => Object.values(s.lintChecks).reduce((a, set) => a + set.size, 0)
 
 const lintGroupLabel = (s) => {
-  const names = Object.keys(s.lintGroups).sort()
-  return names.length ? names.map((g) => `\`${g}\``).join(', ') : '—'
+  const names = Object.keys(s.lintChecks).sort()
+  return names.length ? names.map((g) => `\`${cell(g)}\``).join(', ') : '—'
 }
 
 /**
@@ -213,7 +272,9 @@ const lintGroupLabel = (s) => {
 const flagName = (name) => name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
 
 function variableFlag(v) {
-  const flag = flagName(v.name)
+  // Escapes its own interpolations: the result is handed to row() as raw(), so
+  // nothing downstream will escape it again.
+  const flag = cell(flagName(v.name))
   if (v.type === 'boolean') return `\`--${flag}\``
   if (v.type === 'select') return `\`--${flag} <${v.choices.map(cell).join('\\|')}>\``
   return `\`--${flag} <value>\``
@@ -221,7 +282,9 @@ function variableFlag(v) {
 
 function variableDefault(v) {
   if (v.default === undefined) return '—'
-  return `\`${String(v.default)}\``
+  // `default` is a free-form string in the manifest schema, so it can contain a
+  // pipe. Escape here — the caller passes this through raw() to keep the backticks.
+  return `\`${cell(String(v.default))}\``
 }
 
 // ── Render: one page per stack ────────────────────────────────────────────────
@@ -253,7 +316,7 @@ function renderStackPage(s) {
     )
     for (const v of d.variables) {
       const prompt = cell(v.prompt ?? v.name)
-      out.push(`| ${prompt} | ${variableFlag(v)} | ${variableDefault(v)} |`)
+      out.push(row(prompt, raw(variableFlag(v)), raw(variableDefault(v))))
     }
     out.push('')
   }
@@ -289,8 +352,8 @@ function renderStackPage(s) {
       '| Group | Checks |',
       '| ----- | ------ |',
     )
-    for (const g of Object.keys(s.lintGroups).sort()) {
-      out.push(`| \`${g}\` | ${s.lintGroups[g]} |`)
+    for (const g of Object.keys(s.lintChecks).sort()) {
+      out.push(row(raw(`\`${cell(g)}\``), s.lintChecks[g].size))
     }
     out.push('')
   }
@@ -306,8 +369,9 @@ function renderStackPage(s) {
       '| ---- | ----- | -------- |',
     )
     for (const p of m.pages) {
-      const when = p.when ? `when \`${p.when}\`` : 'always'
-      out.push(`| \`${cell(p.file)}\` | ${cell(p.title)} | ${when} |`)
+      // `when` goes through row() unescaped-free; keep the backticks as content
+      const when = p.when ? `when \`${cell(p.when)}\`` : 'always'
+      out.push(row(raw(`\`${cell(p.file)}\``), p.title, when))
     }
     out.push('')
   }
@@ -367,10 +431,15 @@ function renderIndex(stacks) {
     '| ----- | ------------ | ----------- | -----: | ------------- |',
   )
   for (const s of stacks) {
-    const iac = s.docs?.iac ? `\`${s.docs.iac.provider}\`` : '—'
+    const iac = s.docs?.iac ? `\`${cell(s.docs.iac.provider)}\`` : '—'
     out.push(
-      `| [\`${s.id}\`](${s.id}.md) | ${iac} | ${lintGroupLabel(s)} | ` +
-        `${totalChecks(s) || '—'} | \`>= ${s.definition.minDudeVersion}\` |`,
+      row(
+        raw(`[\`${s.id}\`](${s.id}.md)`),
+        raw(iac),
+        raw(lintGroupLabel(s)),
+        totalChecks(s) || '—',
+        raw(`\`>= ${cell(s.definition.minDudeVersion)}\``),
+      ),
     )
   }
   out.push('')
@@ -385,7 +454,7 @@ function renderIndex(stacks) {
     )
     for (const s of withCases) {
       for (const u of s.docs.useCases) {
-        out.push(`| ${cell(u)} | [\`${s.id}\`](${s.id}.md) |`)
+        out.push(row(u, raw(`[\`${s.id}\`](${s.id}.md)`)))
       }
     }
     out.push('')
@@ -402,6 +471,8 @@ function renderIndex(stacks) {
     "- `dude lint` — enforce the stack's structural conventions.",
     "- `dude test` — run the project's test suites.",
     "- `dude docs` — serve the project's own documentation site.",
+    '- `dude cheatsheet` — one dense reference for the project, `--format json`',
+    '  for coding agents.',
     '- Optional `dude iac …` — provision and ship to the cloud, when the stack',
     '  supports it and you enabled IaC at init.',
     '',
@@ -457,9 +528,9 @@ function renderStackJson(s) {
           flagsAreCaseAndDashInsensitive: true,
         },
         lint: {
-          groups: Object.keys(s.lintGroups)
+          groups: Object.keys(s.lintChecks)
             .sort()
-            .map((g) => ({ group: g, checks: s.lintGroups[g] })),
+            .map((g) => ({ group: g, checks: s.lintChecks[g].size })),
           totalChecks: totalChecks(s),
           // Each check ships prose at this path inside the generated project.
           rulePathTemplate: '.claude/rules/<GROUP>/<NNN>.md',
@@ -480,6 +551,7 @@ function renderStackJson(s) {
  * to look, without crawling it. Kept to stable URLs and one line of intent each.
  */
 function renderLlmsTxt(stacks) {
+  const base = sitePathPrefix()
   const out = [
     '# dude',
     '',
@@ -492,8 +564,8 @@ function renderLlmsTxt(stacks) {
     '',
     '## Start here (machine-readable)',
     '',
-    '- [Stack index](/stacks/): every stack, with a comparison matrix.',
-    ...stacks.map((s) => `- [${s.id} (JSON)](/stacks/${s.id}.json): ${s.docs?.tagline ?? s.definition.description}`),
+    `- [Stack index](${base}stacks/): every stack, with a comparison matrix.`,
+    ...stacks.map((s) => `- [${s.id} (JSON)](${base}stacks/${s.id}.json): ${s.docs?.tagline ?? s.definition.description}`),
     '',
     '## Inside a scaffolded project',
     '',
@@ -511,16 +583,16 @@ function renderLlmsTxt(stacks) {
     '',
     '## Prose documentation',
     '',
-    '- [Home](/): what dude is and who it is for.',
-    '- [Getting started](/getting-started/): install and scaffold a first project.',
-    '- [How it works](/concepts/): the launcher, pinned toolchains, stack plugins,',
+    `- [Home](${base}): what dude is and who it is for.`,
+    `- [Getting started](${base}getting-started/): install and scaffold a first project.`,
+    `- [How it works](${base}concepts/): the launcher, pinned toolchains, stack plugins,`,
     '  template overlays, release channels.',
-    '- [Command reference](/commands/): the core, stack-agnostic commands.',
-    '- [Troubleshooting](/troubleshooting/): common issues and how to file a report.',
+    `- [Command reference](${base}commands/): the core, stack-agnostic commands.`,
+    `- [Troubleshooting](${base}troubleshooting/): common issues and how to file a report.`,
     '',
     '## Per-stack pages',
     '',
-    ...stacks.map((s) => `- [${s.id}](/stacks/${s.id}/): scaffold flags, enforced conventions, page set.`),
+    ...stacks.map((s) => `- [${s.id}](${base}stacks/${s.id}/): scaffold flags, enforced conventions, page set.`),
     '',
   ]
   return out.join('\n')
@@ -530,9 +602,15 @@ function renderLlmsTxt(stacks) {
 
 function updateMkdocsNav(stacks) {
   const yml = readFileSync(MKDOCS_YML, 'utf8')
-  const start = yml.indexOf(NAV_START)
-  const end = yml.indexOf(NAV_END)
-  if (start === -1 || end === -1) {
+  // Matched by regex rather than exact literal so a cosmetic reformat (indent
+  // depth, reworded comment) does not turn into a confusing "markers not found".
+  const startRe = /^[ \t]*#[ \t]*<!--[ \t]*composed:stacks:start[\s\S]*?-->[ \t]*$/m
+  const endRe = /^[ \t]*#[ \t]*<!--[ \t]*composed:stacks:end[\s\S]*?-->[ \t]*$/m
+  const startM = yml.match(startRe)
+  const endM = yml.match(endRe)
+  const start = startM?.index ?? -1
+  const end = endM?.index ?? -1
+  if (start === -1 || end === -1 || end < start) {
     throw new Error(
       `Could not find the composed nav markers in docs/mkdocs.yml.\n` +
         `Expected these two lines to be present:\n\n${NAV_START}\n${NAV_END}\n`,
@@ -546,7 +624,7 @@ function updateMkdocsNav(stacks) {
     NAV_END,
   ].join('\n')
 
-  const next = yml.slice(0, start) + section + yml.slice(end + NAV_END.length)
+  const next = yml.slice(0, start) + section + yml.slice(end + endM[0].length)
   if (next !== yml) writeFileSync(MKDOCS_YML, next)
 }
 

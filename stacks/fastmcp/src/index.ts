@@ -1,6 +1,5 @@
 import path from 'pathe'
-import { defineStack, renderTemplateTree, defineCheatsheetCommand } from '@cubocicloide/dude'
-import { docsCommand } from './commands/docs/index.js'
+import { defineStack, renderTemplateTree, defineCheatsheetCommand, defineDocsCommand } from '@cubocicloide/dude'
 import { downCommand } from './commands/down/index.js'
 import { formatCommand } from './commands/format/index.js'
 import { iacCommands } from './commands/iac/index.js'
@@ -130,7 +129,7 @@ export default defineStack({
     format: formatCommand,
     review: reviewCommand,
     test: testCommand,
-    docs: docsCommand,
+    docs: defineDocsCommand(),
     security: {
       scan: securityScanCommand,
       accept: securityAcceptCommand,
