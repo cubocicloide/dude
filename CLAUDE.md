@@ -481,10 +481,16 @@ workflow above).
   you find yourself copying a command into each stack, that is the signal to move
   it into `packages/dude/src/core/` and have stacks register it. The `docs` command
   was six byte-identical 117-line files before this rule was written down.
-  A stack registering a shared command needs a CLI that exports it: `cli.ts`
-  catches a failed stack load and tells the user to run `dude upgrade --cli`,
-  because `minDudeVersion` cannot help — reading it requires the import to have
-  already succeeded.
+  A stack registering a shared command needs a CLI that exports it. Two guards, with
+  different jobs, and both are needed:
+  - **Import-time skew** (the stack calls an export the CLI lacks) is caught by
+    `cli.ts` and `dude init`, which turn the load failure into a `dude upgrade --cli`
+    message. `minDudeVersion` cannot cover this — reading it requires the import to
+    have already succeeded.
+  - **Silent behaviour drift** (the import succeeds, but an older CLI's
+    implementation of a shared command behaves differently) is exactly what
+    `minDudeVersion` is for. Raise it when a stack starts depending on *behaviour*
+    added to the CLI, not merely on a symbol existing.
 - **The root site's stack pages are generated, never hand-edited**: stack facts
   live in that stack's `docs` manifest; `make docs-data` regenerates
   `docs/docs/stacks/` and the site nav. See `.claude/rules/005-docs-composition.md`.

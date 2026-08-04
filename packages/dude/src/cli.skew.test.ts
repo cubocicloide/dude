@@ -51,6 +51,21 @@ function makeSkewedProject(): string {
   return project
 }
 
+describe('cli — malformed dude.json', () => {
+  it('explains a broken dude.json instead of dumping a JSON SyntaxError', () => {
+    // tryProjectDispatch parses dude.json before anything else, so an unguarded
+    // parse takes down EVERY command in the project with a raw trace.
+    const project = mkdtempSync(join(tmpdir(), 'dude-badjson-'))
+    writeFileSync(join(project, 'dude.json'), '{ "stack": "x", broken\n')
+
+    const { status, stderr } = runCLI(['lint'], { cwd: project })
+
+    expect(status).toBe(1)
+    expect(stderr).toContain('dude.json')
+    expect(stderr).not.toMatch(/at JSON\.parse|at tryProjectDispatch/)
+  })
+})
+
 describe('cli — stack newer than the CLI', () => {
   it('fails a stack command legibly instead of dumping a stack trace', () => {
     const { status, stderr } = runCLI(['lint'], { cwd: makeSkewedProject() })
@@ -62,6 +77,45 @@ describe('cli — stack newer than the CLI', () => {
     expect(stderr).toContain('defineDocsCommand is not a function')
     // But not as an unhandled rejection.
     expect(stderr).not.toMatch(/at ModuleJob|at async ModuleLoader/)
+  })
+
+  it('fails `dude init` legibly too — the path a brand-new project takes', () => {
+    // The catch in tryProjectDispatch only covers commands run inside an existing
+    // project (it needs a dude.json). `initCommand` resolves the stack itself, and
+    // that is the ONLY path a new project takes — including the launcher's
+    // `npx @cubocicloide/dude@latest init`. Because `make promote` is per-package,
+    // a stack promoted to `latest` before the CLI reproduces this for real users.
+    const base = mkdtempSync(join(tmpdir(), 'dude-skew-init-'))
+    const stack = join(makeSkewedProject(), '..', 'stack')
+
+    const { status, stderr } = runCLI(['init', '--stack', stack, '--yes', 'proj'], { cwd: base })
+
+    expect(status).not.toBe(0)
+    expect(stderr).not.toMatch(/at ModuleJob|at async ModuleLoader/)
+    expect(stderr).toContain('dude upgrade --cli')
+  })
+
+  it('does not assert version skew for a failure that is plainly something else', () => {
+    // Appending the skew narrative unconditionally told the user to run
+    // `dude upgrade --cli` immediately after the loader had given the correct
+    // remediation for a missing build — two confident, contradictory diagnoses.
+    const base = mkdtempSync(join(tmpdir(), 'dude-nodist-'))
+    const stack = join(base, 'stack')
+    mkdirSync(stack, { recursive: true })
+    writeFileSync(
+      join(stack, 'package.json'),
+      JSON.stringify({ name: '@test/nodist', version: '1.0.0', main: './dist/index.js' }),
+    )
+    const project = join(base, 'project')
+    mkdirSync(project, { recursive: true })
+    writeFileSync(join(project, 'dude.json'), JSON.stringify({ stack, answers: {} }))
+
+    const { stderr } = runCLI(['lint'], { cwd: project })
+
+    expect(stderr).toContain('Did you build the stack package?')
+    // The skew hypothesis may be offered, but never as the established cause.
+    expect(stderr).not.toContain('That call is an API this CLI')
+    expect(stderr).not.toMatch(/A stack built against a newer dude CLI fails this way/)
   })
 
   it('keeps core commands working, so the advice it gives is actionable', () => {

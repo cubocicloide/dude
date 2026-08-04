@@ -334,3 +334,44 @@ function findInPnpmWorkspace(startDir: string, pkgName: string): string | null {
     dir = parent
   }
 }
+
+/**
+ * Human-facing explanation for a failed `loadStack()`.
+ *
+ * Shared by every entry point that resolves a stack (`cli.ts`'s dispatcher and
+ * `dude init`), because a stack's module body runs during the import and calls the
+ * helpers the CLI exports — so a stack newer than the CLI fails *here*, before
+ * `minDudeVersion` can be read, and for every command rather than only the one
+ * needing the new API.
+ *
+ * The version-skew hypothesis is offered **conditionally**. Appending it to every
+ * failure told users to run `dude upgrade --cli` right after the loader had already
+ * given the correct remediation for a missing build or a bad manifest.
+ */
+export function stackLoadFailureMessage(
+  spec: string,
+  version: string | undefined,
+  cliVersion: string,
+  error: unknown,
+): string {
+  const detail = error instanceof Error ? error.message : String(error)
+  // A skew failure is an unresolved export being called: `x.defineFoo is not a
+  // function`. Anything else (missing dist, bad JSON, invalid manifest, a genuine
+  // bug in the stack) already carries its own diagnosis and must not be second-guessed.
+  const looksLikeSkew = error instanceof TypeError && /is not a function/.test(detail)
+
+  let out =
+    `error: could not load stack "${spec}"${version ? `@${version}` : ''}.\n\n` + `${detail}\n\n`
+  if (looksLikeSkew) {
+    out +=
+      `That call is an API this CLI (${cliVersion}) does not export, which is what a\n` +
+      `stack built against a newer dude looks like. If you ran \`dude upgrade --stack\`\n` +
+      `without \`--cli\`, the pins are out of step:\n\n` +
+      `  dude upgrade --cli && pnpm install\n`
+  } else {
+    out +=
+      `If the message above does not explain it, the stack may be built against a\n` +
+      `newer dude than this CLI (${cliVersion}) — try \`dude upgrade --cli\`.\n`
+  }
+  return out
+}

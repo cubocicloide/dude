@@ -129,11 +129,14 @@ docs-check: docs-data ## Fail if the committed composed docs are out of date
 	@# the working tree and is BLIND to untracked files, so a brand-new generated
 	@# page (the "added a stack" case) regenerated into an uncommitted file made the
 	@# gate report success while the file was absent from the PR entirely.
-	@if [ -n "$$(git status --porcelain -- docs/)" ]; then \
+	@# Scoped to the paths the composer OWNS. `-- docs/` was broader than what this
+	@# verifies, so unrelated work-in-progress on a hand-written page produced
+	@# "Composed docs are out of date" plus advice that fixed nothing.
+	@if [ -n "$$(git status --porcelain -- docs/docs/stacks docs/docs/llms.txt docs/mkdocs.yml)" ]; then \
 		printf "  \033[31m✗\033[0m  Composed docs are out of date.\n"; \
 		printf "      A stack manifest changed without regenerating, or a generated page was never committed.\n"; \
 		printf "      Run \033[1mmake docs-data\033[0m and commit the result.\n\n"; \
-		git --no-pager status --short -- docs/; \
+		git --no-pager status --short -- docs/docs/stacks docs/docs/llms.txt docs/mkdocs.yml; \
 		exit 1; \
 	fi
 	@printf "  \033[32m✓\033[0m  Composed docs are up to date.\n"

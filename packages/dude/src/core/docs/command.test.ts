@@ -12,17 +12,35 @@ import { join } from 'node:path'
  * the per-page isolation, and the "only refresh what the scaffold ships" rule.
  */
 
-vi.mock('node:child_process', () => ({
-  // Docker "running", and a spawned child that closes immediately.
-  spawnSync: vi.fn(() => ({ error: null, status: 0 })),
-  spawn: vi.fn(() => ({
+// Controllable per test: `docker info` health and the spawned child's shape are
+// what the docs command branches on.
+interface FakeChild {
+  pid: number | undefined
+  stdout: { on: (e: string, cb: (c: Buffer) => void) => void }
+  stderr: { on: (e: string, cb: (c: Buffer) => void) => void }
+  on: (event: string, cb: () => void) => void
+}
+
+const dockerInfo = vi.fn(
+  (_cmd: string, _args: string[], _opts?: unknown) => ({
+    error: null as Error | null,
+    status: 0 as number | null,
+  }),
+)
+const spawnMock = vi.fn(
+  (_cmd: string, _args: string[], _opts?: unknown): FakeChild => ({
     pid: 1234,
     stdout: { on: vi.fn() },
     stderr: { on: vi.fn() },
-    on: (event: string, cb: () => void) => {
+    on: (event, cb) => {
       if (event === 'close') cb()
     },
-  })),
+  }),
+)
+
+vi.mock('node:child_process', () => ({
+  spawnSync: dockerInfo,
+  spawn: spawnMock,
 }))
 
 function makeProject(pages: string[]): string {
@@ -42,6 +60,15 @@ let stdout: string[] = []
 beforeEach(() => {
   stderr = []
   stdout = []
+  dockerInfo.mockReturnValue({ error: null, status: 0 })
+  spawnMock.mockReturnValue({
+    pid: 1234,
+    stdout: { on: vi.fn() },
+    stderr: { on: vi.fn() },
+    on: (event: string, cb: () => void) => {
+      if (event === 'close') cb()
+    },
+  })
   vi.spyOn(process.stderr, 'write').mockImplementation((c) => (stderr.push(String(c)), true))
   vi.spyOn(process.stdout, 'write').mockImplementation((c) => (stdout.push(String(c)), true))
 })
@@ -98,5 +125,70 @@ describe('defineDocsCommand — generated page refresh', () => {
     await defineDocsCommand().run!({ projectRoot: root, stackRoot: root, args: { port: '9099' } })
 
     expect(stdout.join('')).toContain('http://localhost:9099')
+  })
+})
+
+describe('defineDocsCommand — preconditions and container', () => {
+  // These moved here from stacks/{react-fastapi,react-django}, which each carried a
+  // byte-identical copy testing behaviour that is not stack-specific at all.
+  const exitGuard = () =>
+    vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('EXIT')
+    })
+
+  it('exits 1 when Docker reports unhealthy', async () => {
+    const { defineDocsCommand } = await import('./command.js')
+    dockerInfo.mockReturnValue({ error: null, status: 1 })
+    const root = makeProject(['api.md'])
+    const exit = exitGuard()
+
+    await expect(
+      defineDocsCommand().run!({ projectRoot: root, stackRoot: root, args: {} }),
+    ).rejects.toThrow('EXIT')
+    expect(stderr.join('')).toContain('Docker is not running')
+    exit.mockRestore()
+  })
+
+  it('exits 1 when the docker info call itself errors', async () => {
+    const { defineDocsCommand } = await import('./command.js')
+    dockerInfo.mockReturnValue({ error: new Error('ENOENT'), status: null })
+    const root = makeProject(['api.md'])
+    const exit = exitGuard()
+
+    await expect(
+      defineDocsCommand().run!({ projectRoot: root, stackRoot: root, args: {} }),
+    ).rejects.toThrow('EXIT')
+    expect(stderr.join('')).toContain('Docker is not running')
+    exit.mockRestore()
+  })
+
+  it('runs docker with the expected mount and port mapping', async () => {
+    const { defineDocsCommand } = await import('./command.js')
+    const root = makeProject(['api.md'])
+
+    await defineDocsCommand().run!({ projectRoot: root, stackRoot: root, args: { port: '8123' } })
+
+    const args = spawnMock.mock.calls[0]?.[1] ?? []
+    expect(args).toContain('8123:8000')
+    expect(args.join(' ')).toContain('squidfunk/mkdocs-material')
+    expect(args.join(' ')).toContain(`${root}/docs:/docs`)
+  })
+
+  it('exits 1 when the container fails to start (no pid)', async () => {
+    const { defineDocsCommand } = await import('./command.js')
+    spawnMock.mockReturnValue({
+      pid: undefined,
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: () => undefined,
+    })
+    const root = makeProject(['api.md'])
+    const exit = exitGuard()
+
+    await expect(
+      defineDocsCommand().run!({ projectRoot: root, stackRoot: root, args: {} }),
+    ).rejects.toThrow('EXIT')
+    expect(stderr.join('')).toContain('Failed to start Docker container')
+    exit.mockRestore()
   })
 })

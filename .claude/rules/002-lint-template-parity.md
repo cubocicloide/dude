@@ -50,6 +50,17 @@ When you **remove** a lint check → remove the `.claude/rules` file.
 Violations of this rule make the generated `.claude` guidance stale and
 mislead Claude when working inside scaffolded projects.
 
+`scripts/compose-docs.mjs` enforces this mechanically, comparing the **ids** on
+both sides and failing `make docs-check` on an orphan in either direction. What it
+cannot catch: a check whose *logic* changes while its filename stays put — the
+prose then quietly describes the old behaviour. Filename parity is the mechanical
+floor; keeping the prose true to the check is still on the author.
+
+Note also that the rule files are **prose, not the source of truth for what runs**.
+`dude lint` executes the checks compiled into the stack's
+`dist/commands/lint/checks/`; anything reporting which rules apply (e.g.
+`dude cheatsheet`) must read that, using these files only for titles.
+
 Project-defined checks follow the same spirit: an optional Markdown file
 co-located with the check (`.dude/lint/checks/PRJ/001.md`) documents the rule;
 the engine ignores non-module files.

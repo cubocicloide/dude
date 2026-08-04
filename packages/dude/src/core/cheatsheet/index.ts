@@ -16,7 +16,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'pathe'
 import { buildCatalog, catalogToJson, catalogToMarkdown } from '../../commands/help/index.js'
-import { readDisabledCodes, PROJECT_CHECKS_DIR } from '../lint/index.js'
+import { discoverCheckCodes } from '../lint/index.js'
 
 /** A lint rule as advertised to the reader: its code and its one-line title. */
 export interface CheatsheetRule {
@@ -38,6 +38,11 @@ export interface CheatsheetData {
   rules: CheatsheetRule[]
   /** Codes switched off via `dude.json` → `lint.disable`, stated not hidden. */
   disabledRules: string[]
+  /**
+   * Codes claimed twice (stack and project). `runLint` treats this as fatal and
+   * runs NOTHING, so it must be reported — not silently resolved in favour of one.
+   */
+  collisions: string[]
   /** Top-level directories present in the project. */
   layout: string[]
   /** The verify loop, as concrete commands that exist in this project. */
@@ -71,54 +76,46 @@ function ruleTitle(file: string, code: string): string {
 /**
  * The rules that will actually run against this project.
  *
- * Two sources, matching what the lint engine itself merges:
+ * Derived from `discoverCheckCodes` — the engine's own discovery — so this page and
+ * `dude lint` can never disagree. `.claude/rules/<GROUP>/<NNN>.md` supplies only the
+ * human title; a missing prose file degrades to the bare code rather than dropping
+ * an enforced rule, and a stray prose file with no check behind it is ignored.
  *
- *  - the stack's prose rules under `.claude/rules/<GROUP>/<NNN>.md`;
- *  - the project's own checks under `.dude/lint/checks/<GROUP>/<id>.ts`, which
- *    run but are not required to ship a prose file.
- *
- * Codes listed in `dude.json` → `lint.disable` are **excluded**, because the
- * engine never executes them (`runLint` skips them outright). Listing a disabled
- * code here would tell a coding agent a rule is enforced when it is not — the one
- * thing this page must never do.
+ * Reading that prose directory as the source of *codes* was the bug: it is a
+ * separate, independently-mutable tree (`dude upgrade --stack` does not migrate
+ * files), so it drifted in both directions.
  */
-function harvestRules(root: string): CheatsheetRule[] {
-  const disabled = readDisabledCodes(root)
-  const rules: CheatsheetRule[] = []
-  const seen = new Set<string>()
-
-  const scan = (dir: string, source: CheatsheetRule['source'], ext: RegExp): void => {
-    if (!existsSync(dir)) return
-    for (const group of readdirSync(dir, { withFileTypes: true })) {
-      if (!group.isDirectory()) continue
-      const groupDir = path.join(dir, group.name)
-      for (const f of readdirSync(groupDir)) {
-        if (!ext.test(f) || f.includes('.test.')) continue
-        const id = f.replace(ext, '')
-        const code = `${group.name}${id}`
-        if (disabled.has(code) || seen.has(code)) continue
-        seen.add(code)
-        rules.push({
-          code,
-          group: group.name,
-          title: source === 'stack' ? ruleTitle(path.join(groupDir, f), code) : code,
-          source,
-        })
-      }
-    }
-  }
-
-  scan(path.join(root, RULES_DIR), 'stack', /\.md$/)
-  // Project checks are code, not prose; a co-located .md is optional, so the
-  // title falls back to the bare code unless one exists next to the check.
-  scan(path.join(root, PROJECT_CHECKS_DIR), 'project', /\.(ts|js|mjs|cjs)$/)
-
-  return rules.sort((a, b) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0))
+function harvestRules(root: string, stackRoot: string, disabled: Set<string>): CheatsheetRule[] {
+  const { codes } = discoverCheckCodes(root, stackRoot)
+  return codes
+    .filter((c) => !disabled.has(c.code))
+    .map((c) => ({
+      code: c.code,
+      group: c.group,
+      title:
+        c.source === 'stack'
+          ? ruleTitle(path.join(root, RULES_DIR, c.group, `${c.id}.md`), c.code)
+          : c.code,
+      source: c.source,
+    }))
 }
 
-/** Codes disabled via `dude.json` → `lint.disable`, reported rather than hidden. */
-function harvestDisabled(root: string): string[] {
-  return [...readDisabledCodes(root)].sort()
+/**
+ * Lint facts for the page. Without a resolved stack root the engine cannot be
+ * consulted, so report nothing rather than guessing from the prose directory —
+ * an empty list is honest, an invented one is not.
+ */
+function harvestLintFacts(
+  root: string,
+  stackRoot: string | undefined,
+): Pick<CheatsheetData, 'rules' | 'disabledRules' | 'collisions'> {
+  if (!stackRoot) return { rules: [], disabledRules: [], collisions: [] }
+  const { disabled, collisions } = discoverCheckCodes(root, stackRoot)
+  return {
+    rules: harvestRules(root, stackRoot, disabled),
+    disabledRules: [...disabled].sort(),
+    collisions,
+  }
 }
 
 /** Top-level project directories, so an agent knows where things belong. */
@@ -159,6 +156,7 @@ function buildVerifyLoop(flat: Set<string>, groups: Map<string, Set<string>>): s
 export async function collectCheatsheetData(
   cwd: string,
   prebuilt?: Awaited<ReturnType<typeof buildCatalog>>,
+  stackRoot?: string,
 ): Promise<CheatsheetData> {
   const { catalog } = prebuilt ?? (await buildCatalog(cwd))
 
@@ -196,10 +194,31 @@ export async function collectCheatsheetData(
     stackVersion: manifest.stackVersion,
     dudeVersion: manifest.dudeVersion,
     answers,
-    rules: harvestRules(cwd),
-    disabledRules: harvestDisabled(cwd),
+    ...harvestLintFacts(cwd, stackRoot),
     layout: harvestLayout(cwd),
     verify: buildVerifyLoop(flat, groups),
+  }
+}
+
+/**
+ * Best-effort stack root for a project, so the library entry point can consult the
+ * engine without the caller threading it. A project whose stack cannot resolve
+ * simply reports no lint facts (see `harvestLintFacts`).
+ */
+async function resolveStackRoot(cwd: string): Promise<string | undefined> {
+  const dudeJsonPath = path.join(cwd, 'dude.json')
+  if (!existsSync(dudeJsonPath)) return undefined
+  try {
+    const { stack, stackVersion } = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as {
+      stack?: string
+      stackVersion?: string
+    }
+    if (!stack) return undefined
+    const { loadStack } = await import('../stack-loader.js')
+    return (await loadStack(stack, cwd, stackVersion)).root
+  } catch {
+    // Already reported by whoever owns the failure; absent lint facts are honest.
+    return undefined
   }
 }
 
@@ -323,10 +342,15 @@ function renderMarkdown(data: CheatsheetData, catalogMd: string): string {
 export async function generateCheatsheet(
   cwd: string,
   format: 'md' | 'json' = 'md',
+  stackRoot?: string,
 ): Promise<string> {
   const built = await buildCatalog(cwd)
   const { catalog, stackName } = built
-  const data = await collectCheatsheetData(cwd, built)
+  // The stack root is where the engine finds the compiled checks. Callers that
+  // already have it (the `cheatsheet`/`docs` commands) pass it; otherwise resolve
+  // it here so the library entry point behaves the same.
+  const root = stackRoot ?? (await resolveStackRoot(cwd))
+  const data = await collectCheatsheetData(cwd, built, root)
 
   if (format === 'json') {
     return (
@@ -342,6 +366,7 @@ export async function generateCheatsheet(
           layout: data.layout,
           rules: data.rules,
           disabledRules: data.disabledRules,
+          collisions: data.collisions,
           catalog: JSON.parse(catalogToJson(catalog, stackName)),
         },
         null,

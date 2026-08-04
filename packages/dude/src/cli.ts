@@ -2,7 +2,7 @@ import { defineCommand, runMain } from 'citty'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 import { coreCommands, coreCommandNames } from './commands/help/index.js'
-import { loadStack } from './core/stack-loader.js'
+import { loadStack, stackLoadFailureMessage } from './core/stack-loader.js'
 import { resolveCustomCommand } from './core/custom-commands.js'
 import type { StackCommandDef } from './core/stack-contract.js'
 import { getCliVersion } from './utils/paths.js'
@@ -73,9 +73,21 @@ async function tryProjectDispatch(): Promise<boolean> {
   const dudeJsonPath = path.join(cwd, 'dude.json')
   if (!existsSync(dudeJsonPath)) return false
 
-  const dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8')) as {
-    stack?: string
-    stackVersion?: string
+  // Unguarded, a syntax error here took down EVERY command in the project with a
+  // raw JSON SyntaxError — including the ones needed to fix it.
+  let dudeJson: { stack?: string; stackVersion?: string }
+  try {
+    dudeJson = JSON.parse(readFileSync(dudeJsonPath, 'utf8'))
+  } catch (e) {
+    process.stderr.write(
+      `error: dude.json could not be parsed.\n\n` +
+        `  ${dudeJsonPath}\n` +
+        `  ${e instanceof Error ? e.message : String(e)}\n\n` +
+        `Fix the file — it records this project's stack and version pins. ` +
+        `\`dude version\` and\n\`dude info\` work without it if you need to inspect the ` +
+        `toolchain first.\n`,
+    )
+    process.exit(1)
   }
 
   // ── 1. Project-local custom commands (highest precedence) ──────────────────
@@ -128,33 +140,30 @@ async function tryProjectDispatch(): Promise<boolean> {
     definition = loaded.definition
     stackRoot = loaded.root
   } catch (e) {
-    const detail = e instanceof Error ? e.message : String(e)
-    const advice =
-      `A stack built against a newer dude CLI fails this way — the stack calls an\n` +
-      `API this CLI (${getCliVersion()}) does not export yet. If you ran\n` +
-      `\`dude upgrade --stack\` without \`--cli\`, the pins are out of step:\n\n` +
-      `  dude upgrade --cli && pnpm install\n`
+    const message = stackLoadFailureMessage(
+      dudeJson.stack,
+      dudeJson.stackVersion,
+      getCliVersion(),
+      e,
+    )
 
-    // Core commands must survive a broken stack — `dude upgrade` is the way out
-    // of exactly this situation, so killing it here would strand the user with
-    // advice they cannot follow. Warn and fall through to citty, which owns them.
-    // (A stack may legitimately override a core command; that override is simply
+    // Core commands must survive a broken stack — `dude upgrade` is the way out of
+    // exactly this situation, so exiting here would strand the user with advice
+    // they cannot follow. Warn and fall through to citty, which owns them. (A stack
+    // may legitimately override a core command; that override is simply
     // unavailable while the stack cannot load.)
     if (coreCommandNames.includes(first)) {
       process.stderr.write(
         `warning: stack "${dudeJson.stack}" could not be loaded, so any stack\n` +
           `overrides are unavailable. Running the built-in \`dude ${first}\` instead.\n\n` +
-          `${detail}\n\n${advice}\n`,
+          message,
       )
       return false
     }
 
     process.stderr.write(
-      `error: could not load stack "${dudeJson.stack}"` +
-        `${dudeJson.stackVersion ? `@${dudeJson.stackVersion}` : ''}.\n\n` +
-        `${detail}\n\n` +
-        `${advice}\n` +
-        `Core commands (\`dude version\`, \`dude upgrade\`, \`dude info\`) do not need the\n` +
+      message +
+        `\nCore commands (\`dude version\`, \`dude upgrade\`, \`dude info\`) do not need the\n` +
         `stack, so they remain available to fix this.\n`,
     )
     process.exit(1)

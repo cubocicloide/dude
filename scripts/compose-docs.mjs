@@ -315,7 +315,7 @@ function renderStackPage(s) {
       '| -------- | ---- | ------- |',
     )
     for (const v of d.variables) {
-      const prompt = cell(v.prompt ?? v.name)
+      const prompt = v.prompt ?? v.name
       out.push(row(prompt, raw(variableFlag(v)), raw(variableDefault(v))))
     }
     out.push('')
@@ -369,8 +369,9 @@ function renderStackPage(s) {
       '| ---- | ----- | -------- |',
     )
     for (const p of m.pages) {
-      // `when` goes through row() unescaped-free; keep the backticks as content
-      const when = p.when ? `when \`${cell(p.when)}\`` : 'always'
+      // Markup built here, so it is passed as raw() — which means "already escaped",
+      // hence the single cell() inside. Pre-escaping AND passing bare double-escapes.
+      const when = p.when ? raw(`when \`${cell(p.when)}\``) : 'always'
       out.push(row(raw(`\`${cell(p.file)}\``), p.title, when))
     }
     out.push('')
@@ -434,7 +435,7 @@ function renderIndex(stacks) {
     const iac = s.docs?.iac ? `\`${cell(s.docs.iac.provider)}\`` : '—'
     out.push(
       row(
-        raw(`[\`${s.id}\`](${s.id}.md)`),
+        raw(`[\`${cell(s.id)}\`](${cell(s.id)}.md)`),
         raw(iac),
         raw(lintGroupLabel(s)),
         totalChecks(s) || '—',
@@ -454,7 +455,7 @@ function renderIndex(stacks) {
     )
     for (const s of withCases) {
       for (const u of s.docs.useCases) {
-        out.push(row(u, raw(`[\`${s.id}\`](${s.id}.md)`)))
+        out.push(row(u, raw(`[\`${cell(s.id)}\`](${cell(s.id)}.md)`)))
       }
     }
     out.push('')
@@ -598,6 +599,46 @@ function renderLlmsTxt(stacks) {
   return out.join('\n')
 }
 
+/**
+ * Self-check on generated Markdown tables.
+ *
+ * Escaping in this file has now been wrong three times — twice under-escaped
+ * (rows split) and once over-escaped (stray backslashes). Both are mechanically
+ * detectable, so the composer checks its own output rather than relying on someone
+ * remembering to inject a pipe by hand.
+ */
+function assertTableIntegrity(markdown, label) {
+  const problems = []
+  const lines = markdown.split('\n')
+  // Count only real delimiters: drop escaped pipes first.
+  const cellCount = (line) => line.replace(/\\\|/g, '').trim().replace(/^\||\|$/g, '').split('|').length
+
+  let header = null
+  for (const [i, line] of lines.entries()) {
+    if (!line.startsWith('|')) {
+      header = null
+      continue
+    }
+    if (/^\|[\s:-]+\|/.test(line)) continue // separator row
+    const n = cellCount(line)
+    if (header === null) header = n
+    else if (n !== header) {
+      problems.push(`  ${label}:${i + 1} — row has ${n} cells, header has ${header}: ${line}`)
+    }
+    if (/\\{3,}/.test(line)) {
+      problems.push(`  ${label}:${i + 1} — looks double-escaped (3+ backslashes): ${line}`)
+    }
+  }
+  if (problems.length) {
+    throw new Error(
+      `Generated Markdown tables are malformed — a cell value was escaped the wrong\n` +
+        `number of times. Every cell must pass through row() exactly once; a helper that\n` +
+        `builds markup escapes internally and is wrapped in raw().\n\n${problems.join('\n')}\n`,
+    )
+  }
+  return markdown
+}
+
 // ── Render: the mkdocs nav section ───────────────────────────────────────────
 
 function updateMkdocsNav(stacks) {
@@ -606,6 +647,20 @@ function updateMkdocsNav(stacks) {
   // depth, reworded comment) does not turn into a confusing "markers not found".
   const startRe = /^[ \t]*#[ \t]*<!--[ \t]*composed:stacks:start[\s\S]*?-->[ \t]*$/m
   const endRe = /^[ \t]*#[ \t]*<!--[ \t]*composed:stacks:end[\s\S]*?-->[ \t]*$/m
+  // Non-global match takes the FIRST occurrence, which silently tolerated a
+  // duplicated marker (e.g. a bad conflict resolution) and left a stray line behind.
+  for (const [label, re] of [
+    ['start', startRe],
+    ['end', endRe],
+  ]) {
+    const all = yml.match(new RegExp(re.source, 'gm'))
+    if (all && all.length > 1) {
+      throw new Error(
+        `docs/mkdocs.yml has ${all.length} composed:stacks:${label} markers; expected exactly one.\n` +
+          `Remove the duplicates before regenerating.`,
+      )
+    }
+  }
   const startM = yml.match(startRe)
   const endM = yml.match(endRe)
   const start = startM?.index ?? -1
@@ -637,9 +692,12 @@ await assertCommandsPageComplete()
 rmSync(STACKS_OUT, { recursive: true, force: true })
 mkdirSync(STACKS_OUT, { recursive: true })
 
-writeFileSync(path.join(STACKS_OUT, 'index.md'), renderIndex(stacks))
+writeFileSync(path.join(STACKS_OUT, 'index.md'), assertTableIntegrity(renderIndex(stacks), 'stacks/index.md'))
 for (const s of stacks) {
-  writeFileSync(path.join(STACKS_OUT, `${s.id}.md`), renderStackPage(s))
+  writeFileSync(
+    path.join(STACKS_OUT, `${s.id}.md`),
+    assertTableIntegrity(renderStackPage(s), `stacks/${s.id}.md`),
+  )
   writeFileSync(path.join(STACKS_OUT, `${s.id}.json`), renderStackJson(s))
 }
 writeFileSync(path.join(DOCS, 'llms.txt'), renderLlmsTxt(stacks))

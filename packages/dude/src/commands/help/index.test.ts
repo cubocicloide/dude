@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { runCLI } from '../../utils/testing.js'
-import { coreCommands, coreCommandNames } from './index.js'
+import { coreCommands } from './index.js'
 
 describe('dude help', () => {
   it('exits 0', () => {
@@ -20,12 +20,16 @@ describe('dude help', () => {
     expect(names.sort()).toEqual(Object.keys(coreCommands).sort())
   })
 
-  it('registers the same set citty dispatches, so the two cannot drift', () => {
-    // `cli.ts` builds citty's `subCommands` from this same object, so this pins
-    // the property that mattered: one registry, no second hand-maintained list.
-    expect(Object.keys(coreCommands).sort()).toEqual([...coreCommandNames].sort())
-    expect(Object.keys(coreCommands)).toContain('help')
-    expect(Object.keys(coreCommands)).toContain('version')
+  it('actually dispatches every registered core command', () => {
+    // Not `Object.keys(coreCommands)` against `coreCommandNames` — those are the
+    // same object, so that assertion could never fail while claiming to pin
+    // dispatch. This drives the real binary once per command and requires citty to
+    // route it, which is the property that matters.
+    for (const name of Object.keys(coreCommands)) {
+      const { status, stderr } = runCLI([name, '--help'])
+      expect(status, `dude ${name} --help should be dispatched`).toBe(0)
+      expect(stderr).not.toContain('Unknown command')
+    }
   })
 
   it('advertises its own --format flag, so the catalog is self-describing', () => {
