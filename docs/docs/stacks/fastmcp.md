@@ -63,6 +63,7 @@ Every scaffolded project gets its own documentation site, served with
 | `architecture.md` | Architecture | always |
 | `deploy.md` | Deploy (AWS ECS) | when `withIac` |
 | `api.md` | Command reference | always |
+| `cheatsheet.md` | Cheatsheet | always |
 | `mkdocs.md` | Writing docs | always |
 
 ## Versions

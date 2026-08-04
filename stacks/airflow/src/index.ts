@@ -59,6 +59,7 @@ export default defineStack({
       { file: 'sso.md', title: 'Sign-on (SSO)' },
       { file: 'deploy.md', title: 'Deploy (AWS ECS)', when: 'withIac' },
       { file: 'api.md', title: 'Command reference' },
+      { file: 'cheatsheet.md', title: 'Cheatsheet' },
       { file: 'mkdocs.md', title: 'Writing docs' },
     ],
   },

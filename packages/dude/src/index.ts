@@ -31,6 +31,10 @@ export { formatDiagnostic, type Diagnostic } from './core/lint/types.js'
 // Shared `lint` command — stacks register it instead of hand-rolling a wrapper
 export { defineLintCommand, type LintCommandOptions } from './core/lint/command.js'
 
+// Shared `docs` command — serves the project site and refreshes its generated
+// pages. Stacks register it instead of carrying a copy each.
+export { defineDocsCommand, type DocsCommandOptions } from './core/docs/command.js'
+
 // Cheatsheet — the project's answer-aware quick reference. Stacks register the
 // shared command; the renderer is here so there is exactly one implementation.
 export {

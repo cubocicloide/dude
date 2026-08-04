@@ -65,6 +65,7 @@ Every scaffolded project gets its own documentation site, served with
 | `extending.md` | Extending the app | always |
 | `dude.md` | Working with dude | always |
 | `api.md` | Command reference | always |
+| `cheatsheet.md` | Cheatsheet | always |
 | `mkdocs.md` | Writing docs | always |
 | `deploy.md` | Deploy (AWS ECS) | when `withIac` |
 

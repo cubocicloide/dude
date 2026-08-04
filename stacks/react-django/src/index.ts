@@ -93,6 +93,7 @@ export default defineStack({
       { file: 'index.md', title: 'Home' },
       { file: 'dude.md', title: 'Working with dude' },
       { file: 'api.md', title: 'Command reference' },
+      { file: 'cheatsheet.md', title: 'Cheatsheet' },
       { file: 'mkdocs.md', title: 'Writing docs' },
       { file: 'deploy.md', title: 'Deploy (AWS ECS)', when: 'withIac' },
     ],

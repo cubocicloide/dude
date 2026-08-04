@@ -56,6 +56,7 @@ export default defineStack({
       { file: 'distribute.md', title: 'Distributing' },
       { file: 'dude.md', title: 'Working with dude' },
       { file: 'api.md', title: 'Command reference' },
+      { file: 'cheatsheet.md', title: 'Cheatsheet' },
       { file: 'mkdocs.md', title: 'Writing docs' },
     ],
   },

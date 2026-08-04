@@ -57,6 +57,7 @@ Every scaffolded project gets its own documentation site, served with
 | `distribute.md` | Distributing | always |
 | `dude.md` | Working with dude | always |
 | `api.md` | Command reference | always |
+| `cheatsheet.md` | Cheatsheet | always |
 | `mkdocs.md` | Writing docs | always |
 
 ## Versions

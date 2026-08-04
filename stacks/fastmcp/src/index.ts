@@ -56,6 +56,7 @@ export default defineStack({
       { file: 'architecture.md', title: 'Architecture' },
       { file: 'deploy.md', title: 'Deploy (AWS ECS)', when: 'withIac' },
       { file: 'api.md', title: 'Command reference' },
+      { file: 'cheatsheet.md', title: 'Cheatsheet' },
       { file: 'mkdocs.md', title: 'Writing docs' },
     ],
   },
