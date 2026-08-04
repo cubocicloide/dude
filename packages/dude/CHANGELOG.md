@@ -1,5 +1,107 @@
 # @cubocicloide/dude
 
+## 0.16.0
+
+### Minor Changes
+
+- 76931e9: Add `dude cheatsheet` — one dense, answer-aware reference for the project you are
+  standing in: how it was scaffolded, the verify loop (only steps this project
+  actually has), every lint rule with its one-line title, the top-level layout, and
+  the full command catalog. Everything is derived from the live catalog and the
+  project's own `.claude/rules/` files, so it stays correct as init answers, stack
+  versions and project-local commands change.
+
+  `--format json` emits the same data with a `dude.cheatsheet/1` schema marker and
+  the command catalog embedded, so a coding agent gets what it may run and what will
+  be checked in a single fetch instead of crawling a documentation site.
+
+  The renderer lives in the CLI (`generateCheatsheet`) and every stack registers the
+  shared command with `defineCheatsheetCommand()`, mirroring `defineLintCommand()` —
+  never hand-roll a per-stack cheatsheet.
+
+- 22fb522: Add an optional `docs` manifest to the stack contract (`StackDefinition.docs`), validated with a new `stackDocsSchema` (exported alongside `StackDocs`) that follows the existing `stackVariableSchema` pattern — plain, serializable data, so it stays safe to pass to future tooling. `loadStack` now validates a declared manifest at load time and throws a descriptive error if it is malformed, so a bad manifest fails loudly instead of silently degrading downstream.
+
+  All six stacks (`react-fastapi`, `react-django`, `fastmcp`, `tauri`, `frappe`, `airflow`) now populate the manifest: a one-line tagline, "if you're building…" use cases, headline technologies, the IaC target (when the stack has one), and the exact page set the stack's scaffold ships under `docs/docs/` (including the conditional `deploy.md` from the IaC overlay). No user-visible output changes in this slice — the manifest is typed data for the root-site composer and other documentation tooling to consume in a following change (see issue #113).
+
+- 76931e9: Fix two correctness bugs found reviewing the docs-composition work.
+
+  **A stack newer than the running CLI now fails legibly.** A stack's module body
+  calls the CLI's `define*Command()` helpers while building its `commands` map, so it
+  throws while being _imported_ — before `minDudeVersion` can be read, and for every
+  command rather than only the one needing the new API. Previously that surfaced as a
+  raw Node stack trace. `cli.ts` now catches the load failure and explains it, and
+  core commands (`version`, `upgrade`, `info`) fall through and keep working, since
+  `dude upgrade --cli` is the way out of exactly this situation.
+
+  **`dude cheatsheet` no longer reports disabled rules as enforced.** It read
+  `.claude/rules/` directly and ignored `dude.json` → `lint.disable`, which the lint
+  engine honours — so a project that switched a code off still saw it listed under
+  "rules `dude lint` runs". Disabled codes are now excluded and stated in their own
+  section, project-local checks under `.dude/lint/checks/` are included (they run but
+  ship no prose file), and each rule says which source it came from.
+
+  Also: the core command registry is now defined once (`coreCommands`) and drives
+  citty's dispatch, the published catalog and the tests, instead of two
+  hand-maintained lists that had already drifted; `catalogToMarkdown` takes a
+  `standalone` option instead of being string-spliced by its caller; a malformed
+  `dude.json` produces a warning instead of a silently truncated page; and the
+  catalog is resolved once per render rather than two or three times.
+
+- 76931e9: Fix four defects found reviewing the previous round of fixes.
+
+  **`dude init` no longer dumps a stack trace when the stack is newer than the CLI.**
+  The earlier guard only covered commands run inside an existing project; `init`
+  resolves the stack itself, and that is the path every _new_ project takes. Since
+  promotion to `latest` is per-package, a stack promoted before the CLI reproduced
+  this for real users. The version-skew advice is also now offered **conditionally** —
+  appending it to every failure told people to run `dude upgrade --cli` right after
+  the loader had correctly told them to build the stack.
+
+  **A malformed `dude.json` is explained instead of crashing.** The dispatcher parsed
+  it unguarded, so _every_ command in such a project died with a raw `SyntaxError`,
+  including the ones needed to fix it. `readDisabledCodes` had the same hole.
+
+  **`dude cheatsheet` now derives the enforced rule set from the lint engine itself**
+  (`discoverCheckCodes`), not from the project's `.claude/rules/` prose directory.
+  Those are two independently-mutable trees, so the page could omit a rule that runs
+  (stale prose after `dude upgrade --stack`) or invent one that does not (leftover
+  prose), and its own copy of the loadable-extension list had already lost `.mts`.
+  Rule files now supply only titles. A stack/project code collision — which makes
+  `runLint` refuse to run at all — is reported instead of silently resolved.
+
+  **The composer validates its own tables.** Escaping there had been wrong three
+  times; the check now fails the build on a row whose cell count does not match its
+  header, or on a value escaped twice.
+
+- 76931e9: Move the `docs` command into the CLI as `defineDocsCommand()`, which every stack
+  now registers — the same pattern as `defineLintCommand()`. The six stacks were
+  carrying byte-identical 117-line copies, so adding a generated page meant editing
+  six places; it is one place now.
+
+  The shared command refreshes every generated page the scaffold ships before
+  serving: `api.md` from the live command catalog, and `cheatsheet.md` from the
+  project's rules and answers. Each refresh is independent and best-effort, so a
+  failure leaves the committed placeholder and never blocks serving.
+
+  Each stack's project documentation site now includes a **Cheatsheet** page,
+  regenerated on every `dude docs` and pointing coding agents at
+  `dude cheatsheet --format json`.
+
+### Patch Changes
+
+- 76931e9: Complete the core command catalog: `version` and `help` were registered in
+  `cli.ts` but missing from `buildCoreCatalog`, so `dude help`, `dude help --format md`
+  and `dude help --format json` all under-reported the CLI. A command absent from the
+  catalog is effectively invisible to a coding agent, which has no other way to
+  discover it — and `help`'s absence was circular: an agent reading the JSON catalog
+  had no structured way to learn that `--format json` exists at all.
+
+  `help` now also declares its own arguments (`--format`, and the optional
+  `<group> <command>` positionals) so the catalog is self-describing. Parsing is
+  unchanged — `run()` still reads `process.argv` directly, because it needs the raw
+  tokens to tell `dude help iac deploy` from a flag; the declarations are metadata
+  for discovery.
+
 ## 0.15.1
 
 ### Patch Changes

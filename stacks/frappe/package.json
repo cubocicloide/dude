@@ -1,6 +1,6 @@
 {
   "name": "@cubocicloide/stack-frappe",
-  "version": "2.0.5",
+  "version": "2.1.0",
   "description": "Frappe Framework + Frappe Helpdesk ticketing stack plugin for the dude CLI.",
   "type": "module",
   "main": "./dist/index.js",
