@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 import { initCommand } from '../init/index.js'
 import { upgradeCommand } from '../upgrade/index.js'
+import { versionCommand } from '../version/index.js'
 import { infoCommand } from '../info/index.js'
 import { reportCommand } from '../report/index.js'
 import { loadStack } from '../../core/stack-loader.js'
@@ -94,11 +95,18 @@ function buildCoreCatalog(): Catalog {
   const groups = new Map<string, GroupInfo>()
   const custom = new Map<string, CmdInfo>()
 
+  // Must list every command registered in `cli.ts`'s `subCommands`. The catalog
+  // is what `dude help --format json` publishes, and a coding agent has no other
+  // way to discover a command — omitting one makes it invisible. `help` is here
+  // on purpose: without it an agent cannot learn that `--format json` exists at
+  // all, which is the very flag it would be reading the catalog through.
   const coreCmds: [string, AnyCittyCmdDef][] = [
     ['init', initCommand as AnyCittyCmdDef],
     ['upgrade', upgradeCommand as AnyCittyCmdDef],
+    ['version', versionCommand as AnyCittyCmdDef],
     ['info', infoCommand as AnyCittyCmdDef],
     ['report', reportCommand as AnyCittyCmdDef],
+    ['help', helpCommand as AnyCittyCmdDef],
   ]
   for (const [name, def] of coreCmds) flat.set(name, fromCittyDef(name, def))
   return { flat, groups, custom }
@@ -442,6 +450,28 @@ export const helpCommand = defineCommand({
       'Show available commands and their flags. Merges core commands, the active ' +
       'stack, and project-local commands (.dude/commands/). Precedence: custom > stack > core. ' +
       'Use --format md (or --format json) to emit the full catalog as Markdown/JSON.',
+  },
+  // Declared so the catalog itself advertises them — `run()` reads `process.argv`
+  // directly (it needs the raw tokens to tell `dude help iac deploy` from a flag),
+  // so these are metadata for discovery rather than the parse path. Without them
+  // an agent reading `--format json` output has no structured way to learn that
+  // `--format` exists.
+  args: {
+    group: {
+      type: 'positional',
+      required: false,
+      description: 'A command, or a command group (e.g. `iac`), to describe.',
+    },
+    command: {
+      type: 'positional',
+      required: false,
+      description: 'A subcommand inside <group> (e.g. `dude help iac deploy`).',
+    },
+    format: {
+      type: 'string',
+      description:
+        'Emit the whole catalog instead of the human overview: `md` for Markdown, `json` for tooling and coding agents.',
+    },
   },
   async run() {
     const cwd = process.cwd()

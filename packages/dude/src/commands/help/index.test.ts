@@ -9,22 +9,38 @@ describe('dude help', () => {
     expect(runCLI(['help']).status).toBe(0)
   })
 
-  it('lists all core commands', () => {
-    const { stdout } = runCLI(['help'])
-    for (const cmd of ['init', 'upgrade', 'version']) {
-      expect(stdout).toContain(cmd)
-    }
+  it('lists every core command registered in cli.ts', () => {
+    // Asserted against the catalog rather than raw stdout: the catalog is what
+    // `--format json` publishes, and a command missing from it is invisible to a
+    // coding agent even if the word happens to appear somewhere in the output.
+    const { stdout } = runCLI(['help', '--format', 'json'])
+    const names = (JSON.parse(stdout).commands as { name: string }[]).map((c) => c.name)
+    expect(names.sort()).toEqual(['help', 'info', 'init', 'report', 'upgrade', 'version'])
+  })
+
+  it('advertises its own --format flag, so the catalog is self-describing', () => {
+    // Without this an agent reading `--format json` output has no structured way
+    // to discover that `--format` exists in the first place.
+    const { stdout } = runCLI(['help', '--format', 'json'])
+    const help = (JSON.parse(stdout).commands as { name: string; args: { name: string }[] }[]).find(
+      (c) => c.name === 'help',
+    )
+    expect(help?.args.map((a) => a.name)).toContain('format')
   })
 
   it('does not show stack commands when outside a project', () => {
-    const { stdout } = runCLI(['help'])
-    // Stack commands only appear inside a project with dude.json.
-    // Use word-boundary regex to avoid false positives (e.g. "upgrade" contains "up").
-    for (const cmd of ['lint', 'format', 'review', 'down', 'logs', 'shell']) {
-      expect(stdout).not.toContain(cmd)
+    // Compare command NAMES, not substrings of the whole page: descriptions
+    // legitimately mention words like "format", which made the old substring
+    // assertion a false positive.
+    const { stdout } = runCLI(['help', '--format', 'json'])
+    const parsed = JSON.parse(stdout) as {
+      commands: { name: string }[]
+      groups: { name: string }[]
     }
-    // "up" needs a stricter check — "upgrade" contains the substring "up"
-    expect(stdout).not.toMatch(/^\s+up\s/m)
+    const names = [...parsed.commands.map((c) => c.name), ...parsed.groups.map((g) => g.name)]
+    for (const cmd of ['up', 'down', 'logs', 'shell', 'lint', 'format', 'review', 'iac', 'db']) {
+      expect(names).not.toContain(cmd)
+    }
   })
 
   it('emits Markdown with --format md', () => {

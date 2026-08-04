@@ -71,10 +71,16 @@ describe('dude global installation', () => {
   })
 
   it('dude help shows no stack commands outside a project', () => {
-    const { stdout } = run('dude', ['help'])
-    for (const cmd of ['lint', 'format', 'review', 'down', 'logs', 'shell']) {
-      expect(stdout).not.toContain(cmd)
+    // Compare command NAMES from the catalog, not substrings of the rendered
+    // page: descriptions legitimately mention words like "format".
+    const { stdout } = run('dude', ['help', '--format', 'json'])
+    const parsed = JSON.parse(stdout) as {
+      commands: { name: string }[]
+      groups: { name: string }[]
     }
-    expect(stdout).not.toMatch(/^\s+up\s/m)
+    const names = [...parsed.commands.map((c) => c.name), ...parsed.groups.map((g) => g.name)]
+    for (const cmd of ['up', 'down', 'logs', 'shell', 'lint', 'format', 'review', 'iac', 'db']) {
+      expect(names).not.toContain(cmd)
+    }
   })
 })

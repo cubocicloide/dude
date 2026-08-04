@@ -130,6 +130,39 @@ function assertLintRuleParity(stacks) {
   }
 }
 
+/**
+ * `docs/docs/commands.md` stays HAND-WRITTEN: its value is the narrative a
+ * generated flag dump cannot carry (why release channels exist, that you must run
+ * `pnpm install` after `dude upgrade`, and so on). Generating it would trade that
+ * prose for a table an agent gets better from `dude help --format json` anyway.
+ *
+ * What is checked mechanically is completeness: every core command in the live
+ * catalog must have a `## \`dude <name>\`` heading on the page. So adding a core
+ * command forces documenting it, without giving up the prose.
+ */
+async function assertCommandsPageComplete() {
+  const page = path.join(DOCS, 'commands.md')
+  const { generateApiDoc } = await import(
+    pathToFileURL(path.join(REPO, 'packages', 'dude', 'dist', 'index.js')).href
+  )
+  // The repo root has no dude.json, so the catalog resolves to core-only —
+  // exactly the scope of this page.
+  const catalog = JSON.parse(await generateApiDoc(REPO, 'json'))
+  const documented = readFileSync(page, 'utf8')
+  const missing = catalog.commands
+    .map((c) => c.name)
+    .filter((name) => !documented.includes(`## \`dude ${name}\``))
+
+  if (missing.length) {
+    throw new Error(
+      `docs/docs/commands.md does not document every core command.\n\n` +
+        missing.map((n) => `  - missing a "## \`dude ${n}\`" section`).join('\n') +
+        `\n\nThe page is hand-written on purpose (the narrative matters), but it must stay\n` +
+        `complete — a command absent from it is invisible to anyone reading the site.\n`,
+    )
+  }
+}
+
 async function collect() {
   const stacks = []
   for (const entry of loadRegistry()) {
@@ -407,6 +440,7 @@ function updateMkdocsNav(stacks) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 const stacks = await collect()
+await assertCommandsPageComplete()
 
 // Wipe and rewrite, so a removed stack's page does not linger.
 rmSync(STACKS_OUT, { recursive: true, force: true })
