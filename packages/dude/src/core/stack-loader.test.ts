@@ -153,6 +153,82 @@ describe('loadStack — successful resolution via explicit path', () => {
   })
 })
 
+describe('loadStack — docs manifest validation', () => {
+  it('loads a stack whose docs manifest is well-formed', async () => {
+    const dir = makeTmpDir()
+    mkdirSync(join(dir, 'dist'), { recursive: true })
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: '@test/docs-ok', version: '1.0.0', main: './dist/index.js' }),
+    )
+    writeFileSync(
+      join(dir, 'dist', 'index.js'),
+      `export default {
+        name: 'docs-ok',
+        description: 'Test stack',
+        docs: {
+          tagline: 'A test stack',
+          useCases: ['Testing things'],
+          technologies: ['TypeScript'],
+          pages: [{ file: 'index.md', title: 'Home' }],
+        },
+      };\n`,
+    )
+
+    const loaded = await loadStack(dir, dir)
+    expect(loaded.definition.docs?.tagline).toBe('A test stack')
+  })
+
+  it('rejects a stack whose docs manifest is missing required fields', async () => {
+    const dir = makeTmpDir()
+    mkdirSync(join(dir, 'dist'), { recursive: true })
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: '@test/docs-bad', version: '1.0.0', main: './dist/index.js' }),
+    )
+    writeFileSync(
+      join(dir, 'dist', 'index.js'),
+      `export default {
+        name: 'docs-bad',
+        description: 'Test stack',
+        docs: {
+          tagline: 'A test stack',
+          useCases: [],
+          technologies: ['TypeScript'],
+          pages: [],
+        },
+      };\n`,
+    )
+
+    await expect(loadStack(dir, dir)).rejects.toThrow(/invalid `docs` manifest/)
+  })
+
+  it('rejects a docs manifest with an unknown IaC provider', async () => {
+    const dir = makeTmpDir()
+    mkdirSync(join(dir, 'dist'), { recursive: true })
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: '@test/docs-bad-iac', version: '1.0.0', main: './dist/index.js' }),
+    )
+    writeFileSync(
+      join(dir, 'dist', 'index.js'),
+      `export default {
+        name: 'docs-bad-iac',
+        description: 'Test stack',
+        docs: {
+          tagline: 'A test stack',
+          useCases: ['Testing things'],
+          technologies: ['TypeScript'],
+          iac: { provider: 'gcp-run', flag: '--iac gcp-run' },
+          pages: [{ file: 'index.md', title: 'Home' }],
+        },
+      };\n`,
+    )
+
+    await expect(loadStack(dir, dir)).rejects.toThrow(/invalid `docs` manifest/)
+  })
+})
+
 describe('pickChannelVersion — release-channel resolution', () => {
   const pkg = '@test/some-stack'
 

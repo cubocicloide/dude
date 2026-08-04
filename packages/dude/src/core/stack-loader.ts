@@ -5,7 +5,7 @@ import { resolve as resolvePath, isAbsolute, dirname } from 'pathe'
 import { readFile } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { homedir } from 'node:os'
-import type { StackDefinition } from './stack-contract.js'
+import { stackDocsSchema, type StackDefinition } from './stack-contract.js'
 
 const require = createRequire(import.meta.url)
 const selfDir = dirname(fileURLToPath(import.meta.url))
@@ -84,6 +84,22 @@ export async function loadStack(
       `Stack package "${spec}" must export a default StackDefinition ` +
         `(created via defineStack()).`,
     )
+  }
+
+  // The `docs` manifest is optional, but when a stack declares one it must be
+  // well-formed — an invalid manifest should fail loudly at load time rather
+  // than silently degrade for whatever consumes it downstream (root-site
+  // composer, cheatsheet, machine-readable surface — see issue #113).
+  if (mod.default.docs !== undefined) {
+    const result = stackDocsSchema.safeParse(mod.default.docs)
+    if (!result.success) {
+      throw new Error(
+        `Stack "${pkgName}" declares an invalid \`docs\` manifest:\n` +
+          result.error.issues
+            .map((issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`)
+            .join('\n'),
+      )
+    }
   }
 
   return { definition: mod.default, root, version: resolvedVersion }

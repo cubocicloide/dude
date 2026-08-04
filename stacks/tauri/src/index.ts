@@ -39,6 +39,27 @@ export default defineStack({
     },
   ],
 
+  docs: {
+    tagline:
+      'A Tauri 2 desktop app — React + Ant Design frontend, Rust backend, with iOS/Android targets.',
+    useCases: [
+      'A cross-platform desktop app (macOS/Windows/Linux) with a native feel and small binaries',
+      'The same codebase extended to iOS and Android',
+      'A React + Ant Design UI backed by a Rust core for performance-sensitive logic',
+    ],
+    technologies: ['Tauri 2', 'React 19', 'Ant Design', 'Rust'],
+    // No cloud IaC target — Tauri ships desktop/mobile binaries, not a server.
+    pages: [
+      { file: 'index.md', title: 'Home' },
+      { file: 'architecture.md', title: 'Architecture' },
+      { file: 'mobile.md', title: 'Mobile (iOS/Android)' },
+      { file: 'distribute.md', title: 'Distributing' },
+      { file: 'dude.md', title: 'Working with dude' },
+      { file: 'api.md', title: 'Command reference' },
+      { file: 'mkdocs.md', title: 'Writing docs' },
+    ],
+  },
+
   async scaffold(ctx) {
     const { answers, dest, stackRoot, dudeVersion, stackVersion } = ctx
 
