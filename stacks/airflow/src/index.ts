@@ -42,6 +42,27 @@ export default defineStack({
     },
   ],
 
+  docs: {
+    tagline:
+      'An Apache Airflow project — organized DAGs & plugins, native or Entra ID SSO, optional AWS ECS Fargate IaC.',
+    useCases: [
+      'A team orchestrating scheduled data pipelines (DAGs) with a clear, lint-enforced structure',
+      "Enterprise sign-on via Microsoft Entra ID OAuth (or Airflow's native auth) for the web UI",
+      'Bursty, heavy tasks that need their own container via the hybrid AWS ECS executor, without a full Kubernetes cluster',
+    ],
+    technologies: ['Apache Airflow 3', 'PostgreSQL'],
+    iac: { provider: 'aws-ecs', flag: '--iac aws-ecs' },
+    pages: [
+      { file: 'index.md', title: 'Home' },
+      { file: 'dude.md', title: 'Working with dude' },
+      { file: 'project.md', title: 'Project guide' },
+      { file: 'sso.md', title: 'Sign-on (SSO)' },
+      { file: 'deploy.md', title: 'Deploy (AWS ECS)', when: 'withIac' },
+      { file: 'api.md', title: 'Command reference' },
+      { file: 'mkdocs.md', title: 'Writing docs' },
+    ],
+  },
+
   async scaffold(ctx) {
     const { answers, dest, stackRoot, dudeVersion, stackVersion } = ctx
 

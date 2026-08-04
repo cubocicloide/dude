@@ -50,6 +50,27 @@ export default defineStack({
     },
   ],
 
+  docs: {
+    tagline:
+      'A Frappe Framework ticketing system (Frappe Helpdesk) with a worked custom-app example and optional AWS ECS Fargate IaC.',
+    useCases: [
+      'A ticketing/helpdesk system running Frappe Helpdesk out of the box',
+      "A team learning Frappe's core building blocks via a worked custom-app example",
+      'A DocType/workflow-driven backend with a straightforward path to AWS ECS Fargate',
+    ],
+    technologies: ['Frappe Framework', 'Frappe Helpdesk', 'MariaDB'],
+    iac: { provider: 'aws-ecs', flag: '--iac aws-ecs' },
+    pages: [
+      { file: 'index.md', title: 'Home' },
+      { file: 'frappe.md', title: 'Frappe core concepts' },
+      { file: 'extending.md', title: 'Extending the app' },
+      { file: 'dude.md', title: 'Working with dude' },
+      { file: 'api.md', title: 'Command reference' },
+      { file: 'mkdocs.md', title: 'Writing docs' },
+      { file: 'deploy.md', title: 'Deploy (AWS ECS)', when: 'withIac' },
+    ],
+  },
+
   async scaffold(ctx) {
     const { answers, dest, stackRoot, dudeVersion, stackVersion } = ctx
 

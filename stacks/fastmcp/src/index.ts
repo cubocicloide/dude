@@ -39,6 +39,27 @@ export default defineStack({
     },
   ],
 
+  docs: {
+    tagline:
+      'A FastMCP (Python) server — modular MCP feature sub-servers, with optional AWS ECS Fargate IaC.',
+    useCases: [
+      'An MCP server exposing tools/resources to LLM clients over a typed Python API',
+      'A modular monolith of MCP feature sub-servers that can grow independently',
+      'A lightweight service that ships to AWS ECS Fargate without a Kubernetes footprint',
+    ],
+    technologies: ['FastMCP', 'Python', 'Pydantic'],
+    iac: { provider: 'aws-ecs', flag: '--iac aws-ecs' },
+    pages: [
+      { file: 'index.md', title: 'Home' },
+      { file: 'dude.md', title: 'Working with dude' },
+      { file: 'connect.md', title: 'Connecting a client' },
+      { file: 'architecture.md', title: 'Architecture' },
+      { file: 'deploy.md', title: 'Deploy (AWS ECS)', when: 'withIac' },
+      { file: 'api.md', title: 'Command reference' },
+      { file: 'mkdocs.md', title: 'Writing docs' },
+    ],
+  },
+
   async scaffold(ctx) {
     const { answers, dest, stackRoot, dudeVersion, stackVersion } = ctx
 

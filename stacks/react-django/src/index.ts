@@ -79,6 +79,25 @@ export default defineStack({
     },
   ],
 
+  docs: {
+    tagline:
+      'React (Vite) frontend with a Django REST Framework backend — optional S3 storage and AWS ECS Fargate IaC.',
+    useCases: [
+      "A CRUD/admin-heavy web app that benefits from Django's batteries (admin, ORM, auth)",
+      'An API that needs auto-generated OpenAPI docs (drf-spectacular) behind a React frontend',
+      'S3-compatible file storage (MinIO locally) with a straightforward path to AWS ECS Fargate',
+    ],
+    technologies: ['React 19', 'Vite', 'Django REST Framework', 'drf-spectacular', 'Celery'],
+    iac: { provider: 'aws-ecs', flag: '--iac aws-ecs' },
+    pages: [
+      { file: 'index.md', title: 'Home' },
+      { file: 'dude.md', title: 'Working with dude' },
+      { file: 'api.md', title: 'Command reference' },
+      { file: 'mkdocs.md', title: 'Writing docs' },
+      { file: 'deploy.md', title: 'Deploy (AWS ECS)', when: 'withIac' },
+    ],
+  },
+
   async scaffold(ctx) {
     const { answers, dest, stackRoot, dudeVersion, stackVersion } = ctx
 

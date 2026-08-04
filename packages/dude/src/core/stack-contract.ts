@@ -44,6 +44,70 @@ export const stackVariableSchema = z.discriminatedUnion('type', [
 
 export type StackVariable = z.infer<typeof stackVariableSchema>
 
+// ---------- Docs manifest ----------
+
+/**
+ * One page of the stack's generated project documentation site
+ * (`templates/base/docs/docs/`). `when` names the boolean Handlebars context
+ * variable (e.g. `'withIac'`) that gates the page, mirroring the same
+ * condition used in the stack's `mkdocs.yml.hbs` nav — omitted when the page
+ * always ships.
+ */
+const stackDocsPageSchema = z.object({
+  /** File name relative to `docs/docs/` (e.g. `'index.md'`). */
+  file: z.string().min(1),
+  /** Nav title, as it appears in `mkdocs.yml`. */
+  title: z.string().min(1),
+  /** Name of the boolean context variable that gates this page, if any. */
+  when: z.string().optional(),
+})
+
+const stackDocsIacSchema = z.object({
+  /**
+   * IaC provider identifier, deliberately a free-form string rather than a
+   * closed enum: a stack maintainer must be able to ship a new target (GCP,
+   * Azure, a second AWS topology) without first landing a release of
+   * `@cubocicloide/dude` and raising their `minDudeVersion`. Stacks owning
+   * their own documentation facts is the whole point of the manifest.
+   *
+   * Consumers only ever render this value — a matrix cell, a page title — so
+   * none of them needs the set to be closed. Today's values are `aws-eks`
+   * and `aws-ecs`.
+   *
+   * Keeping it a plain string also mirrors `stackVariableSchema`: serializable,
+   * diffable, and safe to pass across a process boundary without importing the
+   * type from wherever the provider list happens to live.
+   */
+  provider: z.string().min(1),
+  /** The `dude init` flag value that selects this provider, e.g. `'aws-eks'`. */
+  flag: z.string().min(1),
+})
+
+/**
+ * Optional documentation manifest a stack may declare so that downstream
+ * tooling (the root site composer, `dude cheatsheet`, machine-readable
+ * surfaces — see issue #113) can generate from typed facts instead of
+ * hand-maintained prose.
+ *
+ * Deliberately excludes facts already declared elsewhere on
+ * `StackDefinition` — `description`, `variables`, `version`,
+ * `minDudeVersion` — so there is exactly one place to update each fact.
+ */
+export const stackDocsSchema = z.object({
+  /** One line for the root site's stack index and comparison matrix. */
+  tagline: z.string().min(1),
+  /** Rows for the "if you're building…" table. */
+  useCases: z.array(z.string().min(1)).min(1),
+  /** Headline technologies, e.g. `['React 19', 'FastAPI', 'SQLModel']`. */
+  technologies: z.array(z.string().min(1)).min(1),
+  /** Cloud IaC target, when the stack has one. */
+  iac: stackDocsIacSchema.optional(),
+  /** The page set this stack's scaffold ships, incl. conditional pages. */
+  pages: z.array(stackDocsPageSchema).min(1),
+})
+
+export type StackDocs = z.infer<typeof stackDocsSchema>
+
 // ---------- Runtime context ----------
 
 /**
@@ -145,6 +209,14 @@ export interface StackDefinition {
   description: string
   /** Variables prompted during `dude init`. */
   variables?: StackVariable[]
+  /**
+   * Optional documentation manifest — typed facts about the stack's
+   * generated docs site, consumed by the root-site composer and other
+   * documentation tooling (see issue #113). Validated with
+   * {@link stackDocsSchema} at load time when present; omit it entirely for
+   * a stack that has not adopted the manifest yet.
+   */
+  docs?: StackDocs
   /**
    * Optional explicit scaffold step. If omitted, the CLI copies the
    * `templates/base` folder shipped with the plugin, applying Handlebars

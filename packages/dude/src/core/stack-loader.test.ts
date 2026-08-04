@@ -153,6 +153,110 @@ describe('loadStack — successful resolution via explicit path', () => {
   })
 })
 
+describe('loadStack — docs manifest validation', () => {
+  it('loads a stack whose docs manifest is well-formed', async () => {
+    const dir = makeTmpDir()
+    mkdirSync(join(dir, 'dist'), { recursive: true })
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: '@test/docs-ok', version: '1.0.0', main: './dist/index.js' }),
+    )
+    writeFileSync(
+      join(dir, 'dist', 'index.js'),
+      `export default {
+        name: 'docs-ok',
+        description: 'Test stack',
+        docs: {
+          tagline: 'A test stack',
+          useCases: ['Testing things'],
+          technologies: ['TypeScript'],
+          pages: [{ file: 'index.md', title: 'Home' }],
+        },
+      };\n`,
+    )
+
+    const loaded = await loadStack(dir, dir)
+    expect(loaded.definition.docs?.tagline).toBe('A test stack')
+  })
+
+  it('rejects a stack whose docs manifest is missing required fields', async () => {
+    const dir = makeTmpDir()
+    mkdirSync(join(dir, 'dist'), { recursive: true })
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: '@test/docs-bad', version: '1.0.0', main: './dist/index.js' }),
+    )
+    writeFileSync(
+      join(dir, 'dist', 'index.js'),
+      `export default {
+        name: 'docs-bad',
+        description: 'Test stack',
+        docs: {
+          tagline: 'A test stack',
+          useCases: [],
+          technologies: ['TypeScript'],
+          pages: [],
+        },
+      };\n`,
+    )
+
+    await expect(loadStack(dir, dir)).rejects.toThrow(/invalid `docs` manifest/)
+  })
+
+  it('rejects a docs manifest whose IaC entry is malformed', async () => {
+    const dir = makeTmpDir()
+    mkdirSync(join(dir, 'dist'), { recursive: true })
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: '@test/docs-bad-iac', version: '1.0.0', main: './dist/index.js' }),
+    )
+    writeFileSync(
+      join(dir, 'dist', 'index.js'),
+      `export default {
+        name: 'docs-bad-iac',
+        description: 'Test stack',
+        docs: {
+          tagline: 'A test stack',
+          useCases: ['Testing things'],
+          technologies: ['TypeScript'],
+          iac: { provider: 'aws-ecs' },
+          pages: [{ file: 'index.md', title: 'Home' }],
+        },
+      };\n`,
+    )
+
+    await expect(loadStack(dir, dir)).rejects.toThrow(/invalid `docs` manifest/)
+  })
+
+  // `provider` is deliberately an open string, so a stack can ship a new IaC
+  // target without a CLI release — see the schema's comment. This locks that in.
+  it('accepts an IaC provider identifier the CLI has never heard of', async () => {
+    const dir = makeTmpDir()
+    mkdirSync(join(dir, 'dist'), { recursive: true })
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: '@test/docs-new-iac', version: '1.0.0', main: './dist/index.js' }),
+    )
+    writeFileSync(
+      join(dir, 'dist', 'index.js'),
+      `export default {
+        name: 'docs-new-iac',
+        description: 'Test stack',
+        docs: {
+          tagline: 'A test stack',
+          useCases: ['Testing things'],
+          technologies: ['TypeScript'],
+          iac: { provider: 'gcp-cloud-run', flag: '--iac gcp-cloud-run' },
+          pages: [{ file: 'index.md', title: 'Home' }],
+        },
+      };\n`,
+    )
+
+    const loaded = await loadStack(dir, dir)
+    expect(loaded.definition.docs?.iac?.provider).toBe('gcp-cloud-run')
+  })
+})
+
 describe('pickChannelVersion — release-channel resolution', () => {
   const pkg = '@test/some-stack'
 

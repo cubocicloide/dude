@@ -67,6 +67,25 @@ export default defineStack({
     },
   ],
 
+  docs: {
+    tagline:
+      'React (Vite) frontend with a FastAPI backend — Postgres, Celery and AWS EKS when you need them.',
+    useCases: [
+      'A CRUD/product web app that needs a typed REST API behind a modern SPA',
+      'A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS) once it scales',
+      'Background/async work (Celery + Celery Beat) without leaving the Python backend',
+    ],
+    technologies: ['React 19', 'Vite', 'FastAPI', 'SQLModel', 'Alembic', 'Celery'],
+    iac: { provider: 'aws-eks', flag: '--iac aws-eks' },
+    pages: [
+      { file: 'index.md', title: 'Home' },
+      { file: 'dude.md', title: 'Working with dude' },
+      { file: 'api.md', title: 'Command reference' },
+      { file: 'mkdocs.md', title: 'Writing docs' },
+      { file: 'deploy.md', title: 'Deploy (AWS EKS)', when: 'withIac' },
+    ],
+  },
+
   async scaffold(ctx) {
     const { answers, dest, stackRoot, dudeVersion, stackVersion } = ctx
 
