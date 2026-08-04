@@ -233,9 +233,24 @@ automated action in CI.
   issue on its own.
 - **`fix-issues`** skill + **`issue-fixer`** agent — implement a chosen issue in
   an isolated git worktree and open a PR for review. Never auto-merged.
+- **`review-prs`** skill + **`pr-reviewer`** agent — review open PRs and issue a
+  verdict, posted as a formal GitHub review with inline comments. It routes by
+  PR class (dependabot bump, "Version Packages" release PR, fork contributor,
+  internal branch) and by affected stack, and checks the repo's invariants
+  against the diff rather than against the PR description. The reviewer agent is
+  read-only: it never modifies a PR's code. Merging is gated — only a low-risk
+  dependabot bump with green CI merges unattended, and a Release PR never does.
 
 A typical session: run `triage-issues` to clean and label the backlog, hand the
-ready ones to `fix-issues`, then review the PRs like any other.
+ready ones to `fix-issues`, then `review-prs` on what comes back.
+
+For a **dependency PR** specifically, `review-prs` encodes the two checks that
+actually matter here: for a GitHub-Actions bump it fetches the upstream
+`action.yml` at the new tag and diffs the declared inputs against the ones our
+workflow passes (a renamed input is a silent no-op, not an error); for an npm
+bump it distinguishes a build-time `devDependency` from something that ships in
+a published package, and flags `@types/node` majors that drift ahead of
+`engines: node >=20`.
 
 > **Promoting triage to CI later.** If issue volume outgrows on-demand triage,
 > the same logic can move into GitHub Actions via `anthropics/claude-code-action`

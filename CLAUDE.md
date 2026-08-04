@@ -426,7 +426,19 @@ skill (`.claude/skills/fix-issues/`) drives the **`issue-fixer`** agent
 implementation → a pull request. **Never auto-merged** — PRs are reviewed like
 any other.
 
-**4. Release.** The merged fix flows through the normal channel: `make
+**4. Review (local, human-gated).** The **`review-prs`** skill
+(`.claude/skills/review-prs/`) reviews open PRs and issues a verdict
+(`APPROVE` / `APPROVE-WITH-NITS` / `REQUEST-CHANGES` / `BLOCK` / `NEEDS-INFO`),
+posted as a formal GitHub review with line-anchored comments. It routes by PR
+class — dependabot bump, "Version Packages" release PR, fork contributor,
+internal branch — and by affected stack, verifies the repo invariants against
+the diff (lint↔rule parity, changeset present/absent, docs triad, registry +
+`.gitignore` wiring, `minDudeVersion`), and fans out the **`pr-reviewer`** agent
+(`.claude/agents/pr-reviewer.md`, read-only) one instance per surface on larger
+PRs. It **never modifies a PR's code**. Merging is gated: only a low-risk
+dependabot bump with green CI merges without asking; a Release PR never does.
+
+**5. Release.** The merged fix flows through the normal channel: `make
 changeset` → CI publishes to `next` → `make promote` to `latest` (see Release
 workflow above).
 
