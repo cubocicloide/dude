@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.mixins import CreateModelMixin, ListModelMixin, RetrieveModelMixin
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny
@@ -8,7 +8,21 @@ from apps.files.models import FileUpload
 from apps.files.serializers import FileUploadSerializer
 
 
-@extend_schema(tags=["files"])
+@extend_schema(tags=["Files"])
+@extend_schema_view(
+    list=extend_schema(
+        summary="List uploaded files",
+        description=(
+            "Paginated, newest first. Each entry carries metadata plus a fresh "
+            "presigned `url` — the URLs expire, so read them from this endpoint "
+            "rather than caching them."
+        ),
+    ),
+    retrieve=extend_schema(
+        summary="Retrieve file metadata",
+        description="Returns the stored metadata and a newly signed download `url`.",
+    ),
+)
 class FileUploadViewSet(CreateModelMixin, ListModelMixin, RetrieveModelMixin, GenericViewSet):
     """Upload (multipart), list and retrieve stored files.
 
@@ -24,6 +38,15 @@ class FileUploadViewSet(CreateModelMixin, ListModelMixin, RetrieveModelMixin, Ge
     # explicit: every view must declare permission_classes (lint rule BE003).
     permission_classes = [AllowAny]
 
-    @extend_schema(operation_id="files_create", description="Upload a file (multipart/form-data).")
+    @extend_schema(
+        operation_id="files_create",
+        summary="Upload a file",
+        description=(
+            "Send the binary as `multipart/form-data` on the `file` field. "
+            "`original_name`, `content_type` and `size` are derived server-side and "
+            "ignored if supplied. The response contains no binary — only metadata "
+            "and a presigned `url`."
+        ),
+    )
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)

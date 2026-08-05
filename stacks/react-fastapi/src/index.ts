@@ -159,8 +159,9 @@ export default defineStack({
       ctx.logger.info('  Endpoints:')
       ctx.logger.info('    Frontend: http://localhost:5173')
       ctx.logger.info('    Backend:  http://localhost:8000/api/health')
+      ctx.logger.info('    API docs: http://localhost:8000/api/docs (Scalar reference)')
       if (withPostgres) {
-        ctx.logger.info('    Users:    http://localhost:8000/api/users/')
+        ctx.logger.info('    Users:    http://localhost:8000/api/users')
       }
       if (withIac) {
         ctx.logger.info('')

@@ -6,9 +6,10 @@ paths:
   /api/health/:
     get:
       operationId: health_retrieve
-      description: Health-check endpoint.
+      summary: Check service health
+      description: 'Returns `{"status": "ok"}` while the process is accepting requests.'
       tags:
-        - health
+        - Health
       security:
         - {}
       responses:
@@ -21,7 +22,8 @@ paths:
   /api/users/:
     get:
       operationId: users_list
-      description: List (paginated) and retrieve users.
+      summary: List users
+      description: Paginated and ordered by `id` ascending.
       parameters:
         - name: page
           required: false
@@ -30,7 +32,7 @@ paths:
           schema:
             type: integer
       tags:
-        - users
+        - Users
       security:
         - {}
       responses:
@@ -43,7 +45,8 @@ paths:
   /api/users/{id}/:
     get:
       operationId: users_retrieve
-      description: List (paginated) and retrieve users.
+      summary: Retrieve a user
+      description: An unknown id returns `404`.
       parameters:
         - name: id
           in: path
@@ -52,7 +55,7 @@ paths:
           schema:
             type: integer
       tags:
-        - users
+        - Users
       security:
         - {}
       responses:

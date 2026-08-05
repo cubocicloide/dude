@@ -14,9 +14,15 @@ class HealthView(APIView):
 
     @extend_schema(
         operation_id="health_retrieve",
-        description="Health-check endpoint.",
+        summary="Check service health",
+        description=(
+            'Returns `{"status": "ok"}` while the process is accepting requests. '
+            "This is a liveness probe, not a status page — it does not test the "
+            "database, the cache or any downstream service. The only endpoint that "
+            "needs no credentials."
+        ),
         responses=HealthSerializer,
-        tags=["health"],
+        tags=["Health"],
         auth=[],
     )
     def get(self, request: Request) -> Response:
