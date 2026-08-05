@@ -2,7 +2,10 @@
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
+from app.core.api_docs import API_DESCRIPTION, API_TAGS, scalar_html
+from app.core.config import settings
 from app.routers import (
     health,
 {{#if withPostgres}}
@@ -15,10 +18,19 @@ from app.routers import (
 # the ALB Ingress (which routes /api → backend, everything else → frontend). This
 # keeps a single backend prefix and works identically in local dev (the Vite
 # proxy forwards /api) and in the cluster.
+#
+# The built-in Swagger UI and ReDoc are off: /api/docs is the one reference, and
+# it renders the narrative from app/core/api_docs.py.
 app = FastAPI(
-    title="{{projectName}} backend",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
+    title="{{projectName}} API",
+    description=API_DESCRIPTION,
+    version="1.0.0",
+    openapi_tags=API_TAGS,
+    # Add deployed environments here so the reference's "Test Request" panel can
+    # target them.
+    servers=[{"url": "http://localhost:8000", "description": "Local development"}],
+    docs_url=None,
+    redoc_url=None,
     openapi_url="/api/openapi.json",
 )
 
@@ -29,6 +41,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/api/docs", include_in_schema=False)
+async def get_api_docs() -> HTMLResponse:
+    """Serve the API reference (Scalar)."""
+    return HTMLResponse(scalar_html(settings.APP_TITLE, "/api/openapi.json"))
+
 
 api_router = APIRouter(prefix="/api")
 

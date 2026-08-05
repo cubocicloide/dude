@@ -13,6 +13,8 @@ from pathlib import Path
 
 import environ
 
+from config.api_docs import API_DESCRIPTION, API_TAGS
+
 env = environ.Env()
 
 # backend/ directory (contains manage.py) — /app inside the container
@@ -65,7 +67,8 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        # backend/templates/ — holds api-docs.html (the API reference page).
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -156,10 +159,21 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
 }
 
+# ── OpenAPI schema (drf-spectacular) ──────────────────────────────────────────
+# The reference is served at /api/docs/ by Scalar; the prose lives in
+# config/api_docs.py. Regenerate the frontend client with `dude api sync`.
+
 SPECTACULAR_SETTINGS = {
     "TITLE": env("APP_TITLE", default="{{projectName}}") + " API",
+    "DESCRIPTION": API_DESCRIPTION,
     "VERSION": "1.0.0",
+    # The schema endpoint is not itself an operation.
     "SERVE_INCLUDE_SCHEMA": False,
+    # Keep the author-chosen order — TAGS drives the sidebar, not the alphabet.
+    "SORT_OPERATIONS": False,
+    "TAGS": API_TAGS,
+    # Add deployed environments here so the "Test Request" panel can target them.
+    "SERVERS": [{"url": "http://localhost:8000", "description": "Local development"}],
 }
 {{#if withCelery}}
 

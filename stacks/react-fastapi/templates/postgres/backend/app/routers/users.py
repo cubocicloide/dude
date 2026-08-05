@@ -9,11 +9,19 @@ from app.core.database import get_db
 from app.models.user import User
 from app.queries.users import UsersQueries
 
-router = APIRouter(tags=["users"])
+router = APIRouter(tags=["Users"])
 _users = UsersQueries()
 
 
-@router.get("/users", response_model=list[User])
+@router.get(
+    "/users",
+    response_model=list[User],
+    summary="List users",
+    description=(
+        "Returns every user as a bare array — there is no pagination envelope and "
+        "no result cap. Add pagination before this collection can grow."
+    ),
+)
 def get_users(db: Session = Depends(get_db)) -> Sequence[User]:
     """Return all users."""
     return _users.get_all(db)

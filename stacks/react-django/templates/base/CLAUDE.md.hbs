@@ -151,8 +151,20 @@ Migrations also run automatically when the backend container boots.
 | `dude api review`         | Validate `frontend/src/openapi/` against the saved spec               |
 
 **Workflow**: always run `dude api sync` after changing backend endpoints, then
-commit the updated `frontend/src/openapi/` alongside the change. Swagger UI is
-served at http://localhost:8000/api/docs/.
+commit the updated `frontend/src/openapi/` alongside the change. The reference is
+served at http://localhost:8000/api/docs/ (Scalar).
+
+**Documenting an endpoint** — the schema only carries what the code declares:
+
+- Every view gets a `@extend_schema` (or `@extend_schema_view`) with a `tags`
+  entry, an imperative `summary` (≤ 6 words) and a `description` that says
+  something the schema does not already show — preconditions, side effects, who
+  may call it, which error a wrong call returns.
+- Every tag used must exist in `API_TAGS` in `backend/config/api_docs.py`, or the
+  operation lands ungrouped at the bottom of the sidebar. `API_TAGS` order **is**
+  the sidebar order.
+- Cross-cutting prose (auth header, conventions, the domain lifecycle) belongs in
+  `API_DESCRIPTION` in the same file, not repeated per endpoint.
 
 ### Testing
 

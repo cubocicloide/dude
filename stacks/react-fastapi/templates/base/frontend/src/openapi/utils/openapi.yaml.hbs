@@ -1,12 +1,14 @@
 openapi: 3.1.0
 info:
-  title: {{projectName}} backend
-  version: 0.1.0
+  title: {{projectName}} API
+  version: 1.0.0
 paths:
   /api/health:
     get:
-      summary: Get Health
-      description: Health-check endpoint.
+      tags:
+        - Health
+      summary: Check service health
+      description: 'Returns `{"status": "ok"}` while the process is accepting requests.'
       operationId: get_health_api_health_get
       responses:
         "200":

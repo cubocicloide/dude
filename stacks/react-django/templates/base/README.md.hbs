@@ -62,8 +62,8 @@ Once the containers are up, open the URLs below.
 |---------|-----|-------|
 | **Frontend** | http://localhost:5173 | React + Vite — HMR active |
 | **API** | http://localhost:8000 | Django REST Framework |
-| **Swagger UI** | http://localhost:8000/api/docs/ | Interactive API explorer (drf-spectacular) |
-| **OpenAPI schema** | http://localhost:8000/api/schema/ | Raw schema (YAML) |
+| **API reference** | http://localhost:8000/api/docs/ | Interactive reference (Scalar) — narrative in `backend/config/api_docs.py` |
+| **OpenAPI schema** | http://localhost:8000/api/schema/ | Raw schema (YAML, drf-spectacular) |
 | **Health** | http://localhost:8000/api/health/ | JSON health check |
 | **Django admin** | http://localhost:8000/admin/ | Create an account with `dude db superuser` |
 {{#if withS3}}

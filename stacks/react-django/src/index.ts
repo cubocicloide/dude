@@ -194,7 +194,7 @@ export default defineStack({
       ctx.logger.info('    Frontend:    http://localhost:5173')
       ctx.logger.info('    Backend:     http://localhost:8000/api/health/')
       ctx.logger.info('    Users:       http://localhost:8000/api/users/')
-      ctx.logger.info('    API schema:  http://localhost:8000/api/docs/ (Swagger UI)')
+      ctx.logger.info('    API docs:    http://localhost:8000/api/docs/ (Scalar reference)')
       ctx.logger.info('    Admin:       http://localhost:8000/admin/')
       if (withS3) {
         ctx.logger.info('    Files:       http://localhost:8000/api/files/')

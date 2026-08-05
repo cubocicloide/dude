@@ -1,0 +1,123 @@
+"""Narrative + sidebar structure for the public API reference.
+
+`API_DESCRIPTION` becomes `info.description` in the OpenAPI schema and renders as
+the landing page of the reference at ``/api/docs/``. `API_TAGS` is the sidebar:
+its order is the sidebar order (``SORT_OPERATIONS`` is off), and every tag used
+by a view must appear here or the operation lands ungrouped at the bottom.
+
+Both are wired up in ``config/settings/base.py`` (``SPECTACULAR_SETTINGS``).
+
+This file is where the reference stops being generated and starts being written.
+Edit it as the API grows — the sections marked **TODO** describe your product,
+not the scaffold.
+"""
+
+API_DESCRIPTION = """
+The **{{projectName}}** HTTP API. It is consumed by the {{projectName}} web frontend and by any
+service you authorise. Every response is JSON; every path below is relative to
+`/api/`.
+
+<!-- TODO: replace this paragraph with what the API actually is — the domain in
+plain words, who calls it, and what a caller can accomplish with it. If it is
+internal-only, say so here rather than making integrators discover it from a 401. -->
+
+## Authentication
+
+The scaffold ships Django REST Framework's default authenticators — **session
+cookie** and **HTTP Basic**. Every endpoint requires an authenticated user unless
+its view opts out with an explicit `permission_classes` declaration.
+
+Session (browser, same-origin — what the frontend uses):
+
+```
+Cookie: sessionid=<session-id>
+X-CSRFToken: <csrf-token>
+```
+
+HTTP Basic (scripts and `curl`):
+
+```
+Authorization: Basic <base64(username:password)>
+```
+
+Create a user with `dude db superuser`, then log in at `/admin/` to get a session.
+
+<!-- TODO: swap in the real scheme before exposing this API. Add
+`DEFAULT_AUTHENTICATION_CLASSES` to `REST_FRAMEWORK` in
+`config/settings/base.py` (e.g. `djangorestframework-simplejwt`), then document
+the exact header verbatim here, plus token lifetimes and how a caller obtains
+credentials. Prefix mistakes are the most common integration failure — spell the
+header out, do not paraphrase it. -->
+
+## Base URLs
+
+| Environment | Base URL |
+| --- | --- |
+| Local development | `http://localhost:8000` |
+
+<!-- TODO: add the deployed environments and mirror them in `SERVERS`
+(`SPECTACULAR_SETTINGS`, `config/settings/base.py`) so the **Test Request**
+panel can target them. -->
+
+## Conventions
+
+- **Trailing slashes are required.** DRF's routers register `/api/users/`, not
+  `/api/users`. Without the slash Django replies `301` and most HTTP clients drop
+  the request body on the redirect.
+- **Pagination** — list endpoints return an envelope, never a bare array:
+  `{"count": 123, "next": "…?page=3", "previous": "…?page=1", "results": [...]}`.
+  Page size is 50; select a page with `?page=<n>`. `next`/`previous` are `null` at
+  the ends.
+- **Timestamps** — ISO-8601 with an offset, always UTC (`2026-01-31T09:15:00Z`).
+- **IDs** — sequential integers, not UUIDs. Do not assume they are unguessable.
+- **Errors** — two distinct body shapes:
+  - non-field failures (401, 403, 404, 405, throttled): `{"detail": "Not found."}`
+  - validation failures (400): a map of field name → list of messages,
+    `{"email": ["Enter a valid email address."]}`, with non-field problems under
+    the `non_field_errors` key.
+{{#if withS3}}
+- **Files** — uploads are `multipart/form-data` on the `file` field. The response
+  never contains the binary: it returns metadata plus `url`, a **presigned link
+  that expires**. Fetch it fresh from the API rather than storing it.
+{{/if}}
+
+## Lifecycle
+
+<!-- TODO: this section carries the most weight in the whole reference, and the
+scaffold cannot write it for you. Describe the state machine a caller must
+respect: which state an object starts in, what each transition requires as a
+precondition, what locks afterwards, and which status code a premature call
+gets. Per-endpoint docs cannot express this; leaving it out is what makes
+integrators guess. Delete this section only if the domain genuinely has no
+stateful objects. -->
+
+## Status
+
+- The API is **unversioned**. Breaking changes ship without a path bump — pin
+  nothing, read the changelog.
+- `GET /api/health/` is the only unauthenticated endpoint. It is a liveness probe,
+  not a status page: it reports that the process is up, not that the database is.
+{{#if withS3}}
+- File storage runs against MinIO locally and S3 in deployed environments. Presigned
+  URL lifetimes differ between the two.
+{{/if}}
+- No webhooks, no rate limiting, and no API keys yet.
+""".strip()
+
+
+API_TAGS = [
+    {
+        "name": "Health",
+        "description": "Liveness probe. Unauthenticated, used by container health checks and the frontend boot sequence.",
+    },
+    {
+        "name": "Users",
+        "description": "The accounts that authenticate against this API. Read-only in the scaffold — user creation lives in `apps.users.services`.",
+    },
+{{#if withS3}}
+    {
+        "name": "Files",
+        "description": "Binaries stored on the object-storage backend. Uploaded as multipart, read back through short-lived presigned URLs.",
+    },
+{{/if}}
+]

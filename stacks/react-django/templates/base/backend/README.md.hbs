@@ -79,9 +79,14 @@ uv run python manage.py migrate
 uv run python manage.py runserver 0.0.0.0:8000
 ```
 
-Then open <http://localhost:8000/api/health/> — interactive API docs live at
-<http://localhost:8000/api/docs/> (Swagger UI, served by drf-spectacular) and
-the raw OpenAPI schema at <http://localhost:8000/api/schema/>.
+Then open <http://localhost:8000/api/health/> — the interactive API reference
+lives at <http://localhost:8000/api/docs/> (Scalar, rendered from
+`backend/templates/api-docs.html`) and the raw OpenAPI schema at
+<http://localhost:8000/api/schema/>.
+
+The reference's prose — authentication, conventions, the domain lifecycle — is
+hand-written in `backend/config/api_docs.py`. Keep it current: the schema is
+generated, that file is not.
 
 ## Tests
 

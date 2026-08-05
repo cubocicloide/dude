@@ -1,0 +1,182 @@
+"""Narrative, sidebar structure and the reference page for the public API.
+
+``API_DESCRIPTION`` becomes ``info.description`` in the OpenAPI schema and renders
+as the landing page of the reference at ``/api/docs``. ``API_TAGS`` is the
+sidebar: its order is the sidebar order, and every tag used by a router must
+appear here or the operation lands ungrouped at the bottom. ``scalar_html``
+renders the reference page itself.
+
+All three are wired up in ``app/main.py``.
+
+This file is where the reference stops being generated and starts being written.
+Edit it as the API grows — the sections marked **TODO** describe your product,
+not the scaffold.
+"""
+
+API_DESCRIPTION = """
+The **{{projectName}}** HTTP API. It is consumed by the {{projectName}} web frontend and by any
+service you authorise. Every response is JSON; every path below is relative to
+`/api`.
+
+<!-- TODO: replace this paragraph with what the API actually is — the domain in
+plain words, who calls it, and what a caller can accomplish with it. If it is
+internal-only, say so here rather than making integrators discover it from a 401. -->
+
+## Authentication
+
+**The scaffold ships no authentication.** Every endpoint below is open to anyone
+who can reach the process. That is fine behind `docker compose` on your laptop and
+unacceptable anywhere else.
+
+<!-- TODO: add a scheme before this API leaves your machine. Declare a FastAPI
+security dependency (e.g. `fastapi.security.HTTPBearer`), apply it to the routers
+in `app/main.py`, then document the exact header here, verbatim:
+
+```
+Authorization: Bearer <access-token>
+```
+
+Spell out how a caller obtains the credential, how long it lives, and how it is
+refreshed. Prefix mistakes are the most common integration failure — write the
+header out, do not paraphrase it. Then uncomment `preferredSecurityScheme` in
+`scalar_html` below and point it at the matching key from
+`components.securitySchemes`. -->
+
+## Base URLs
+
+| Environment | Base URL |
+| --- | --- |
+| Local development | `http://localhost:8000` |
+
+<!-- TODO: add the deployed environments and mirror them in the `servers` list in
+`app/main.py` so the **Test Request** panel can target them. -->
+
+## Conventions
+
+- **No trailing slashes.** Paths are registered as `/api/users`, not `/api/users/`.
+  A trailing slash returns `307` and clients that drop the body on redirect fail
+  confusingly.
+- **List endpoints return bare arrays**, not a pagination envelope, and they are
+  unbounded — every row comes back in one response. Add pagination before any
+  collection can grow.
+- **Timestamps** — ISO-8601 with an offset, always UTC (`2026-01-31T09:15:00Z`).
+- **IDs** — sequential integers, not UUIDs. Do not assume they are unguessable.
+- **Errors** — two distinct body shapes:
+  - raised failures (`HTTPException`, e.g. 404): `{"detail": "User not found"}`
+  - request validation failures (**422**, produced by FastAPI itself before your
+    code runs): `{"detail": [{"loc": ["path", "id"], "msg": "…", "type": "…"}]}`.
+    Note the status code — FastAPI answers malformed input with `422`, not `400`.
+
+## Lifecycle
+
+<!-- TODO: this section carries the most weight in the whole reference, and the
+scaffold cannot write it for you. Describe the state machine a caller must
+respect: which state an object starts in, what each transition requires as a
+precondition, what locks afterwards, and which status code a premature call
+gets. Per-endpoint docs cannot express this; leaving it out is what makes
+integrators guess. Delete this section only if the domain genuinely has no
+stateful objects. -->
+
+## Status
+
+- The API is **unversioned**. Breaking changes ship without a path bump — pin
+  nothing, read the changelog.
+- `GET /api/health` is a liveness probe, not a status page: it reports that the
+  process is up, not that the database is.
+- No authentication, no pagination, no rate limiting, and no webhooks yet.
+""".strip()
+
+
+API_TAGS = [
+    {
+        "name": "Health",
+        "description": "Liveness probe. Used by container health checks and the frontend boot sequence.",
+    },
+{{#if withPostgres}}
+    {
+        "name": "Users",
+        "description": "The accounts this API knows about. Read-only in the scaffold — writes belong in `app/queries/users.py`.",
+    },
+{{/if}}
+]
+
+
+# Plain placeholders (not an f-string / str.format) so the CSS and JS braces below
+# stay readable and unescaped.
+_SCALAR_PAGE = """<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>__TITLE__ API reference</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%231677ff'/%3E%3C/svg%3E" />
+    <style>
+      html, body { margin: 0; }
+      :root {
+        --scalar-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        --scalar-font-code: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      /* Brand accent — matches the frontend's antd primary colour. */
+      .light-mode { --scalar-color-accent: #1677ff; }
+      .dark-mode  { --scalar-color-accent: #4096ff; }
+
+      /* Brand bar. Delete this block and the <header> below together if you'd
+         rather have Scalar's own header on its own. */
+      .brandbar {
+        position: sticky; top: 0; z-index: 1000;
+        display: flex; align-items: center; gap: 0.75rem;
+        height: 56px; padding: 0 1.25rem;
+        background: #1677ff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+      }
+      .brandbar .name { color: #fff; font: 600 1rem/1 system-ui, -apple-system, sans-serif; }
+      .brandbar .spacer { flex: 1; }
+      .brandbar .tag {
+        color: #fff; opacity: 0.92;
+        font: 600 0.78rem/1 system-ui, -apple-system, sans-serif;
+        letter-spacing: 0.06em; text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="brandbar">
+      <span class="name">__TITLE__</span>
+      <span class="spacer"></span>
+      <span class="tag">API reference</span>
+    </header>
+    <div id="app"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script>
+      Scalar.createApiReference('#app', {
+        url: '__OPENAPI_URL__',
+        theme: 'default',
+        layout: 'modern',
+        hideDownloadButton: true,
+        showDeveloperTools: 'never',
+        persistAuth: true,
+        withDefaultFonts: false,
+        metaData: {
+          title: '__TITLE__ API reference',
+          description: 'HTTP API reference for __TITLE__.',
+        },
+        // Once you add a security scheme, name it here so the Authentication
+        // panel opens on it instead of "No authentication selected". The value
+        // must match a key under components.securitySchemes in the schema.
+        // authentication: { preferredSecurityScheme: 'HTTPBearer' },
+        customCss: `
+          :root {
+            /* Room for the brand bar so Scalar still fits the viewport. Drop
+               this line together with the <header> if you remove the bar. */
+            --scalar-custom-header-height: 56px;
+          }
+          a[href*="scalar.com"] { display: none !important; }
+        `,
+      })
+    </script>
+  </body>
+</html>"""
+
+
+def scalar_html(title: str, openapi_url: str) -> str:
+    """Render the API reference page (Scalar, loaded from a CDN)."""
+    return _SCALAR_PAGE.replace("__TITLE__", title).replace("__OPENAPI_URL__", openapi_url)
