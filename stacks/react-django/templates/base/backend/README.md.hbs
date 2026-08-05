@@ -65,6 +65,20 @@ Create an admin account for <http://localhost:8000/admin/>:
 ```bash
 dude db superuser
 ```
+
+The admin is themed by [django-unfold](https://unfoldadmin.com) (configured via
+`UNFOLD` in `config/settings/base.py`). When you register a new model, subclass
+**Unfold's** `ModelAdmin`, not Django's — Django's renders unstyled inside the
+themed layout:
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+@admin.register(MyModel)
+class MyModelAdmin(ModelAdmin):
+    ...
+```
 {{#if withCelery}}
 
 Celery worker{{#if withCeleryBeat}}, beat scheduler{{/if}} and Flower monitor are started automatically by docker compose.
