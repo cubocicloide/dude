@@ -338,6 +338,11 @@ dude db migrate
   fields (BE010), explicit `related_name` (BE011); every change ships a
   committed migration (BE006).
 - `urls.py` — `app_name` + DRF router, mounted under `/api/` in `config/urls.py` (BE008).
+- `admin.py` — subclass **`unfold.admin.ModelAdmin`**, never `django.contrib.admin.ModelAdmin`.
+  The admin is themed by [django-unfold](https://unfoldadmin.com) (`UNFOLD` in
+  `config/settings/base.py`); Django's own `ModelAdmin` still works but renders
+  unstyled inside the themed layout. For the auth user model, keep Unfold's form
+  overrides — see `apps/users/admin.py`.
 - `tests/` — required for every app (BE014). No raw SQL (BE004), no `print()` (BE012).
 
 ### Frontend (`frontend/src/`)

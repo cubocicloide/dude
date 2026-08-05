@@ -22,6 +22,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # ── Application definition ────────────────────────────────────────────────────
 
+# django-unfold — the admin theme. Every entry MUST precede
+# "django.contrib.admin": Unfold works by overriding the admin's templates, and
+# Django resolves templates in INSTALLED_APPS order, so listing it later silently
+# gives you the stock admin back.
+#
+# The three contrib modules below pull in no extra packages. The remaining ones
+# each need their own dependency, so add both together if you want them:
+# unfold.contrib.import_export (django-import-export),
+# unfold.contrib.guardian (django-guardian),
+# unfold.contrib.simple_history (django-simple-history).
+ADMIN_APPS = [
+    "unfold",
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",
+    "unfold.contrib.inlines",
+]
+
 DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -48,7 +65,7 @@ LOCAL_APPS = [
 {{/if}}
 ]
 
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+INSTALLED_APPS = ADMIN_APPS + DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -147,6 +164,30 @@ AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_AUTH = True  # serve files via presigned URLs
 {{/if}}
+
+# ── Admin theme (django-unfold) ───────────────────────────────────────────────
+# Needs no URL wiring — Unfold themes the stock admin site at /admin/ by
+# overriding its templates. ModelAdmin classes must subclass
+# `unfold.admin.ModelAdmin` to pick up the styling (see apps/users/admin.py).
+#
+# Full option list: https://unfoldadmin.com/docs/configuration/settings/
+UNFOLD = {
+    "SITE_TITLE": env("APP_TITLE", default="{{projectName}}") + " admin",
+    "SITE_HEADER": env("APP_TITLE", default="{{projectName}}"),
+    # Link the header back to the frontend.
+    "SITE_URL": "/",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+    "SIDEBAR": {
+        "show_search": True,
+        # No "navigation" key → Unfold renders the standard app/model list.
+        # Add one to hand-order the sidebar as the project grows.
+    },
+    # To match the frontend's accent, add a "COLORS" ramp here — Unfold wants
+    # space-separated RGB channels per Tailwind shade, e.g.
+    # "COLORS": {"primary": {"500": "22 119 255", …}}. Omitted so the scaffold
+    # ships Unfold's own tested palette rather than a half-filled one.
+}
 
 # ── Django REST Framework ─────────────────────────────────────────────────────
 

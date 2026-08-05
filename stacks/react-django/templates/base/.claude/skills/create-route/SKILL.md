@@ -76,7 +76,7 @@ A **new app** touches all of these; extending an existing app touches a subset.
 | `apps/<app>/views.py` | BE003, BE013 | ViewSet/APIView with explicit `permission_classes` and `serializer_class` (or `@extend_schema`) |
 | `apps/<app>/urls.py` | BE008 | `app_name = "<app>"` + DRF router |
 | `config/urls.py` | BE008 | `path("api/", include("apps.<app>.urls"))` |
-| `apps/<app>/admin.py` | — | register the model |
+| `apps/<app>/admin.py` | — | register the model — subclass `unfold.admin.ModelAdmin`, never `admin.ModelAdmin` (Unfold theme) |
 | `apps/<app>/tests/test_*.py` | BE014 | model + view tests (pytest-django, `APIClient`) |
 
 Skip rows that don't apply. Present the list, then wait for an OK.
