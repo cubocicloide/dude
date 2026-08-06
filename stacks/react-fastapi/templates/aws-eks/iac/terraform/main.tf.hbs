@@ -56,6 +56,11 @@ module "eks" {
       min_size       = var.node_min_size
       max_size       = var.node_max_size
       desired_size   = var.node_desired_size
+
+      # Require IMDSv2 for enhanced security
+      metadata_options = {
+        http_tokens = "required"
+      }
     }
   }
 }
@@ -255,11 +260,13 @@ resource "aws_security_group" "rds" {
     cidr_blocks = [var.vpc_cidr]
   }
 
+  # Restrict egress to VPC only (security best practice)
   egress {
+    description = "Allow outbound to VPC for responses"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.vpc_cidr]
   }
 
   lifecycle {
