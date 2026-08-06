@@ -237,6 +237,25 @@ git add security/baseline.json && git commit -m "chore(security): update baselin
     `security/baseline.json` must be committed — it is the source of truth for
     accepted findings. Subsequent scans only flag findings that are **not** in the
     baseline.
+
+**Baseline or ignore file?** Two mechanisms, deliberately different:
+
+| | Use for | Behaviour |
+|-|---------|-----------|
+| `security/baseline.json` | findings you have triaged and mean to address | fingerprinted; a finding reappears as *new* if its location changes, and `dude security verify` prunes it once fixed |
+| `security/.trivyignore.yaml` | findings that are correct **by design** and will never be fixed | matched by rule id + path; permanently silent, with a `statement:` recording why |
+
+The scaffold ships one ignore entry: **DS002** (container runs as root) on
+`backend/Dockerfile` and `frontend/Dockerfile`. Those are the development images
+that `dude up` builds — they never leave your machine, they bind-mount your
+source tree, and pinning them to a non-root UID breaks writes back into it (the
+alembic revision `dude db makemigration` generates, for instance) on any host
+whose UID is not 1000. The images that actually ship — `Dockerfile.prod` for
+both backend and frontend — do run unprivileged.
+
+Trivy is also pointed away from `.terraform/`: once `dude iac init` has run,
+that directory holds the vendored source of every third-party Terraform module,
+and its misconfigurations are not yours to fix.
 {{#if withIac}}
 
 ---

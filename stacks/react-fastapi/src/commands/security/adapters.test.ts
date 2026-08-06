@@ -225,6 +225,25 @@ describe('buildCommand', () => {
     expect(cmd).toContain('json')
   })
 
+  it('trivy-fs skips .terraform, so vendored module source is not scanned', () => {
+    const cmd = trivyFsAdapter.buildCommand(ROOT, RUN, OPTS)
+    const idx = cmd.indexOf('--skip-dirs')
+    expect(cmd[idx + 1]?.split(',')).toContain('.terraform')
+  })
+
+  it('trivy-fs excludes downloaded terraform modules', () => {
+    // --skip-dirs is not enough on its own: terraform misconfigurations are
+    // attributed to the module's remote source URL, not to .terraform/.
+    expect(trivyFsAdapter.buildCommand(ROOT, RUN, OPTS)).toContain(
+      '--tf-exclude-downloaded-modules',
+    )
+  })
+
+  it('trivy-fs passes --ignorefile only when the project ships one', () => {
+    // ROOT is a fixture path with no security/.trivyignore.yaml on disk.
+    expect(trivyFsAdapter.buildCommand(ROOT, RUN, OPTS)).not.toContain('--ignorefile')
+  })
+
   describe('trivy-image target image resolution', () => {
     const ENV = 'TRIVY_TARGET_IMAGE'
     const original = process.env[ENV]

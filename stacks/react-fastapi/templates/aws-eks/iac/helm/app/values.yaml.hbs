@@ -34,8 +34,9 @@ backend:
 
 frontend:
   replicas: 2
-  ## nginx serving the production build (see frontend/Dockerfile.prod)
-  port: 80
+  ## nginx serving the production build (see frontend/Dockerfile.prod). 8080
+  ## because that image runs unprivileged and cannot bind a port below 1024.
+  port: 8080
   resources:
     requests:
       cpu: 50m

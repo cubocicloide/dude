@@ -14,6 +14,6 @@ export const iacPushCommand: StackCommandDef = {
     const tag = resolveTag(projectRoot, args)
     if (!tag) process.exit(1)
     const repos = requireEcrRepos(projectRoot, profile)
-    process.exit(doPush(projectRoot, profile, tag, repos))
+    process.exit(doPush(projectRoot, profile, tag, repos, env))
   },
 }

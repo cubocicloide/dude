@@ -12,12 +12,6 @@ RUN uv sync --no-cache
 # Copy start script (waits for Postgres, runs migrations, starts uvicorn)
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
-{{/if}}
-
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app{{#if withPostgres}} && chown appuser:appuser /start.sh{{/if}}
-USER appuser
-{{#if withPostgres}}
 
 EXPOSE 8000
 CMD ["/start.sh"]

@@ -9,18 +9,21 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml .
+# Run as an unprivileged user (trivy DS002). The user is created *before* the
+# virtualenv is built so every layer is written with the right ownership — a
+# trailing `chown -R /app` would instead duplicate the whole .venv into an
+# extra layer.
+RUN useradd -m -u 1000 appuser && chown appuser:appuser /app
+USER appuser
+
+COPY --chown=appuser:appuser pyproject.toml .
 RUN uv sync --no-cache --no-dev
 
-COPY app ./app
+COPY --chown=appuser:appuser app ./app
 {{#if withPostgres}}
-COPY alembic ./alembic
-COPY alembic.ini ./alembic.ini
+COPY --chown=appuser:appuser alembic ./alembic
+COPY --chown=appuser:appuser alembic.ini ./alembic.ini
 {{/if}}
-
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
 
 EXPOSE 8000
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

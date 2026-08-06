@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import path from 'pathe'
 import { type Finding, Severity, parseSeverity } from './models.js'
 
@@ -215,10 +216,26 @@ function trivyComponent(filePath: string): string {
 
 // ── Trivy FS ──────────────────────────────────────────────────────────────────
 
+/**
+ * Directories trivy must not descend into. `.terraform` is where `dude iac
+ * init` vendors third-party module source; skipping it keeps the vuln/secret
+ * scanners off code we did not write.
+ *
+ * Note this does *not* cover terraform misconfigurations — see
+ * `--tf-exclude-downloaded-modules` below.
+ */
+const TRIVY_SKIP_DIRS = 'node_modules,private,staticfiles,e2e/reports,.venv,.terraform'
+
+/** Trivy's ignore file, when the project ships one (see `security/.trivyignore.yaml`). */
+const TRIVY_IGNORE_FILE = 'security/.trivyignore.yaml'
+
 export const trivyFsAdapter: Adapter = {
   name: 'trivy-fs',
   buildCommand(projectRoot, runDir, opts) {
     const report = reportInContainer(projectRoot, runDir, 'trivy-fs')
+    const ignoreFile = existsSync(path.join(projectRoot, TRIVY_IGNORE_FILE))
+      ? ['--ignorefile', TRIVY_IGNORE_FILE]
+      : []
     return [
       'docker',
       'run',
@@ -238,7 +255,14 @@ export const trivyFsAdapter: Adapter = {
       '--output',
       report,
       '--skip-dirs',
-      'node_modules,private,staticfiles,e2e/reports,.venv',
+      TRIVY_SKIP_DIRS,
+      // Terraform misconfigurations are reported against the module's *source*
+      // (`git::https:/github.com/terraform-aws-modules/…`), not the local path
+      // it was vendored to — so --skip-dirs cannot suppress them. Without this
+      // flag the report is dominated by findings inside the upstream VPC/EKS
+      // modules (AVD-AWS-0104, AVD-AWS-0130), which nobody here can act on.
+      '--tf-exclude-downloaded-modules',
+      ...ignoreFile,
       '.',
     ]
   },
