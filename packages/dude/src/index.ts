@@ -74,6 +74,20 @@ export {
   type CheatsheetRule,
 } from './core/cheatsheet/index.js'
 
+// MCP — dude served to a coding agent as tools. The tool list is a projection of
+// the resolved command catalog, so there is nothing per-command to register.
+export {
+  deriveTools,
+  isExposed,
+  exposureSet,
+  toolName,
+  DEFAULT_EXPOSED,
+  type McpTool,
+  type CatalogJson,
+  type CatalogCommand,
+  type DeriveOptions,
+} from './core/mcp/tools.js'
+
 // Template rendering — used by stacks that define a custom scaffold
 export { renderTemplateTree } from './core/template-runner.js'
 export type { RenderOptions } from './core/template-runner.js'

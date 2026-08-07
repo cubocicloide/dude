@@ -141,6 +141,13 @@ The loop that ties it together is `dude lint --format json` → `dude explain <C
 code, asks what broke, and reads the rule that explains the fix — no prose
 crawling, no guessing.
 
+[`dude mcp`](commands.md#dude-mcp) serves that same loop over
+[MCP](https://modelcontextprotocol.io), so an agent in Claude Code, Claude
+Desktop or any MCP client gets it as tools rather than shell invocations. The
+tool list is a projection of the resolved catalog, which is why it needs no
+maintenance: whatever this project can do, the agent can see. It is read-only
+until you say otherwise.
+
 Guiding principle: **dude is the tool an agent uses, not an agent itself.** There
 is no model inside it, no API key, no network call. It stays deterministic,
 testable and offline; the intelligence lives in whatever agent is driving it.

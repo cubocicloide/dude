@@ -151,6 +151,84 @@ dude help --format json      # emit it as JSON (for tooling)
 
 ---
 
+## `dude mcp`
+
+Serve this project to a coding agent as an [MCP](https://modelcontextprotocol.io)
+server over stdio. The tool list is **derived from the resolved catalog** — core
+plus the active stack plus project-local `.dude/commands/` — so a stack that adds
+a command, or a project that drops one in `.dude/commands/`, needs no wiring here.
+
+```bash
+dude mcp                              # read-only tools (the default)
+dude mcp --expose "test,api sync"     # opt specific commands in
+dude mcp --allow-mutating             # expose everything — see the warning below
+```
+
+**Read-only by default.** Only these are exposed without opting in:
+
+| Tool | Backed by |
+| ---- | --------- |
+| `dude_catalog` | `dude help --format json` — what this project can do, including the commands being withheld |
+| `dude_lint` | `dude lint --format json` — structured diagnostics |
+| `dude_explain` | `dude explain <CODE>` — the rule behind a diagnostic |
+| `dude_cheatsheet` | `dude cheatsheet --format json` |
+| `dude_info`, `dude_version` | environment and version reporting |
+| `dude_api_review` | when the stack has it |
+
+Everything else — anything that starts containers, writes files, deploys or
+destroys — is withheld. The gate is enforced by the server, not by client trust:
+a withheld command is never advertised as a tool, and is refused if called anyway.
+Arguments that would turn a read-only tool into a writing one are withheld too
+(`dude cheatsheet --out <file>` cannot be reached through `dude_cheatsheet`).
+
+Opt in per project via `dude.json`, using the same `"<group> <sub>"` spelling as
+`--expose`:
+
+```json
+{
+  "mcp": {
+    "expose": ["test", "api sync"]
+  }
+}
+```
+
+!!! warning "`--allow-mutating`"
+    This exposes **every** command in the catalog, including `dude down`,
+    `dude iac apply` and `dude iac destroy`. Use it only with a client you
+    control, on a project where that is acceptable. Prefer naming the commands
+    you actually want in `mcp.expose`.
+
+### Connecting a client
+
+**Claude Code** — from inside the project:
+
+```bash
+claude mcp add dude -- dude mcp
+```
+
+**Claude Desktop** — add to `claude_desktop_config.json` (absolute path required,
+since the server resolves the project from its working directory):
+
+```json
+{
+  "mcpServers": {
+    "dude": {
+      "command": "dude",
+      "args": ["mcp"],
+      "cwd": "/absolute/path/to/your/project"
+    }
+  }
+}
+```
+
+The server prints its banner to stderr, which clients show as server logs —
+stdout carries the protocol and nothing else.
+
+There is no model inside `dude mcp`, no API key and no network call: it runs the
+commands this project already has and returns what they already produce.
+
+---
+
 ## Beyond core: stack & project commands
 
 - **Stack commands** are declared by the active stack — `up`, `down`, `logs`,
