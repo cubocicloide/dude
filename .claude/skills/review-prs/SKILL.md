@@ -169,6 +169,7 @@ review depth:
 | 8 | **Handlebars** | New `.hbs` files use only context vars that exist (`projectName`, `withPostgres`, `withCelery`, `withCeleryBeat`, `withRedis`, `withIac`); conditional files belong in the right overlay rather than a `{{#if}}` when the whole file is conditional. |
 | 9 | **Template validation** | Template or lint changes claim the dev scaffold loop (`make dev-init` → `dude lint`). CI does not run every overlay combination — if the diff makes this doubtful, ask for the output. |
 | 10 | **PR template honesty** | The author's ticked checklist boxes must match the diff. An unticked-but-satisfied box is fine; a **ticked-but-unsatisfied** box is a finding worth naming. |
+| 11 | **Agent surface minimum** | A new stack, or a PR touching `templates/base/.claude/skills|agents/`, must satisfy `.claude/rules/006-agent-surface.md`: `.vscode/tasks.json`, an `issue-fixer` agent, the stack-agnostic workflow skills, one `create-*` per primary artifact, and a `create` router once there is more than one. Check the harder one too — **every command a skill names must exist in that stack's `definition.commands`**. A skill copied from another stack citing `dude security`/`dude api`/`dude up` on a stack that lacks it is a real finding, and the most likely way this breaks. |
 
 ### Security-first pass (mandatory on fork PRs)
 

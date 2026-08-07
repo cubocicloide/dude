@@ -115,7 +115,7 @@ Hooks on a DocType that isn't installed are harmless — the handlers simply
 never fire (which is why the example app also works without Helpdesk).
 Detect field changes with `doc.get_doc_before_save()`, as `on_update` does.
 
-**Lint rules**: APP002 (handler dotted paths must resolve).
+**Lint rules**: APP003 (`doc_events` handler dotted paths must resolve).
 
 ---
 
@@ -154,7 +154,7 @@ as a fixture, declare in `hooks.py`.
     with no filters would export every workflow on the site — including other
     apps' — into your app.
 
-**Lint rules**: APP003 (fixtures declared in `hooks.py` ↔ JSON files shipped
+**Lint rules**: APP004 (fixtures declared in `hooks.py` ↔ JSON files shipped
 in `fixtures/` stay in sync).
 
 ---

@@ -50,4 +50,8 @@ the event name constants. Then add `export * from './<domain>'` to
 dude lint && dude test && dude review
 ```
 
+Use `dude lint --format json` to read the diagnostics structurally, and
+`dude explain <CODE>` for the prose behind any code they report — fix the cause
+the rule describes rather than working around the check.
+
 If the UI needs a new page for the domain, follow up with /create-page.

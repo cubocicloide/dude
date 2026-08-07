@@ -515,6 +515,12 @@ workflow above).
 - **The root site's stack pages are generated, never hand-edited**: stack facts
   live in that stack's `docs` manifest; `make docs-data` regenerates
   `docs/docs/stacks/` and the site nav. See `.claude/rules/005-docs-composition.md`.
+- **Every stack ships the same minimum agent surface**: `.vscode/tasks.json`, an
+  `issue-fixer` agent, the stack-agnostic workflow skills, and at least one
+  `create-*` skill per primary artifact it scaffolds. Nothing breaks when this is
+  missing — which is exactly why it drifted to two stacks out of six before being
+  written down. A skill must only reference commands that stack actually
+  registers. See `.claude/rules/006-agent-surface.md`.
 - **Always rebuild after changing source**: `make build` or per-filter build.
 - **Always validate with the dev scaffold loop**: change templates/lint → `make dev-init` → `dude lint`.
 - **`.hbs` files get Handlebars-processed**: use `{{variable}}` syntax; plain files are copied verbatim.
