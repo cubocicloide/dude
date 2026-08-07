@@ -1,5 +1,63 @@
 # @cubocicloide/dude
 
+## 0.17.0
+
+### Minor Changes
+
+- eb5312e: Add `dude mcp` — serve the project to a coding agent as an MCP server over stdio.
+
+  The tool list is a **projection of the resolved command catalog** (core + active
+  stack + project-local `.dude/commands/`), so a stack that adds a command, or a
+  project that drops one in `.dude/commands/`, gets a tool with no wiring. Same
+  introspection idea as the declined GUI, except the "UI" is the agent, so there is
+  nothing to maintain.
+
+  **Read-only by default.** Exposed without opting in: `dude_catalog`, `dude_lint`,
+  `dude_explain`, `dude_cheatsheet`, `dude_info`, `dude_version`, and
+  `dude_api_review` where the stack has it. Anything that starts containers,
+  writes, deploys or destroys is withheld — never advertised as a tool, and refused
+  if called anyway. Arguments that would turn a read-only tool into a writing one
+  are withheld too, so `dude cheatsheet --out <file>` cannot be reached through
+  `dude_cheatsheet`.
+
+  Opt in per project with `mcp.expose` in `dude.json`, or per run with
+  `--expose "test,api sync"`. `--allow-mutating` exposes the whole catalog and says
+  so on startup.
+
+  `dude_lint` returns the `dude lint --format json` payload as MCP
+  `structuredContent`, not scraped stdout — which is why this depends on that
+  command existing.
+
+  Each tool call spawns the same `dude` binary that is serving. The stdio transport
+  _is_ this process's stdout, so running a command in-process would interleave its
+  output with protocol frames; spawning also means the tools cannot drift from the
+  CLI, because they are the CLI.
+
+  Adds `@modelcontextprotocol/sdk` as a runtime dependency of the CLI.
+
+- eb5312e: Add `dude lint --format json` and `dude explain <CODE>`.
+
+  `dude lint --format json` emits the diagnostics that were always structured
+  internally and only ever printed as prose:
+  `{ schema, diagnostics, errorCount, warningCount, notices }`, and nothing else on
+  stdout, so it pipes. Exit codes are unchanged, and `--quiet` composes (it filters
+  the listing; the counts stay the true totals, as in the human format).
+
+  `dude explain <CODE>` prints the prose behind a rule — `.claude/rules/<GROUP>/<NNN>.md`
+  for a stack rule, or the sibling `.dude/lint/checks/<GROUP>/<NNN>.md` for a project
+  rule, the convention the scaffolded contract already advertised but nothing read.
+  With no code it lists every rule that applies to the current project.
+
+  Also in this change:
+
+  - Stack commands can declare `type: 'positional'` arguments, and the dispatcher
+    binds them. Bare words were previously parsed and dropped, so a positional
+    could never reach a command's `run`.
+  - `dude cheatsheet` now resolves project-rule titles through the same lookup as
+    `explain`, instead of degrading every project rule to a bare code.
+  - Every stack template ships `.dude/lint/checks/PRJ/001.md` beside its example
+    check, so the documented pairing has a worked example.
+
 ## 0.16.0
 
 ### Minor Changes
