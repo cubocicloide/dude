@@ -160,6 +160,21 @@ Every stack lint rule must have a matching prose description in the
 **Rule**: when you add or change a lint check, update the corresponding
 `.claude/rules` file in the template so generated projects stay in sync.
 
+### Where rule prose lives, and who reads it
+
+Two locations, one lookup (`core/lint/rules.ts` — `readRuleDoc` / `ruleTitle`):
+
+| Rule source | Prose file |
+| ----------- | ---------- |
+| Stack check | `{project}/.claude/rules/{GROUP}/{NNN}.md` (shipped by the template) |
+| Project check (`.dude/lint/checks/{GROUP}/{NNN}.ts`) | `{project}/.dude/lint/checks/{GROUP}/{NNN}.md` — a sibling of the check |
+
+`dude explain` and `dude cheatsheet` both resolve through that one module, so
+they cannot disagree about where a rule is documented. Route any new consumer
+through it too rather than re-deriving a path — the cheatsheet reported every
+project rule as a bare code for exactly as long as it had its own copy of this
+logic.
+
 ### Adding a new lint check
 
 1. Create `src/commands/lint/checks/BE/NNN.ts` (copy an existing one for structure).
@@ -244,9 +259,15 @@ set (core + active stack + project-custom). Keep this table and the end-user doc
 
 | Command       | Flags     | Meaning                                                                                                                                      |
 | ------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dude lint`   | `--quiet` | Run all stack structural checks (BE/FE/E2E conventions) plus project checks from `.dude/lint/checks/`; honors `lint.disable` in `dude.json`. |
+| `dude lint`   | `--quiet`, `--format human\|json` | Run all stack structural checks (BE/FE/E2E conventions) plus project checks from `.dude/lint/checks/`; honors `lint.disable` in `dude.json`. `--format json` emits `{ schema, diagnostics, errorCount, warningCount, notices }` and nothing else on stdout; exit codes are unchanged. |
+| `dude explain <CODE>` | —  | Print the prose behind a lint code — `.claude/rules/<GROUP>/<NNN>.md` for a stack rule, the sibling `.dude/lint/checks/<GROUP>/<NNN>.md` for a project rule. No code → list every rule that applies. |
 | `dude format` | —         | `ruff format` (backend) + `prettier` (frontend).                                                                                             |
 | `dude review` | —         | lint + ESLint + API-contract review in one pass.                                                                                             |
+
+> `lint` and `explain` are the machine-readable pair: `dude lint --format json`
+> says what broke and under which code, `dude explain <CODE>` says how to fix it.
+> Both are shared commands registered via `defineLintCommand()` /
+> `defineExplainCommand()` — never hand-rolled per stack.
 
 ### API contract (OpenAPI)
 

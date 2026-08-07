@@ -145,6 +145,7 @@ transaction) and run inside the bench via `bench run-tests`.
 | Command | Description |
 |---------|-------------|
 | `dude lint` | Structural Frappe conventions over `apps/` (APP/DT/PY rules — see `.claude/rules/`) |
+| `dude explain <CODE>` | Print the prose behind a lint code — why the rule exists and how to fix it |
 | `dude lint --quiet` | Errors only, no warnings |
 | `dude format` | `ruff format` + autofix over `apps/` (Frappe style — tabs) |
 | `dude review` | One pass: stack lint rules + `ruff check` (no autofix) |
@@ -155,12 +156,28 @@ transaction) and run inside the bench via `bench run-tests`.
 `dude lint` also runs any rules you define under `.dude/lint/checks/` — the
 rule code is derived from the path (`.dude/lint/checks/PRJ/001.ts` → `PRJ001`)
 and the contract is the same one the stack's own checks use. See
-`.dude/lint/checks/README.md` and the `PRJ/001.ts` example. To disable a
-built-in rule, list its code in `dude.json`:
+`.dude/lint/checks/README.md` and the `PRJ/001.ts` example. Document a rule with
+a Markdown file next to it (`PRJ/001.md`) and `dude explain PRJ001` serves it.
+To disable a built-in rule, list its code in `dude.json`:
 
 ```json
 { "lint": { "disable": ["PY001"] } }
 ```
+
+### Verifying your work mechanically
+
+`dude lint` and `dude explain` are designed to be used together — the fastest
+loop for anyone, human or coding agent, working in this project:
+
+```bash
+dude lint --format json     # what broke, where, and under which rule code
+dude explain PY001          # why that rule exists and how to satisfy it
+```
+
+`--format json` writes nothing but the JSON document to stdout, so it pipes
+cleanly (`dude lint --format json | jq '.diagnostics[].code'`). Exit codes are
+the same as the human format: non-zero only when there is at least one error.
+Run `dude explain` with no code to list every rule that applies here.
 
 ### Upgrading pinned versions
 

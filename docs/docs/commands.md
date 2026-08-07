@@ -154,11 +154,42 @@ dude help --format json      # emit it as JSON (for tooling)
 ## Beyond core: stack & project commands
 
 - **Stack commands** are declared by the active stack — `up`, `down`, `logs`,
-  `shell`, `lint`, `format`, `test`, `db`, `security`, `docs`, `iac`, and more.
-  They appear in `dude help` only when your stack and init choices include them.
+  `shell`, `lint`, `explain`, `format`, `test`, `db`, `security`, `docs`, `iac`,
+  and more. They appear in `dude help` only when your stack and init choices
+  include them.
 - **Project commands** live under `.dude/commands/<name>.ts` in your repo and
   take precedence over stack and core commands of the same name — a project can
   add bespoke tasks without forking anything.
 
 See [How it works → command resolution](concepts.md#command-resolution) for the
 precedence rules.
+
+---
+
+## Machine-readable conventions
+
+Every stack ships `lint` and `explain`, and they are designed to be used as a
+pair. This is what makes a dude project's conventions *verifiable* rather than
+merely documented — the reason the pair exists at all:
+
+```bash
+dude lint --format json     # what broke, where, and under which rule code
+dude explain BE003          # why that rule exists and how to satisfy it
+```
+
+`dude lint --format json` writes nothing but a JSON document to stdout, so it
+pipes cleanly:
+
+```bash
+dude lint --format json | jq -r '.diagnostics[] | "\(.file):\(.line) \(.code)"'
+```
+
+The payload is `{ schema, diagnostics[], errorCount, warningCount, notices[] }`;
+`schema` is versioned (`dude.lint/v1`) so a consumer can refuse a shape it does
+not understand. Exit codes match the human format — non-zero only when there is
+at least one error, so it drops into CI unchanged.
+
+`dude explain <CODE>` prints the rule's own prose: `.claude/rules/<GROUP>/<NNN>.md`
+for a stack rule, or the Markdown file beside the check
+(`.dude/lint/checks/<GROUP>/<NNN>.md`) for one of your own. Run it with no code
+to list every rule that applies to the project you are standing in.

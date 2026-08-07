@@ -1,5 +1,11 @@
 import path from 'pathe'
-import { defineStack, renderTemplateTree, defineCheatsheetCommand, defineDocsCommand } from '@cubocicloide/dude'
+import {
+  defineStack,
+  renderTemplateTree,
+  defineCheatsheetCommand,
+  defineDocsCommand,
+  defineExplainCommand,
+} from '@cubocicloide/dude'
 import {
   androidBuildCommand,
   androidDevCommand,
@@ -109,6 +115,7 @@ export default defineStack({
 
   commands: {
     cheatsheet: defineCheatsheetCommand(),
+    explain: defineExplainCommand(),
     dev: devCommand,
     build: buildCommand,
     doctor: doctorCommand,

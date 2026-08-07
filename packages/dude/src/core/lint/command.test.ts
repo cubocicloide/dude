@@ -12,7 +12,7 @@ import type { Diagnostic } from './types.js'
 const { runLint } = vi.hoisted(() => ({ runLint: vi.fn() }))
 vi.mock('./index.js', () => ({ runLint }))
 
-import { defineLintCommand } from './command.js'
+import { defineLintCommand, LINT_JSON_SCHEMA, type LintJsonReport } from './command.js'
 
 class ProcessExitError extends Error {
   constructor(public code: number) {
@@ -171,5 +171,105 @@ describe('lint — notices', () => {
     expect(stderr.join('')).toContain('notice: lint.disable lists "ZZ999"')
     expect(stdout.join('')).toContain('No issues found.')
     expect(exitSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('lint — --format json', () => {
+  /** Parse whatever landed on stdout, asserting it really was a lone JSON document. */
+  function parsedStdout(): LintJsonReport {
+    return JSON.parse(stdout.join(''))
+  }
+
+  it('emits the documented payload shape', async () => {
+    runLint.mockResolvedValue(lintResult([diag('error', 'broken thing', 'src/a.ts')]))
+
+    await expect(defineLintCommand().run(ctx({ format: 'json' }))).rejects.toThrow(ProcessExitError)
+
+    expect(parsedStdout()).toEqual({
+      schema: LINT_JSON_SCHEMA,
+      diagnostics: [
+        {
+          code: 'XX001',
+          severity: 'error',
+          file: 'src/a.ts',
+          line: 1,
+          col: 1,
+          message: 'broken thing',
+        },
+      ],
+      errorCount: 1,
+      warningCount: 0,
+      notices: [],
+    })
+  })
+
+  it('writes nothing but JSON to stdout, so the output is pipeable', async () => {
+    runLint.mockResolvedValue(lintResult([], ['lint.disable lists "ZZ999" but no such check exists']))
+
+    await defineLintCommand().run(ctx({ format: 'json' }))
+
+    // No "No issues found." banner, and the notice travels inside the payload
+    // rather than to stderr — the document has to be self-contained.
+    expect(() => parsedStdout()).not.toThrow()
+    expect(parsedStdout().notices).toEqual(['lint.disable lists "ZZ999" but no such check exists'])
+    expect(stderr.join('')).toBe('')
+  })
+
+  it('keeps the human format exit codes — clean run does not exit', async () => {
+    runLint.mockResolvedValue(lintResult([]))
+
+    await expect(defineLintCommand().run(ctx({ format: 'json' }))).resolves.toBeUndefined()
+
+    expect(parsedStdout().errorCount).toBe(0)
+    expect(exitSpy).not.toHaveBeenCalled()
+  })
+
+  it('exits 1 on errors, like the human format', async () => {
+    runLint.mockResolvedValue(lintResult([diag('error', 'boom')]))
+
+    await expect(defineLintCommand().run(ctx({ format: 'json' }))).rejects.toThrow(ProcessExitError)
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
+  })
+
+  it('does not exit on warnings alone', async () => {
+    runLint.mockResolvedValue(lintResult([diag('warning', 'meh')]))
+
+    await expect(defineLintCommand().run(ctx({ format: 'json' }))).resolves.toBeUndefined()
+
+    expect(parsedStdout().warningCount).toBe(1)
+    expect(exitSpy).not.toHaveBeenCalled()
+  })
+
+  it('composes with --quiet: diagnostics are filtered, counts stay the true totals', async () => {
+    runLint.mockResolvedValue(lintResult([diag('warning', 'a warning'), diag('error', 'an error')]))
+
+    await expect(
+      defineLintCommand().run(ctx({ format: 'json', quiet: true })),
+    ).rejects.toThrow(ProcessExitError)
+
+    const report = parsedStdout()
+    expect(report.diagnostics.map((d) => d.message)).toEqual(['an error'])
+    // Mirrors the human format, where --quiet hides warnings from the listing
+    // but the summary still counts them.
+    expect(report.warningCount).toBe(1)
+    expect(report.errorCount).toBe(1)
+  })
+
+  it('rejects an unknown format instead of silently falling back', async () => {
+    runLint.mockResolvedValue(lintResult([]))
+
+    await expect(defineLintCommand().run(ctx({ format: 'yaml' }))).rejects.toThrow(ProcessExitError)
+
+    expect(stderr.join('')).toContain('unknown --format "yaml"')
+    expect(exitSpy).toHaveBeenCalledWith(1)
+  })
+
+  it('defaults to the human format when --format is absent', async () => {
+    runLint.mockResolvedValue(lintResult([]))
+
+    await defineLintCommand().run(ctx())
+
+    expect(stdout.join('')).toContain('No issues found.')
   })
 })
