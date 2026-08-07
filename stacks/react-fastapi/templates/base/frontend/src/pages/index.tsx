@@ -90,10 +90,10 @@ export default function HomePage() {
         <Col xs={24} md={8}>
           <Card title={<><CodeOutlined /> Quick links</>} style={{ height: '100%' }}>
             <Space wrap size="middle">
-              <Link href="/api/docs" target="_blank">
+              <Link href="http://localhost:8000/api/docs" target="_blank">
                 API docs (Swagger)
               </Link>
-              <Link href="/api/redoc" target="_blank">
+              <Link href="http://localhost:8000/api/redoc" target="_blank">
                 ReDoc
               </Link>
               <Link href="http://localhost:8001" target="_blank">
