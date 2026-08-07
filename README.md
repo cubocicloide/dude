@@ -25,7 +25,7 @@ dude up                 # everything running in Docker
 **Prerequisites**
 
 - **Docker Desktop**, running.
-- **Node.js ≥ 20** and **pnpm**.
+- **Node.js ≥ 20.19** and **pnpm**.
 
 `dude` is published on the public npm registry, so no registry auth or token is
 needed to install it.
