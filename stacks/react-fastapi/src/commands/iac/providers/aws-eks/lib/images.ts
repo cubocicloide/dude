@@ -1,5 +1,6 @@
 /** ECR image build/push + Helm deploy helpers for the AWS EKS provider. */
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import path from 'pathe'
 import { childEnv, projectName } from '../../../shared.js'
@@ -23,7 +24,8 @@ export interface EcrRepos {
 export const tagArg = {
   tag: {
     type: 'string' as const,
-    description: 'Image tag (default: git short SHA, with -dirty if uncommitted changes).',
+    description:
+      'Image tag (default: git short SHA, plus -dirty-<hash> if there are uncommitted changes).',
   },
 }
 
@@ -78,9 +80,18 @@ export function requireEcrRepos(projectRoot: string, profile: string): EcrRepos 
 /**
  * Resolve the image tag. Precedence:
  *   1. an explicit `--tag` (validated as a Docker tag),
- *   2. the short git SHA of HEAD, suffixed with `-dirty` when the working tree
- *      has uncommitted changes (so an unreproducible build is never mistaken for
- *      a clean commit).
+ *   2. the short git SHA of HEAD, suffixed with `-dirty-<hash>` when the working
+ *      tree has uncommitted changes (so an unreproducible build is never
+ *      mistaken for a clean commit).
+ *
+ * The `<hash>` digests the uncommitted diff, and it is what makes the ECR repos
+ * usable while they are `IMMUTABLE`: a bare `-dirty` suffix is constant across
+ * edits, so the second `dude iac ship` of a work-in-progress branch would push
+ * a tag that already exists and be rejected. Digesting the diff gives each
+ * distinct working-tree state its own tag, so iterating just works — while
+ * re-shipping *the same* state still (correctly) collides, and `doPush`
+ * explains what to do about it.
+ *
  * Returns `null` (after printing an error) when no tag can be derived.
  */
 export function resolveTag(projectRoot: string, args: Record<string, unknown>): string | null {
@@ -100,10 +111,64 @@ export function resolveTag(projectRoot: string, args: Record<string, unknown>): 
     )
     return null
   }
-  let tag = sha.stdout.trim()
+  const tag = sha.stdout.trim()
+  const dirt = workingTreeDigest(projectRoot)
+  return dirt ? `${tag}-dirty-${dirt}` : tag
+}
+
+/**
+ * A short digest of everything uncommitted, or `null` on a clean tree. Combines
+ * `git status --porcelain` (which names untracked and staged files) with the
+ * full diff against HEAD (which carries their tracked contents), so any edit
+ * that would change the built image also changes the digest.
+ */
+function workingTreeDigest(projectRoot: string): string | null {
   const status = capture('git', ['status', '--porcelain'], projectRoot)
-  if (status.status === 0 && status.stdout.trim() !== '') tag += '-dirty'
-  return tag
+  if (status.status !== 0 || status.stdout.trim() === '') return null
+  const diff = capture('git', ['diff', 'HEAD'], projectRoot)
+  return createHash('sha256')
+    .update(status.stdout)
+    .update(diff.status === 0 ? diff.stdout : '')
+    .digest('hex')
+    .slice(0, 8)
+}
+
+/** The repository name inside an ECR URL (`<acct>.dkr.ecr.<r>.amazonaws.com/<name>`). */
+function repoName(repositoryUrl: string): string {
+  return repositoryUrl.split('/').slice(1).join('/')
+}
+
+/**
+ * Whether `tag` is already present in an ECR repository. A non-zero exit from
+ * `describe-images` is the "not found" case (and also the no-credentials case,
+ * which the push itself will then report properly) — so this only ever
+ * short-circuits on a positive, unambiguous hit.
+ */
+function ecrTagExists(
+  projectRoot: string,
+  profile: string | undefined,
+  repositoryUrl: string,
+  tag: string,
+  region: string,
+): boolean {
+  const r = capture(
+    'aws',
+    [
+      'ecr',
+      'describe-images',
+      '--repository-name',
+      repoName(repositoryUrl),
+      '--image-ids',
+      `imageTag=${tag}`,
+      '--region',
+      region,
+      '--output',
+      'json',
+    ],
+    projectRoot,
+    profile,
+  )
+  return r.status === 0 && r.stdout.includes('imageDigest')
 }
 
 /** `aws ecr get-login-password | docker login` without a shell pipe. */
@@ -178,13 +243,46 @@ export function doBuild(
   return code
 }
 
+/**
+ * True (after explaining itself on stderr) when `tag` is already published.
+ *
+ * The repositories are created with `image_tag_mutability = "IMMUTABLE"`, so a
+ * tag can only ever be written once. Checking up front turns docker's opaque
+ * `tag invalid: … cannot be overwritten` into advice — and `ship` calls it
+ * before building, so an arm64 laptop is not made to spend minutes emulating
+ * an amd64 build that could never have been pushed.
+ */
+export function tagAlreadyPushed(
+  projectRoot: string,
+  profile: string | undefined,
+  tag: string,
+  repos: EcrRepos,
+  env: string,
+): boolean {
+  for (const repo of [repos.backend, repos.frontend]) {
+    if (!ecrTagExists(projectRoot, profile, repo, tag, repos.region)) continue
+    process.stderr.write(
+      `\n  ✗  ${repo}:${tag} already exists, and the repository is immutable.\n\n` +
+        '     The default tag is derived from your git state, so the same commit with\n' +
+        '     the same uncommitted changes always resolves to the same tag. Either:\n\n' +
+        '       • commit your work and re-run — a new SHA gives a new tag;\n' +
+        `       • push under a different tag:  dude iac push --env ${env} --tag ${tag}.1\n` +
+        `       • or deploy what is already there:  dude iac deploy --env ${env} --tag ${tag}\n\n`,
+    )
+    return true
+  }
+  return false
+}
+
 /** Log in to ECR and push both images at `:tag`. */
 export function doPush(
   projectRoot: string,
   profile: string | undefined,
   tag: string,
   repos: EcrRepos,
+  env: string,
 ): number {
+  if (tagAlreadyPushed(projectRoot, profile, tag, repos, env)) return 1
   let code = dockerLogin(repos.registryHost, repos.region, projectRoot, profile)
   if (code !== 0) return code
   process.stdout.write(`\n  → pushing ${repos.backend}:${tag}\n`)

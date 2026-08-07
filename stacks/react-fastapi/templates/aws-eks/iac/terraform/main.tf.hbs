@@ -56,6 +56,13 @@ module "eks" {
       min_size       = var.node_min_size
       max_size       = var.node_max_size
       desired_size   = var.node_desired_size
+
+      # IMDSv2 is not configured here on purpose: the module already defaults
+      # `metadata_options` to { http_endpoint = "enabled", http_tokens =
+      # "required", http_put_response_hop_limit = 2 }. That variable is
+      # replaced wholesale rather than merged, so overriding it with just
+      # `http_tokens` would silently drop the hop limit to the AWS default of
+      # 1 and cut pods off from the instance metadata endpoint.
     }
   }
 }
@@ -255,11 +262,13 @@ resource "aws_security_group" "rds" {
     cidr_blocks = [var.vpc_cidr]
   }
 
+  # Restrict egress to VPC only (security best practice)
   egress {
+    description = "Allow outbound to VPC for responses"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.vpc_cidr]
   }
 
   lifecycle {

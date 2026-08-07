@@ -94,6 +94,35 @@ dude iac ship    --env staging
 > `dude iac deploy --env staging --tag <sha>` (use the tag from
 > `dude iac status --env dev`).
 
+## Image tags
+
+The ECR repositories are **immutable**: a tag is written once and can never be
+overwritten. That is what makes "promote the image from dev to staging" mean
+something — a tag names one exact set of bytes, for as long as it exists.
+
+So `dude iac build/push/ship` derive the tag from your git state rather than
+letting you overwrite one:
+
+| Working tree | Tag |
+|--------------|-----|
+| clean | `<git-short-sha>` |
+| uncommitted changes | `<git-short-sha>-dirty-<hash-of-the-diff>` |
+
+The `-dirty-<hash>` part is why iterating on a branch works: every edit changes
+the digest, so every `dude iac ship` gets a fresh tag. Re-shipping a state you
+have already pushed — same commit, same edits — is the one case that stops, and
+it stops *before* building, with the three options spelled out:
+
+```
+✗  <repo>:<tag> already exists, and the repository is immutable.
+     • commit your work and re-run — a new SHA gives a new tag;
+     • push under a different tag:  dude iac push --env dev --tag <tag>.1
+     • or deploy what is already there:  dude iac deploy --env dev --tag <tag>
+```
+
+That last one is usually what you want: the image is already in ECR, so there is
+nothing to rebuild.
+
 ## HTTPS on a custom domain *(optional)*
 
 Set these in `iac/terraform/environments/dev/terraform.tfvars` (the Route53

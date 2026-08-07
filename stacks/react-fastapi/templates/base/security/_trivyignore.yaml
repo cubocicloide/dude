@@ -1,0 +1,49 @@
+# Trivy ignore file — accepted findings, with the reason recorded next to each.
+#
+# This is for findings that are *by design* and will never be "fixed", so they
+# would otherwise reappear on every scan. Findings you have merely triaged and
+# intend to address belong in the baseline instead:
+#
+#   dude security accept                 # absorb current findings
+#   dude security verify --rule-id <id>  # confirm a fix, prune from the baseline
+#
+# Wired in by `dude security scan` via --ignorefile; delete this file and every
+# entry below becomes a live finding again.
+
+vulnerabilities:
+  - id: GHSA-qwww-vcr4-c8h2
+    paths:
+      - frontend/package-lock.json
+      - frontend/pnpm-lock.yaml
+    # Revisit rather than forget: after this date trivy reports it again.
+    expired_at: 2027-02-01
+    statement: >
+      Not reachable in this application. The advisory is a CSRF bypass in React
+      Router's RSC (React Server Components) mode; this frontend is a Vite SPA
+      doing client-side routing with react-router-dom, and never runs RSC. The
+      only published fix is react-router 8.3.0 — a major version with breaking
+      routing changes — so upgrading is a deliberate migration, not a patch.
+      Re-check when moving to react-router 8 for any other reason.
+
+misconfigurations:
+  - id: DS002
+    paths:
+      - backend/Dockerfile
+      - frontend/Dockerfile
+    statement: >
+      Development images only. They are built by `dude up` and never leave the
+      developer's machine — Kubernetes runs backend/Dockerfile.prod and
+      frontend/Dockerfile.prod, both of which do run as an unprivileged user.
+      Forcing a non-root UID here breaks writes to the bind-mounted source tree
+      (`dude db makemigration` writing alembic/versions/, for one) on any host
+      whose UID is not 1000.
+
+  - id: DS002
+    paths:
+      - iac/runner/Dockerfile
+    statement: >
+      Local tooling container, not a workload. `dude iac *` runs terraform,
+      kubectl, helm and k9s inside it with your own ~/.aws and ~/.kube mounted
+      in; it is started on demand, never deployed, and never exposed. Running
+      as root is what lets those tools write to the mounted credential caches
+      whatever your host UID happens to be.

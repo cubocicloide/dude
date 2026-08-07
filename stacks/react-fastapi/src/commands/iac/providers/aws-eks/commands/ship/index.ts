@@ -8,6 +8,7 @@ import {
   platformArg,
   requireEcrRepos,
   resolveTag,
+  tagAlreadyPushed,
   tagArg,
 } from '../../lib/images.js'
 import { envArg, hasIac, requireEnv, requireIac, resolveProfile } from '../../lib/terraform.js'
@@ -32,9 +33,13 @@ export const iacShipCommand: StackCommandDef = {
     const platform = String(args.platform ?? 'linux/amd64')
     const project = projectName(projectRoot)
 
+    // Before the build: an amd64 image emulated on an arm64 laptop takes
+    // minutes, and an already-published tag can never be pushed over.
+    if (tagAlreadyPushed(projectRoot, profile, tag, repos, env)) process.exit(1)
+
     let code = doBuild(projectRoot, profile, tag, repos, project, platform)
     if (code !== 0) process.exit(code)
-    code = doPush(projectRoot, profile, tag, repos)
+    code = doPush(projectRoot, profile, tag, repos, env)
     if (code !== 0) process.exit(code)
     code = doDeploy(projectRoot, profile, env, ns, tag, repos)
     if (code === 0) {
