@@ -97,6 +97,7 @@ defines every service.
 | Command | Description |
 |---------|-------------|
 | `dude lint` | Run all structural lint checks (naming, layout conventions) |
+| `dude explain <CODE>` | Print the prose behind a lint code — why the rule exists and how to fix it |
 | `dude format` | Format code — `ruff` (backend) + `prettier` (frontend) |
 | `dude upgrade` | Update the pinned `dude` CLI and stack versions for this project |
 | `dude review` | Run lint + ESLint + API contract review in one pass |
@@ -106,12 +107,28 @@ defines every service.
 `dude lint` also runs any rules you define under `.dude/lint/checks/` — the
 rule code is derived from the path (`.dude/lint/checks/PRJ/001.ts` → `PRJ001`)
 and the contract is the same one the stack's own checks use. See
-`.dude/lint/checks/README.md` and the `PRJ/001.ts` example. To disable a
-built-in rule, list its code in `dude.json`:
+`.dude/lint/checks/README.md` and the `PRJ/001.ts` example. Document a rule with
+a Markdown file next to it (`PRJ/001.md`) and `dude explain PRJ001` serves it.
+To disable a built-in rule, list its code in `dude.json`:
 
 ```json
 { "lint": { "disable": ["BE003"] } }
 ```
+
+### Verifying your work mechanically
+
+`dude lint` and `dude explain` are designed to be used together — the fastest
+loop for anyone, human or coding agent, working in this project:
+
+```bash
+dude lint --format json     # what broke, where, and under which rule code
+dude explain BE003          # why that rule exists and how to satisfy it
+```
+
+`--format json` writes nothing but the JSON document to stdout, so it pipes
+cleanly (`dude lint --format json | jq '.diagnostics[].code'`). Exit codes are
+the same as the human format: non-zero only when there is at least one error.
+Run `dude explain` with no code to list every rule that applies here.
 
 ### Upgrading pinned versions
 

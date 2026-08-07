@@ -1,5 +1,11 @@
 import path from 'pathe'
-import { defineStack, renderTemplateTree, defineCheatsheetCommand, defineDocsCommand } from '@cubocicloide/dude'
+import {
+  defineStack,
+  renderTemplateTree,
+  defineCheatsheetCommand,
+  defineDocsCommand,
+  defineExplainCommand,
+} from '@cubocicloide/dude'
 import { newAppCommand, installAppCommand } from './commands/app/index.js'
 import { benchCommand } from './commands/bench/index.js'
 import { downCommand } from './commands/down/index.js'
@@ -141,6 +147,7 @@ export default defineStack({
 
   commands: {
     cheatsheet: defineCheatsheetCommand(),
+    explain: defineExplainCommand(),
     up: upCommand,
     down: downCommand,
     logs: logsCommand,

@@ -36,7 +36,26 @@ export {
 export { formatDiagnostic, type Diagnostic } from './core/lint/types.js'
 
 // Shared `lint` command — stacks register it instead of hand-rolling a wrapper
-export { defineLintCommand, type LintCommandOptions } from './core/lint/command.js'
+export {
+  defineLintCommand,
+  LINT_JSON_SCHEMA,
+  type LintCommandOptions,
+  type LintJsonReport,
+} from './core/lint/command.js'
+
+// Shared `explain` command — serves the prose behind a lint code. Pairs with
+// `dude lint --format json`: lint says what broke, explain says how to fix it.
+export { defineExplainCommand, type ExplainCommandOptions } from './core/lint/explain-command.js'
+
+// Rule prose resolution — one lookup shared by `explain` and `cheatsheet`, so
+// they cannot disagree about where a rule is documented.
+export {
+  readRuleDoc,
+  ruleDocPath,
+  ruleTitle,
+  STACK_RULES_DIR,
+  type RuleDoc,
+} from './core/lint/rules.js'
 
 // Shared `docs` command — serves the project site and refreshes its generated
 // pages. Stacks register it instead of carrying a copy each.
@@ -54,6 +73,20 @@ export {
   type CheatsheetData,
   type CheatsheetRule,
 } from './core/cheatsheet/index.js'
+
+// MCP — dude served to a coding agent as tools. The tool list is a projection of
+// the resolved command catalog, so there is nothing per-command to register.
+export {
+  deriveTools,
+  isExposed,
+  exposureSet,
+  toolName,
+  DEFAULT_EXPOSED,
+  type McpTool,
+  type CatalogJson,
+  type CatalogCommand,
+  type DeriveOptions,
+} from './core/mcp/tools.js'
 
 // Template rendering — used by stacks that define a custom scaffold
 export { renderTemplateTree } from './core/template-runner.js'

@@ -17,6 +17,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'pathe'
 import { buildCatalog, catalogToJson, catalogToMarkdown } from '../../commands/help/index.js'
 import { discoverCheckCodes } from '../lint/index.js'
+import { readRuleDoc, ruleTitle } from '../lint/rules.js'
 
 /** A lint rule as advertised to the reader: its code and its one-line title. */
 export interface CheatsheetRule {
@@ -49,41 +50,22 @@ export interface CheatsheetData {
   verify: string[]
 }
 
-const RULES_DIR = path.join('.claude', 'rules')
-
-/**
- * Extract a rule's title from its prose file. Every rule file opens with
- * `# <CODE> — <title>` (the parity invariant in `.claude/rules/002` requires the
- * file to exist at all), so the heading is the authoritative one-liner. Falls
- * back to the bare code if a file is missing its heading.
- */
-function ruleTitle(file: string, code: string): string {
-  try {
-    const heading = readFileSync(file, 'utf8')
-      .split('\n')
-      .find((l) => l.startsWith('# '))
-    if (!heading) return code
-    // `# BE003 — Schema class conventions` → `Schema class conventions`
-    return heading
-      .replace(/^#\s+/, '')
-      .replace(new RegExp(`^${code}\\s*[—-]\\s*`), '')
-      .trim()
-  } catch {
-    return code
-  }
-}
-
 /**
  * The rules that will actually run against this project.
  *
  * Derived from `discoverCheckCodes` — the engine's own discovery — so this page and
- * `dude lint` can never disagree. `.claude/rules/<GROUP>/<NNN>.md` supplies only the
- * human title; a missing prose file degrades to the bare code rather than dropping
- * an enforced rule, and a stray prose file with no check behind it is ignored.
+ * `dude lint` can never disagree. The prose file supplies only the human title; a
+ * missing one degrades to the bare code rather than dropping an enforced rule, and
+ * a stray prose file with no check behind it is ignored.
  *
  * Reading that prose directory as the source of *codes* was the bug: it is a
  * separate, independently-mutable tree (`dude upgrade --stack` does not migrate
  * files), so it drifted in both directions.
+ *
+ * Titles resolve through the shared `readRuleDoc`, the same lookup `dude explain`
+ * uses, so the two cannot disagree about where a rule is documented. Project rules
+ * used to degrade to a bare code here for want of that lookup; they now pick up the
+ * sibling `.dude/lint/checks/<GROUP>/<NNN>.md` the scaffolded contract advertises.
  */
 function harvestRules(root: string, stackRoot: string, disabled: Set<string>): CheatsheetRule[] {
   const { codes } = discoverCheckCodes(root, stackRoot)
@@ -92,10 +74,7 @@ function harvestRules(root: string, stackRoot: string, disabled: Set<string>): C
     .map((c) => ({
       code: c.code,
       group: c.group,
-      title:
-        c.source === 'stack'
-          ? ruleTitle(path.join(root, RULES_DIR, c.group, `${c.id}.md`), c.code)
-          : c.code,
+      title: ruleTitle(readRuleDoc(root, c)),
       source: c.source,
     }))
 }

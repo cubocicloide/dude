@@ -151,14 +151,123 @@ dude help --format json      # emit it as JSON (for tooling)
 
 ---
 
+## `dude mcp`
+
+Serve this project to a coding agent as an [MCP](https://modelcontextprotocol.io)
+server over stdio. The tool list is **derived from the resolved catalog** — core
+plus the active stack plus project-local `.dude/commands/` — so a stack that adds
+a command, or a project that drops one in `.dude/commands/`, needs no wiring here.
+
+```bash
+dude mcp                              # read-only tools (the default)
+dude mcp --expose "test,api sync"     # opt specific commands in
+dude mcp --allow-mutating             # expose everything — see the warning below
+```
+
+**Read-only by default.** Only these are exposed without opting in:
+
+| Tool | Backed by |
+| ---- | --------- |
+| `dude_catalog` | `dude help --format json` — what this project can do, including the commands being withheld |
+| `dude_lint` | `dude lint --format json` — structured diagnostics |
+| `dude_explain` | `dude explain <CODE>` — the rule behind a diagnostic |
+| `dude_cheatsheet` | `dude cheatsheet --format json` |
+| `dude_info`, `dude_version` | environment and version reporting |
+| `dude_api_review` | when the stack has it |
+
+Everything else — anything that starts containers, writes files, deploys or
+destroys — is withheld. The gate is enforced by the server, not by client trust:
+a withheld command is never advertised as a tool, and is refused if called anyway.
+Arguments that would turn a read-only tool into a writing one are withheld too
+(`dude cheatsheet --out <file>` cannot be reached through `dude_cheatsheet`).
+
+Opt in per project via `dude.json`, using the same `"<group> <sub>"` spelling as
+`--expose`:
+
+```json
+{
+  "mcp": {
+    "expose": ["test", "api sync"]
+  }
+}
+```
+
+!!! warning "`--allow-mutating`"
+    This exposes **every** command in the catalog, including `dude down`,
+    `dude iac apply` and `dude iac destroy`. Use it only with a client you
+    control, on a project where that is acceptable. Prefer naming the commands
+    you actually want in `mcp.expose`.
+
+### Connecting a client
+
+**Claude Code** — from inside the project:
+
+```bash
+claude mcp add dude -- dude mcp
+```
+
+**Claude Desktop** — add to `claude_desktop_config.json` (absolute path required,
+since the server resolves the project from its working directory):
+
+```json
+{
+  "mcpServers": {
+    "dude": {
+      "command": "dude",
+      "args": ["mcp"],
+      "cwd": "/absolute/path/to/your/project"
+    }
+  }
+}
+```
+
+The server prints its banner to stderr, which clients show as server logs —
+stdout carries the protocol and nothing else.
+
+There is no model inside `dude mcp`, no API key and no network call: it runs the
+commands this project already has and returns what they already produce.
+
+---
+
 ## Beyond core: stack & project commands
 
 - **Stack commands** are declared by the active stack — `up`, `down`, `logs`,
-  `shell`, `lint`, `format`, `test`, `db`, `security`, `docs`, `iac`, and more.
-  They appear in `dude help` only when your stack and init choices include them.
+  `shell`, `lint`, `explain`, `format`, `test`, `db`, `security`, `docs`, `iac`,
+  and more. They appear in `dude help` only when your stack and init choices
+  include them.
 - **Project commands** live under `.dude/commands/<name>.ts` in your repo and
   take precedence over stack and core commands of the same name — a project can
   add bespoke tasks without forking anything.
 
 See [How it works → command resolution](concepts.md#command-resolution) for the
 precedence rules.
+
+---
+
+## Machine-readable conventions
+
+Every stack ships `lint` and `explain`, and they are designed to be used as a
+pair. This is what makes a dude project's conventions *verifiable* rather than
+merely documented — the reason the pair exists at all:
+
+```bash
+dude lint --format json     # what broke, where, and under which rule code
+dude explain BE003          # why that rule exists and how to satisfy it
+```
+
+`dude lint --format json` writes nothing but a JSON document to stdout, so it
+pipes cleanly:
+
+```bash
+dude lint --format json | jq -r '.diagnostics[] | "\(.file):\(.line) \(.code)"'
+```
+
+The payload is `{ schema, diagnostics[], errorCount, warningCount, notices[] }`;
+`schema` is versioned (`dude.lint/v1`) so a consumer can refuse a shape it does
+not understand. Exit codes match the human format — non-zero only when there is
+at least one error, so it drops into CI unchanged.
+
+`dude explain <CODE>` prints the rule's own prose: `.claude/rules/<GROUP>/<NNN>.md`
+for a stack rule, or the Markdown file beside the check
+(`.dude/lint/checks/<GROUP>/<NNN>.md`) for one of your own. Run it with no code
+to list every rule that applies to the project you are standing in.

@@ -138,15 +138,15 @@ Run on the consolidated branch (or the single agent branch):
 dude lint
 ```
 
-If the project has a test command (check `Makefile`, `package.json` scripts, or
-`dude help`), run it next:
+Run the project's own test suite next:
 
 ```bash
-dude test       # if available
-# or:
-cd backend && python -m pytest
-cd frontend && pnpm test
+dude test
 ```
+
+`dude help test` lists the suites this project actually exposes (`--backend`,
+`--e2e`, …) — they differ per stack. If the change is scoped to one suite, run
+that one rather than the lot.
 
 If any step fails, report the output and stop — do **not** create a PR.
 

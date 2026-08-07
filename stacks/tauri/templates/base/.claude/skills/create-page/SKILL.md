@@ -44,3 +44,7 @@ enforces all of them.
 ```bash
 dude lint && dude review
 ```
+
+Use `dude lint --format json` to read the diagnostics structurally, and
+`dude explain <CODE>` for the prose behind any code they report — fix the cause
+the rule describes rather than working around the check.

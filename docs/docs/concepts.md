@@ -113,3 +113,41 @@ scaffold it with `--next`.
 !!! info "For maintainers"
     The publish and promotion workflow lives in the repository's
     `CONTRIBUTING.md`.
+
+---
+
+## The agent-facing surface
+
+dude's real differentiator is not that it scaffolds a project — it is that the
+project's conventions are **mechanical**: dozens of lint rules that know whether
+an endpoint has a services layer, whether the generated API client is stale,
+whether a migration is missing.
+
+That makes a coding agent the tool's hungriest consumer. An agent working in a
+dude project should not have to guess the conventions when they can be *verified*
+for it. So every scaffold ships the surface an agent needs, and every stack ships
+the same minimum:
+
+| What | Where | For |
+| ---- | ----- | --- |
+| Rule prose | `.claude/rules/<GROUP>/<NNN>.md` | One file per lint rule — the "why" behind every diagnostic. Served by `dude explain <CODE>`. |
+| Skills | `.claude/skills/` | The stack's recurring workflows (`create-*`, plus workflow skills like `fix-issues`), written to enforce that stack's own rules. |
+| Agents | `.claude/agents/` | `issue-fixer`, and `security-fixer` where the stack has `dude security`. |
+| Editor tasks | `.vscode/tasks.json` | A background `dude lint` watch whose problem matcher puts diagnostics in the editor's Problems panel. |
+| Project extensions | `.dude/lint/checks/`, `.dude/commands/` | Your own lint rules and commands, with a worked example of each. |
+
+The loop that ties it together is `dude lint --format json` → `dude explain <CODE>`
+(see [Commands](commands.md#machine-readable-conventions)): the agent writes
+code, asks what broke, and reads the rule that explains the fix — no prose
+crawling, no guessing.
+
+[`dude mcp`](commands.md#dude-mcp) serves that same loop over
+[MCP](https://modelcontextprotocol.io), so an agent in Claude Code, Claude
+Desktop or any MCP client gets it as tools rather than shell invocations. The
+tool list is a projection of the resolved catalog, which is why it needs no
+maintenance: whatever this project can do, the agent can see. It is read-only
+until you say otherwise.
+
+Guiding principle: **dude is the tool an agent uses, not an agent itself.** There
+is no model inside it, no API key, no network call. It stays deterministic,
+testable and offline; the intelligence lives in whatever agent is driving it.

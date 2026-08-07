@@ -76,6 +76,17 @@ dude lint               # must pass — fix any DT/PY violation and re-run
 dude test --app <app>   # the new tests must pass
 ```
 
+`dude lint` is a pure filesystem check — it needs neither Docker nor a running
+bench, so run it even when you cannot migrate. On a violation, get the
+machine-readable form and the prose behind the code rather than guessing:
+
+```bash
+dude lint --format json   # file, line and code for every diagnostic
+dude explain DT002        # (or DT001/DT003/DT004/PY003) — why, and how to fix
+```
+
+Fix the cause the rule describes; never work around a diagnostic.
+
 If `dude site migrate` fails on the JSON, compare it field-by-field with
 `ticket_escalation_rule.json` — missing framework keys are the usual cause.
 

@@ -141,6 +141,10 @@ docs-check: docs-data ## Fail if the committed composed docs are out of date
 	fi
 	@printf "  \033[32m✓\033[0m  Composed docs are up to date.\n"
 
+.PHONY: agent-surface-check
+agent-surface-check: build ## Fail if a stack's .claude surface is incomplete or names a command it lacks
+	node scripts/check-agent-surface.mjs
+
 .PHONY: docs
 docs: docs-data ## Serve the project docs (docs/) with live-reload at http://localhost:8001
 	@if ! docker info >/dev/null 2>&1; then \

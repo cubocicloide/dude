@@ -148,7 +148,13 @@ export interface StackRule {
 // ---------- Stack commands ----------
 
 export interface StackCommandArg {
-  type: 'string' | 'boolean'
+  /**
+   * `positional` args are bound from the bare (non-`--`) words after the command
+   * name, in declaration order — `dude explain BE003` fills the first declared
+   * positional. `dude help` already rendered this shape (`<name>` / `[<name>]`);
+   * declaring it here is what makes the value actually reach `run`.
+   */
+  type: 'string' | 'boolean' | 'positional'
   description?: string
   default?: string | boolean
   required?: boolean

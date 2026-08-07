@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 import { initCommand } from '../init/index.js'
 import { upgradeCommand } from '../upgrade/index.js'
+import { mcpCommand } from '../mcp/index.js'
 import { versionCommand } from '../version/index.js'
 import { infoCommand } from '../info/index.js'
 import { reportCommand } from '../report/index.js'
@@ -569,6 +570,7 @@ export const coreCommands = {
   help: helpCommand,
   init: initCommand,
   upgrade: upgradeCommand,
+  mcp: mcpCommand,
 } as const
 
 /** Names of the core commands — used to route around a broken stack. */

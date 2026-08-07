@@ -5,6 +5,7 @@ import { coreCommands, coreCommandNames } from './commands/help/index.js'
 import { loadStack, stackLoadFailureMessage } from './core/stack-loader.js'
 import { resolveCustomCommand } from './core/custom-commands.js'
 import type { StackCommandDef } from './core/stack-contract.js'
+import { parseRawArgs } from './core/args.js'
 import { getCliVersion } from './utils/paths.js'
 import { satisfiesMinVersion } from './utils/semver.js'
 
@@ -38,28 +39,6 @@ const main = defineCommand({
 // A custom command overrides a stack command of the same name; a flat stack
 // command overrides a core command of the same name.
 // ---------------------------------------------------------------------------
-
-function parseRawArgs(argv: string[]): Record<string, unknown> {
-  const result: Record<string, unknown> = {}
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]!
-    if (arg.startsWith('--')) {
-      const eqIdx = arg.indexOf('=')
-      if (eqIdx !== -1) {
-        result[arg.slice(2, eqIdx)] = arg.slice(eqIdx + 1)
-      } else {
-        const next = argv[i + 1]
-        if (next !== undefined && !next.startsWith('-')) {
-          result[arg.slice(2)] = next
-          i++
-        } else {
-          result[arg.slice(2)] = true
-        }
-      }
-    }
-  }
-  return result
-}
 
 function isCommandDef(v: unknown): v is StackCommandDef {
   return !!v && typeof v === 'object' && typeof (v as StackCommandDef).run === 'function'
@@ -106,7 +85,11 @@ async function tryProjectDispatch(): Promise<boolean> {
         // ignore — keep projectRoot as stackRoot
       }
     }
-    await custom.def.run({ projectRoot: cwd, stackRoot: customStackRoot, args: parseRawArgs(argv) })
+    await custom.def.run({
+      projectRoot: cwd,
+      stackRoot: customStackRoot,
+      args: parseRawArgs(argv, custom.def.args),
+    })
     return true
   }
   // If the user explicitly invoked a command whose file is unusable, fail
@@ -188,7 +171,7 @@ async function tryProjectDispatch(): Promise<boolean> {
   // Flat: `dude <cmd>` — entry is a StackCommandDef itself
   if (isCommandDef(entry)) {
     const argv = second !== undefined ? [second, ...rest] : []
-    await entry.run({ projectRoot: cwd, stackRoot, args: parseRawArgs(argv) })
+    await entry.run({ projectRoot: cwd, stackRoot, args: parseRawArgs(argv, entry.args) })
     return true
   }
 
@@ -206,7 +189,7 @@ async function tryProjectDispatch(): Promise<boolean> {
     )
     process.exit(1)
   }
-  await sub.run({ projectRoot: cwd, stackRoot, args: parseRawArgs(rest) })
+  await sub.run({ projectRoot: cwd, stackRoot, args: parseRawArgs(rest, sub.args) })
   return true
 }
 

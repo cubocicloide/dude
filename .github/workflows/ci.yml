@@ -42,6 +42,13 @@ jobs:
       - name: Check composed docs are up to date
         run: make docs-check
 
+      # Every stack must ship the same minimum .claude/.vscode surface, and no
+      # skill may tell an agent to run a command its stack does not register —
+      # the way a skill copied between stacks goes wrong. See
+      # .claude/rules/006-agent-surface.md.
+      - name: Check the agent surface
+        run: make agent-surface-check
+
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 

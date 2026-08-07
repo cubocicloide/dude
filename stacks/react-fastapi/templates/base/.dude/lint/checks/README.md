@@ -38,9 +38,26 @@ export default function check(root: string): RawDiagnostic[] {
 Checks are loaded with [jiti](https://github.com/unjs/jiti), so you can write
 real TypeScript and `import` any package you add to the project.
 
-You can document a rule with a Markdown file next to it
-(`PRJ/001.md`) — `dude lint` ignores non-module files. Co-located tests
-(`001.test.ts`) are ignored too.
+## Documenting a rule
+
+Put a Markdown file next to the check, named after it:
+
+```
+.dude/lint/checks/PRJ/001.ts   ← the rule
+.dude/lint/checks/PRJ/001.md   ← what it means and how to fix it
+```
+
+`dude explain PRJ001` prints that file, and `dude cheatsheet` uses its first
+heading (`# PRJ001 — <title>`) as the rule's one-line title. Without it the rule
+still runs, but it can only be reported as a bare code — which tells whoever hits
+the diagnostic nothing about how to fix it. The shipped `PRJ/001.md` is a worked
+example.
+
+`dude lint` ignores non-module files, so the Markdown never runs as a check.
+Co-located tests (`001.test.ts`) are ignored too.
+
+> Stack rules use the mirror-image location, `.claude/rules/<GROUP>/<NNN>.md`.
+> `dude explain <CODE>` serves both.
 
 ## Choosing codes
 
