@@ -43,7 +43,7 @@ dude/
 
 ## Prerequisites
 
-- Node ≥ 20 and `pnpm`. All `@cubocicloide/*` packages are on the public npm
+- Node ≥ 20.19 and `pnpm`. All `@cubocicloide/*` packages are on the public npm
   registry, so no token is needed to install.
 - For exercising the IaC overlay end-to-end: `terraform`, `kubectl`, `helm`,
   `docker`, and the `aws` CLI with credentials.
