@@ -39,7 +39,7 @@ jobs:
       #   make promote PKG=<name> [VERSION=<v>]
       # See .claude/skills/promote-stable/ and README "Releasing".
       - name: Create Release Pull Request or Publish
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
           publish: pnpm release
           version: pnpm version-packages
