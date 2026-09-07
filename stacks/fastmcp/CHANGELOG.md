@@ -1,5 +1,12 @@
 # @cubocicloide/stack-fastmcp
 
+## 2.2.1
+
+### Patch Changes
+
+- Updated dependencies [382e313]
+  - @cubocicloide/dude@0.17.1
+
 ## 2.2.0
 
 ### Minor Changes
