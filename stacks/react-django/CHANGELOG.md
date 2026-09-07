@@ -1,5 +1,12 @@
 # @cubocicloide/stack-react-django
 
+## 3.4.3
+
+### Patch Changes
+
+- Updated dependencies [a7761cc]
+  - @cubocicloide/dude@0.17.2
+
 ## 3.4.2
 
 ### Patch Changes
