@@ -1,5 +1,11 @@
 # @cubocicloide/dude
 
+## 0.17.1
+
+### Patch Changes
+
+- 382e313: Bump `zod` dependency from `^3` to `^4`. Our usage of `z.object`, `z.union`, `z.discriminatedUnion`, `.parse`, `.safeParse`, and `ZodError.issues` is unchanged between v3 and v4.
+
 ## 0.17.0
 
 ### Minor Changes
