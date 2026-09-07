@@ -22,6 +22,7 @@ import path from 'pathe'
 import type { StackCommandDef } from '../stack-contract.js'
 import { buildCatalog, catalogToMarkdown } from '../../commands/help/index.js'
 import { generateCheatsheet } from '../cheatsheet/index.js'
+import { openBrowser } from '../../utils/open-browser.js'
 
 export interface DocsCommandOptions {
   /** Command description shown by `dude help`. */
@@ -88,13 +89,24 @@ function isDockerRunning(): boolean {
   return r.error == null && r.status === 0
 }
 
-function openBrowser(url: string): void {
-  if (process.platform === 'win32') {
-    spawnSync('cmd', ['/c', 'start', '', url], { stdio: 'ignore' })
-    return
+/**
+ * Resolve `--port` to something that is actually a port.
+ *
+ * The value reaches a `docker run -p` argument and the URL we print and open, and
+ * `defineDocsCommand()` is a library entry point — a stack, or a project command,
+ * can pass anything. Constraining it here means neither consumer has to trust the
+ * caller, and an obvious mistake fails with a sentence instead of an obscure
+ * Docker error. Browser opening is shell-free (see `utils/open-browser.ts`).
+ */
+function resolvePort(raw: unknown, fallback: string): string {
+  const value = String(raw ?? fallback).trim()
+  if (!/^[0-9]{1,5}$/.test(value) || Number(value) < 1 || Number(value) > 65535) {
+    process.stderr.write(
+      `[docs] Invalid --port ${JSON.stringify(value)} — expected a number between 1 and 65535.\n`,
+    )
+    process.exit(1)
   }
-  const opener = process.platform === 'darwin' ? 'open' : 'xdg-open'
-  spawnSync(opener, [url], { stdio: 'ignore' })
+  return value
 }
 
 export function defineDocsCommand(options: DocsCommandOptions = {}): StackCommandDef {
@@ -112,7 +124,7 @@ export function defineDocsCommand(options: DocsCommandOptions = {}): StackComman
     },
     async run({ projectRoot, args }) {
       const docsDir = path.join(projectRoot, 'docs')
-      const port = String(args.port ?? defaultPort)
+      const port = resolvePort(args.port, defaultPort)
       const url = `http://localhost:${port}`
 
       if (!existsSync(docsDir)) {

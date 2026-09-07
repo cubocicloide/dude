@@ -1,6 +1,7 @@
 import { defineCommand } from 'citty'
 import { spawnSync } from 'node:child_process'
 import { renderDiagnostics, readManifest, stackIdFromManifest } from '../../core/diagnostics.js'
+import { openBrowser } from '../../utils/open-browser.js'
 
 /**
  * `dude report` — file a bug report about **dude itself** (the CLI or a stack)
@@ -47,15 +48,6 @@ function ghReady(): boolean {
   if (v.error || v.status !== 0) return false
   const a = spawnSync('gh', ['auth', 'status'], { stdio: 'ignore' })
   return !a.error && a.status === 0
-}
-
-function openBrowser(url: string): void {
-  if (process.platform === 'win32') {
-    spawnSync('cmd', ['/c', 'start', '', url], { stdio: 'ignore' })
-    return
-  }
-  const opener = process.platform === 'darwin' ? 'open' : 'xdg-open'
-  spawnSync(opener, [url], { stdio: 'ignore' })
 }
 
 /** Human-readable "Area" line inferred from whether we're inside a stack project. */

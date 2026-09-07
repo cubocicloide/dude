@@ -17,15 +17,31 @@ let stackRoot: string
 
 const STACK_CHECKS = 'dist/commands/lint/checks'
 
-/** A CJS stack check returning the given diagnostics (JSON-encoded). */
+/**
+ * The body of every generated stack-check fixture: read the sibling `.json` and
+ * return it. Deliberately a constant.
+ *
+ * The payload used to be interpolated into this source as a `JSON.stringify`
+ * literal, which is building JavaScript out of a value escaped only well enough
+ * for JSON — `</script>` and U+2028 survive it and can end the context they land
+ * in. That is what CodeQL's js/bad-code-sanitization flagged (alert #1). Writing
+ * the payload as data and reading it at call time leaves no code construction to
+ * get wrong. `.json` is not a loadable check extension, so the sibling file stays
+ * invisible to the engine's discovery scan.
+ */
+const CHECK_MODULE_SOURCE = [
+  "const { readFileSync } = require('node:fs')",
+  'module.exports = function check() {',
+  "  return JSON.parse(readFileSync(__filename.replace(/\\.js$/, '.json'), 'utf8'))",
+  '}',
+].join('\n')
+
+/** A CJS stack check returning the given diagnostics. */
 function stackCheck(group: string, id: string, diagnostics: unknown[] = []): void {
   const dir = join(stackRoot, STACK_CHECKS, group)
   mkdirSync(dir, { recursive: true })
-  writeFileSync(
-    join(dir, `${id}.js`),
-    `module.exports = function check() { return ${JSON.stringify(diagnostics)} }`,
-    'utf8',
-  )
+  writeFileSync(join(dir, `${id}.json`), JSON.stringify(diagnostics), 'utf8')
+  writeFileSync(join(dir, `${id}.js`), CHECK_MODULE_SOURCE, 'utf8')
 }
 
 /** A TypeScript project check under .dude/lint/checks/. */
