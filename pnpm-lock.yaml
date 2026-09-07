@@ -31,7 +31,7 @@ importers:
         version: 0.7.0
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
-        version: 1.30.0(zod@4.5.1)
+        version: 1.30.0(zod@4.5.4)
       citty:
         specifier: ^0.2.2
         version: 0.2.2
@@ -51,8 +51,8 @@ importers:
         specifier: ^1.1.2
         version: 1.1.2
       zod:
-        specifier: ^4.5.1
-        version: 4.5.1
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@types/fs-extra':
         specifier: ^11.0.4
@@ -1730,8 +1730,8 @@ packages:
     peerDependencies:
       zod: ^3.25.28 || ^4
 
-  zod@4.5.1:
-    resolution: {integrity: sha512-P3GqeAEOEDqKvafVGLezbg+39YW/ze4xrD4qdS0adOY8eoI3zfjv1PQM4UwQzgT8mZKXEbqtVt8K+ZKGqkMFKg==}
+  zod@4.5.4:
+    resolution: {integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==}
 
 snapshots:
 
@@ -2050,7 +2050,7 @@ snapshots:
       tinyglobby: 0.2.16
       yaml: 2.9.0
 
-  '@modelcontextprotocol/sdk@1.30.0(zod@4.5.1)':
+  '@modelcontextprotocol/sdk@1.30.0(zod@4.5.4)':
     dependencies:
       '@hono/node-server': 2.1.0(hono@4.13.1)
       ajv: 8.20.0
@@ -2067,8 +2067,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 4.5.1
-      zod-to-json-schema: 3.25.2(zod@4.5.1)
+      zod: 4.5.4
+      zod-to-json-schema: 3.25.2(zod@4.5.4)
     transitivePeerDependencies:
       - supports-color
 
@@ -3122,8 +3122,8 @@ snapshots:
 
   yargs-parser@21.1.1: {}
 
-  zod-to-json-schema@3.25.2(zod@4.5.1):
+  zod-to-json-schema@3.25.2(zod@4.5.4):
     dependencies:
-      zod: 4.5.1
+      zod: 4.5.4
 
-  zod@4.5.1: {}
+  zod@4.5.4: {}
