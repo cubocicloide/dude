@@ -126,6 +126,26 @@ describe('defineDocsCommand — generated page refresh', () => {
 
     expect(stdout.join('')).toContain('http://localhost:9099')
   })
+
+  // `--port` lands in a `docker run -p` argument and in the URL we print and
+  // open. It used to be interpolated verbatim, whatever it was.
+  it.each(['8001 & calc', '0', '99999', 'eight-thousand', ''])(
+    'rejects %o as a port instead of interpolating it',
+    async (port) => {
+      const { defineDocsCommand } = await import('./command.js')
+      const root = makeProject(['api.md'])
+      const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('EXIT')
+      })
+
+      await expect(
+        defineDocsCommand().run!({ projectRoot: root, stackRoot: root, args: { port } }),
+      ).rejects.toThrow('EXIT')
+      expect(stderr.join('')).toContain('Invalid --port')
+      expect(spawnMock).not.toHaveBeenCalled()
+      exit.mockRestore()
+    },
+  )
 })
 
 describe('defineDocsCommand — preconditions and container', () => {
