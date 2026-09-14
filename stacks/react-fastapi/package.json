@@ -29,7 +29,7 @@
     "@cubocicloide/dude": "workspace:*",
     "openapi-typescript": "^7.13.0",
     "pathe": "^1.1.2",
-    "yaml": "^2.6.0"
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
