@@ -1,0 +1,7 @@
+{
+  "name": "expo-firebase",
+  "version": "0.1.0",
+  "minDudeVersion": "0.17.2",
+  "entry": "dist/index.js",
+  "tags": ["frontend:react-native", "runtime:expo", "backend:firebase", "lang:typescript"]
+}

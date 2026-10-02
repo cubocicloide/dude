@@ -1,0 +1,41 @@
+# {{projectName}}
+
+A universal Expo SDK 57 application for Android, iOS, and web with Expo Router,
+Firebase email/password Authentication, and per-user Cloud Firestore notes.
+Scaffolded by dude's `expo-firebase` stack.
+
+## Quick start
+
+Requirements: Node.js 22.13+, pnpm, and Java 21+.
+
+```bash
+pnpm install
+dude doctor
+dude firebase emulators
+```
+
+In a second terminal:
+
+```bash
+dude dev --go
+```
+
+The default configuration uses the safe `{{emulatorProjectId}}` project and
+cannot reach live Firebase resources. Open the Emulator UI at
+http://127.0.0.1:4000, then create an account in the app.
+
+## Commands
+
+| Command                               | Purpose                                  |
+| ------------------------------------- | ---------------------------------------- |
+| `dude dev --go`                       | Start Expo Go for Android, iOS, and web  |
+| `dude firebase emulators`             | Start local Auth and Firestore           |
+| `dude firebase deploy --project <id>` | Test then deploy Firestore rules/indexes |
+| `dude build --platform <target>`      | EAS mobile build or local web export     |
+| `dude lint`                           | Enforce RN and Firebase structure        |
+| `dude test`                           | Run Jest and Firestore rules tests       |
+| `dude review`                         | Run the full static review               |
+| `dude docs`                           | Serve the project documentation          |
+
+See `docs/docs/firebase.md` before connecting a live Firebase project and
+`docs/docs/builds.md` before the first EAS build.

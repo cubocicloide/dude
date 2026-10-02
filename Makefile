@@ -182,8 +182,8 @@ test-cli: build ## Test the dude CLI runtime package only (packages/dude)
 	pnpm --filter @cubocicloide/dude run test
 
 .PHONY: test-stack
-test-stack: build ## Test the react-fastapi stack package only (stacks/react-fastapi)
-	pnpm --filter @cubocicloide/stack-react-fastapi run test
+test-stack: build ## Test one stack package — make test-stack [STACK=react-fastapi]
+	pnpm --filter @cubocicloide/stack-$(STACK) run test
 
 .PHONY: test-watch
 test-watch: build ## Watch + rerun all tests on change (pair with `make dev`)
@@ -194,8 +194,8 @@ test-watch-cli: build ## Watch-test the CLI runtime package
 	pnpm --filter @cubocicloide/dude run test:watch
 
 .PHONY: test-watch-stack
-test-watch-stack: build ## Watch-test the stack package
-	pnpm --filter @cubocicloide/stack-react-fastapi run test:watch
+test-watch-stack: build ## Watch-test one stack package — make test-watch-stack [STACK=react-fastapi]
+	pnpm --filter @cubocicloide/stack-$(STACK) run test:watch
 
 .PHONY: test-install
 test-install: ## Smoke-test the globally-installed binary end-to-end in Docker (mirrors CI)

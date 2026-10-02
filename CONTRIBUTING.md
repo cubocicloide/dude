@@ -15,6 +15,11 @@ command reference and repo invariants, see [CLAUDE.md](CLAUDE.md).
 | `packages/dude-launcher/` | `@cubocicloide/dude-launcher`       | Tiny global shim; runs each project's pinned CLI + stack       |
 | `stacks/*/`               | `@cubocicloide/stack-*`             | Stack plugins: templates, lint rules, generators, IaC, commands |
 
+The `expo-firebase` stack generates a root-level Expo project rather than the
+multi-service layout used by the web/backend stacks. Its generated app requires
+Node 22.13+ and Java 21 for Firestore emulators, while the plugin still builds on
+the monorepo's Node 20.19 baseline.
+
 Everything is TypeScript + ESM. Toolchain: **pnpm workspaces**, **Turbo**, **tsup**.
 
 ---

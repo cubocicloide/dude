@@ -1,0 +1,10 @@
+# Local emulators
+
+`dude firebase emulators` starts Auth on port 9099, Firestore on 8080, and the
+Emulator UI on 4000 using `{{emulatorProjectId}}` by default.
+
+The app uses `10.0.2.2` from the Android emulator and `127.0.0.1` on iOS
+simulators and web. For a physical device, set
+`EXPO_PUBLIC_FIREBASE_EMULATOR_HOST` to the development machine's LAN address
+and deliberately change emulator hosts in `firebase.json` to `0.0.0.0` while on
+a trusted network. Restore loopback binding afterward.

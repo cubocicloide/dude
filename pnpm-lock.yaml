@@ -107,6 +107,28 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@26.2.0)
 
+  stacks/expo-firebase:
+    dependencies:
+      '@cubocicloide/dude':
+        specifier: workspace:*
+        version: link:../../packages/dude
+      pathe:
+        specifier: ^1.1.2
+        version: 1.1.2
+    devDependencies:
+      '@types/node':
+        specifier: ^26.2.0
+        version: 26.2.0
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@26.2.0)
+
   stacks/fastmcp:
     dependencies:
       '@cubocicloide/dude':

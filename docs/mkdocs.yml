@@ -36,6 +36,7 @@ nav:
   - Stacks:
       - Overview: stacks/index.md
       - airflow: stacks/airflow.md
+      - expo-firebase: stacks/expo-firebase.md
       - fastmcp: stacks/fastmcp.md
       - frappe: stacks/frappe.md
       - react-django: stacks/react-django.md

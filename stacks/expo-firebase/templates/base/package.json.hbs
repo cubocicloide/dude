@@ -1,0 +1,60 @@
+{
+  "name": "{{slug}}",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "export:web": "expo export --platform web",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "jest --runInBand",
+    "test:rules": "node --test tests/firestore.rules.test.mjs"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~57.0.0",
+    "expo-constants": "~57.0.0",
+    "expo-dev-client": "~57.0.19",
+    "expo-linking": "~57.0.0",
+    "expo-router": "~57.0.23",
+    "expo-splash-screen": "~57.0.9",
+    "firebase": "^12.0.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.0"
+  },
+  "devDependencies": {
+    "@cubocicloide/dude": "{{dudeVersion}}",
+    "@cubocicloide/stack-expo-firebase": "{{stackVersion}}",
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "@testing-library/react-native": "^13.3.0",
+    "@types/jest": "~29.5.14",
+    "@types/node": "^22.0.0",
+    "@types/react": "~19.2.0",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~57.0.2",
+    "expo-doctor": "^1.17.0",
+    "firebase-tools": "^15.31.0",
+    "jest": "~29.7.0",
+    "jest-expo": "~57.0.0",
+    "prettier": "^3.6.0",
+    "typescript": "~6.0.3"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@firebase/util",
+      "esbuild"
+    ]
+  }
+}
