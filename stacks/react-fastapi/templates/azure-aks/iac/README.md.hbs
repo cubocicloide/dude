@@ -119,6 +119,12 @@ This creates, in a resource group `{{projectName}}-shared-rg`:
 then writes their names into `environments/dev/{backend.hcl,terraform.tfvars}` for
 you. No copy-paste.
 
+It also records what you passed in `iac/terraform/bootstrap/bootstrap.auto.tfvars`
+— **commit that file**. Terraform auto-loads it on every command, which is how
+`dude iac destroy` later reproduces the same resource names without being told
+the original prefix. It holds a project slug, a region and a name prefix; no
+secrets.
+
 **About `--state-prefix`**: storage account and registry names are globally
 unique across all of Azure and allow only lowercase letters and digits — no
 hyphens, 24 characters max for the storage account. Use a short org slug

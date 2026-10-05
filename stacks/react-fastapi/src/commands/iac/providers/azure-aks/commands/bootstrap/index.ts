@@ -12,6 +12,7 @@ import type { StackCommandDef } from '@cubocicloide/dude'
 import { projectName, sleepMs } from '../../../../shared.js'
 import { capture } from '../../lib/exec.js'
 import {
+  TF_BOOTSTRAP_DIR,
   TF_DIR,
   captureBootstrap,
   hasIac,
@@ -86,6 +87,41 @@ export const iacBootstrapCommand: StackCommandDef = {
     }
 
     const name = projectName(projectRoot)
+
+    // 0. Record the inputs next to the bootstrap config, as an auto-loaded
+    //    tfvars file.
+    //
+    //    Terraform loads `*.auto.tfvars` for every command that takes variables
+    //    — including `destroy`, which `dude iac destroy` runs without any -var
+    //    flags because it has no way to know what prefix the bootstrap was
+    //    created with. Without this file those variables silently fall back to
+    //    their defaults, so the destroy plan recomputes the resource names from
+    //    `state_prefix = "changeme"` and reports that it is deleting
+    //    `changeme<project>acr`. The teardown is still correct (Terraform acts
+    //    on the resource ids in state, not on recomputed names), but the plan it
+    //    shows is a lie — and the first person to read one carefully will stop
+    //    the destroy, reasonably believing it is pointed at the wrong registry.
+    //
+    //    It is also what makes a later `dude iac bootstrap` re-run, or a
+    //    teammate's destroy, reproduce the same names without being told the
+    //    original flags. No secrets: it holds a project slug, a region and a
+    //    name prefix, so it belongs in version control.
+    const autoTfvars = path.join(projectRoot, TF_BOOTSTRAP_DIR, 'bootstrap.auto.tfvars')
+    try {
+      writeFileSync(
+        autoTfvars,
+        '# Written by `dude iac bootstrap`. Terraform loads *.auto.tfvars on every\n' +
+          '# command, so `destroy` reproduces these names without being passed them.\n' +
+          '# Commit this file; changing it by hand will point the bootstrap at\n' +
+          '# different resources.\n\n' +
+          `project_name = "${name}"\n` +
+          `location     = "${location}"\n` +
+          `state_prefix = "${prefix}"\n`,
+      )
+    } catch {
+      process.stderr.write(`\n  ✗  Could not write ${autoTfvars}.\n\n`)
+      process.exit(1)
+    }
 
     // 1. terraform init (bootstrap keeps local state — no -backend-config needed)
     let status = tfBoot(projectRoot, ['init', '-reconfigure'], subscription)
