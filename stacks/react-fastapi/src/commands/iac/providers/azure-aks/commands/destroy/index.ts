@@ -185,6 +185,12 @@ export const iacDestroyCommand: StackCommandDef = {
       `\n  → tearing down the shared bootstrap (state storage + container registry)…\n` +
         `     resource group: ${backend.resourceGroup || '(none)'}   storage: ${backend.storageAccount}\n`,
     )
+    // Read this BEFORE destroying. A successful `terraform destroy` leaves the
+    // state empty too, so asking afterwards cannot tell "there was nothing to
+    // destroy" apart from "everything was destroyed" — and the two call for
+    // opposite advice, one of which deletes a resource group by hand.
+    const bootstrapWasEmpty = bootstrapStateIsEmpty(projectRoot)
+
     // Bootstrap keeps local state — make sure it's initialised, then destroy.
     tfBoot(projectRoot, ['init', '-input=false'], subscription)
     const bootCode = tfBoot(projectRoot, ['destroy', ...extra], subscription)
@@ -198,10 +204,10 @@ export const iacDestroyCommand: StackCommandDef = {
 
     if (resourceGroupExists(backend.resourceGroup, projectRoot, subscription)) {
       process.stderr.write(
-        bootstrapStateIsEmpty(projectRoot)
+        bootstrapWasEmpty
           ? `\n  ✗  Shared resource group "${backend.resourceGroup}" still exists, and the\n` +
-              `     bootstrap's Terraform state is empty — so the destroy above had nothing\n` +
-              `     to act on.\n\n` +
+              `     bootstrap's Terraform state was already empty before it ran — so the\n` +
+              `     destroy above had nothing to act on.\n\n` +
               `     The bootstrap keeps LOCAL state (it is what creates the remote backend,\n` +
               `     so it cannot use it) and iac/.gitignore excludes *.tfstate. That state\n` +
               `     therefore exists only where \`dude iac bootstrap\` was run: a fresh clone,\n` +
