@@ -282,4 +282,5 @@ All commands take `--env <name>` (**required**) and `--subscription <id>`.
 | Apps stuck, logs show image pull errors | The `AcrPull` role assignment may not have propagated yet (a few minutes). |
 | `502` from the public URL | The backend is not up. `dude iac logs --env <env> --service backend`. |
 {{#if withPostgres}}| `psql` from your laptop can't connect | By design: the database has no public endpoint and lives inside the VNet. |
-{{/if}}| `exec format error` in an app | An arm64 image on x86 compute. Rebuild without overriding `--platform`. |
+{{/if}}| `destroy` removes the environment but leaves the shared resource group | The bootstrap's Terraform state is **local and gitignored**, so it exists only where `dude iac bootstrap` ran. A fresh clone or a re-scaffold starts empty and has nothing to destroy. Remove them directly: `az group delete --name <project>-shared-rg --yes`. Keep that state file (or the machine) if you want Terraform to own the teardown. |
+| `exec format error` in an app | An arm64 image on x86 compute. Rebuild without overriding `--platform`. |

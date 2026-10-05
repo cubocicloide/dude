@@ -1,8 +1,9 @@
 /** Raw Azure-CLI helpers shared by the Azure providers' `destroy`. */
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'pathe'
 import { capture } from './exec.js'
+import { TF_BOOTSTRAP_DIR } from './terraform.js'
 
 /**
  * Whether an environment's Terraform remote state still describes live
@@ -94,4 +95,27 @@ export function resourceGroupExists(
     subscription,
   )
   return r.status === 0 && r.stdout.trim() === 'true'
+}
+
+/**
+ * True when the bootstrap's Terraform state describes nothing — so a
+ * `terraform destroy` there will report success having removed nothing, while
+ * the real storage account and registry carry on existing.
+ *
+ * This happens more easily than it should: the bootstrap deliberately keeps
+ * LOCAL state (it is what creates the remote backend, so it cannot use it), and
+ * `iac/.gitignore` excludes `*.tfstate`. The file therefore lives only in the
+ * working directory of whoever ran `dude iac bootstrap` — a fresh clone, a
+ * re-scaffold or a different teammate all arrive with an empty state and no way
+ * to tear the shared resources down through Terraform.
+ */
+export function bootstrapStateIsEmpty(projectRoot: string): boolean {
+  const file = path.join(projectRoot, TF_BOOTSTRAP_DIR, 'terraform.tfstate')
+  if (!existsSync(file)) return true
+  try {
+    const state = JSON.parse(readFileSync(file, 'utf8')) as { resources?: unknown[] }
+    return !Array.isArray(state.resources) || state.resources.length === 0
+  } catch {
+    return false // unreadable: assume it holds something, and let Terraform decide
+  }
 }

@@ -468,4 +468,5 @@ short SHA, `-dirty-<hash>` if uncommitted); `build`/`ship` also take `--platform
 | `init` fails with *AuthorizationPermissionMismatch* | You switched the backend to `use_azuread_auth`. That needs the data-plane role **Storage Blob Data Contributor** on the state storage account — subscription Owner alone is not enough. Grant it, or drop the setting (see `backend.hcl`). |
 | `Error acquiring the state lock` | A previous command died mid-run. `dude iac shell --env <env>`, then `terraform -chdir=iac/terraform force-unlock <id>`. |
 {{#if withPostgres}}| `psql` from your laptop can't connect | By design: the database has no public endpoint and lives inside the VNet. Reach it through a pod, or `dude iac shell`. |
-{{/if}}| `exec format error` in a pod | An arm64 image on an x86 node pool. Rebuild without overriding `--platform`. |
+{{/if}}| `destroy` removes the environment but leaves the shared resource group | The bootstrap's Terraform state is **local and gitignored**, so it exists only where `dude iac bootstrap` ran. A fresh clone or a re-scaffold starts empty and has nothing to destroy. Remove them directly: `az group delete --name <project>-shared-rg --yes`. Keep that state file (or the machine) if you want Terraform to own the teardown. |
+| `exec format error` in a pod | An arm64 image on an x86 node pool. Rebuild without overriding `--platform`. |

@@ -9,7 +9,7 @@
  * environment still depends on it.
  */
 import type { StackCommandDef } from '@cubocicloide/dude'
-import { envStateLiveness, resourceGroupExists } from '../../lib/azure.js'
+import { bootstrapStateIsEmpty, envStateLiveness, resourceGroupExists } from '../../lib/azure.js'
 import {
   envArg,
   hasIac,
@@ -146,8 +146,18 @@ export const iacDestroyCommand: StackCommandDef = {
 
     if (resourceGroupExists(backend.resourceGroup, projectRoot, subscription)) {
       process.stderr.write(
-        `\n  ⚠  Shared resource group "${backend.resourceGroup}" still exists — Azure may\n` +
-          '     still be deleting it. Re-check in a few minutes.\n\n',
+        bootstrapStateIsEmpty(projectRoot)
+          ? `\n  ✗  Shared resource group "${backend.resourceGroup}" still exists, and the\n` +
+              `     bootstrap's Terraform state is empty — so the destroy above had nothing\n` +
+              `     to act on.\n\n` +
+              `     The bootstrap keeps LOCAL state (it is what creates the remote backend,\n` +
+              `     so it cannot use it) and iac/.gitignore excludes *.tfstate. That state\n` +
+              `     therefore exists only where \`dude iac bootstrap\` was run: a fresh clone,\n` +
+              `     a re-scaffold or a teammate's machine all start empty.\n\n` +
+              `     Remove the shared resources directly:\n` +
+              `       az group delete --name ${backend.resourceGroup} --yes\n\n`
+          : `\n  ⚠  Shared resource group "${backend.resourceGroup}" still exists — Azure may\n` +
+              '     still be deleting it. Re-check in a few minutes.\n\n',
       )
       process.exit(1)
     }
