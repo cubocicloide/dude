@@ -5,9 +5,9 @@ variable "project_name" {
 }
 
 variable "location" {
-  description = "Azure region for the shared state storage account + container registry."
+  description = "Azure region for the shared state storage account + container registry. See the note on `location` in the per-environment variables: some regions are closed to new subscriptions."
   type        = string
-  default     = "westeurope"
+  default     = "northeurope"
 }
 
 variable "state_prefix" {

@@ -9,7 +9,8 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'pathe'
 import type { StackCommandDef } from '@cubocicloide/dude'
-import { projectName } from '../../../../shared.js'
+import { projectName, sleepMs } from '../../../../shared.js'
+import { capture } from '../../lib/exec.js'
 import {
   TF_DIR,
   captureBootstrap,
@@ -160,6 +161,57 @@ export const iacBootstrapCommand: StackCommandDef = {
     } catch {
       process.stderr.write(`\n  ✗  Could not update ${tfvarsPath}.\n\n`)
       process.exit(1)
+    }
+
+    // 6. Wait for the state container to actually answer a blob listing.
+    //
+    // Creating the account and the container returns long before the account's
+    // blob endpoint is reachable, and the very next command a user runs —
+    // `dude iac init` — lists blobs to enumerate workspaces. It then fails with
+    // a bare `ListBlobs: 404 ResourceNotFound`, which reads like the container
+    // was never created rather than "try again in a minute". Blocking here,
+    // where we know what was just built, turns that into a wait.
+    //
+    // The probe mirrors what Terraform does: listing CONTAINERS succeeds well
+    // before listing BLOBS inside one does, so checking the container exists is
+    // not enough.
+    const ready = (): boolean =>
+      capture(
+        'az',
+        [
+          'storage',
+          'blob',
+          'list',
+          '--account-name',
+          storageAccount,
+          '--container-name',
+          container,
+          '--auth-mode',
+          'key',
+          '--num-results',
+          '1',
+          '--output',
+          'none',
+        ],
+        projectRoot,
+        subscription,
+      ).status === 0
+
+    if (!ready()) {
+      process.stdout.write('\n  →  Waiting for the state container to become reachable…\n')
+      let attempts = 0
+      while (attempts < 12 && !ready()) {
+        sleepMs(15_000)
+        attempts++
+      }
+      if (attempts >= 12) {
+        process.stderr.write(
+          `\n  ⚠  The state container is not answering yet. The resources exist, so nothing\n` +
+            `     is lost — a brand-new storage account's blob endpoint can take a few\n` +
+            `     minutes. Re-run \`dude iac init --env ${env}\` shortly; if it keeps failing\n` +
+            `     with a 404 on ListBlobs, check the account in the portal.\n\n`,
+        )
+      }
     }
 
     process.stdout.write(

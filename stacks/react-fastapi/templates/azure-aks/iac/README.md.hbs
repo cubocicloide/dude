@@ -64,6 +64,28 @@ az login
 az account list --output table
 ```
 
+On a brand-new subscription, also register the resource providers this scaffold
+uses (free, once per subscription, takes a couple of minutes to propagate):
+
+```bash
+for p in Compute Network Storage ContainerService ContainerRegistry \
+         DBforPostgreSQL ManagedIdentity Authorization; do
+  az provider register --namespace Microsoft.$p
+done
+```
+
+And check the node quota, because Azure grants vCPUs **per VM family** and
+several newer families start at a limit of zero:
+
+```bash
+az vm list-usage --location northeurope -o table | grep -E "Total Regional|Dsv3|BS Family"
+```
+
+The default node pool is `Standard_D2s_v3` precisely because the Dsv3 family is
+one a fresh subscription reliably gets. You need 8 vCPUs free (`node_max_count`
+× 2) in both that family and `Total Regional vCPUs`. A family at `Limit 0` fails
+the apply several minutes in, not at plan time.
+
 ### Step 2 — sign in for this environment
 
 ```bash
@@ -85,7 +107,7 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 ### Step 3 — create the shared resources (once per project)
 
 ```bash
-dude iac bootstrap --state-prefix <yourorg> --location westeurope --env dev --yes
+dude iac bootstrap --state-prefix <yourorg> --location northeurope --env dev --yes
 ```
 
 This creates, in a resource group `{{projectName}}-shared-rg`:
@@ -153,7 +175,7 @@ dude iac status --env dev        # helm release + pods
 ```
 
 ```
-http://{{projectName}}-dev.westeurope.cloudapp.azure.com/
+http://{{projectName}}-dev.northeurope.cloudapp.azure.com/
 ```
 
 The API is served under `/api`{{#if withPostgres}}; database migrations ran as a
@@ -421,14 +443,19 @@ All commands take `--env <name>` (**required**; autodiscovered from
 subscription). `build`/`push`/`deploy`/`ship` take `--tag <tag>` (default: git
 short SHA, `-dirty-<hash>` if uncommitted); `build`/`ship` also take `--platform`
 (default `linux/amd64`). `bootstrap` accepts `--state-prefix` (required) and
-`--location` (default `westeurope`).
+`--location` (default `northeurope`).
 
 ## Troubleshooting
 
 | Symptom | Cause / fix |
 | ------- | ----------- |
 | `apply` fails on `azurerm_role_assignment.acr_pull` with *AuthorizationFailed* | Your account can't assign roles. Ask for **User Access Administrator** (or Owner) on the subscription. |
+| `apply` fails: *Operation could not be completed as it results in exceeding approved quota* | The node VM family has no quota in that region. `az vm list-usage --location <region> -o table`, then pick a family with headroom (`node_vm_size`) or request an increase. |
+| `apply` fails: *The subscription is not registered to use namespace …* | Resource providers not registered — see the `az provider register` loop in Step 1. |
 | `apply` fails: DNS label already in use | Another Azure resource in that region took it. Change `dns_label` in the env's `terraform.tfvars` and re-apply. |
+| `bootstrap` fails: *RequestDisallowedByAzure … region is currently not accepting new customers* | That region is capacity-closed to your (new) subscription — West Europe commonly is. Use another region: `--location northeurope` **and** `location` in the env's terraform.tfvars. The resource group may already exist in the old region; re-running bootstrap moves it. |
+| `bootstrap` fails: *ParentResourceNotFound … storageAccounts/fileServices* | A read race inside the azurerm provider right after the account is created — the account itself is fine. `bootstrap` is idempotent: run it again and it reconciles. |
+| `init` fails: *ListBlobs … 404 ResourceNotFound* | A brand-new storage account's blob endpoint takes a few minutes to answer. `bootstrap` now waits for it; if you hit this anyway, re-run `dude iac init --env <env>` a minute later. |
 | `bootstrap` fails: storage account name taken | The name is global across Azure. Re-run with a different `--state-prefix`. |
 | App URL doesn't resolve | The load balancer and its DNS label take a couple of minutes after `apply`. Re-check `dude iac output --env <env>`. |
 | Pods stuck in `ImagePullBackOff` | The `AcrPull` role assignment hasn't propagated yet (up to a few minutes), or `apply` never created it. `dude iac shell --env <env>` then `kubectl describe pod <pod> -n <env>`. |

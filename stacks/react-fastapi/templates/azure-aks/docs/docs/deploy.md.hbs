@@ -22,7 +22,7 @@ and in CI.
 |-------|----------|-------|
 | Resource group | `{{projectName}}-<env>-rg` | everything for one environment lives in it, so teardown is total |
 | Network | Virtual network + AKS subnet{{#if withPostgres}} + delegated database subnet{{/if}} | Azure CNI **overlay**, so pod IPs don't consume the subnet |
-| Cluster | AKS control plane + autoscaling node pool | `Standard_D2as_v5` nodes, 2–4, Free control-plane tier |
+| Cluster | AKS control plane + autoscaling node pool | `Standard_D2s_v3` nodes, 2–4, Free control-plane tier — see "Node sizing and quota" below |
 | Registry | Azure Container Registry | `{{projectName}}-backend`, `{{projectName}}-frontend` — **shared** across envs, created once by `dude iac bootstrap` |
 | Ingress | ingress-nginx + an Azure public IP with a DNS label | gives the app a real hostname with no domain of your own — see below |
 | TLS *(optional)* | cert-manager + Let's Encrypt | needs a domain **you own**; see "HTTPS" below for why Azure's hostname can't have one |
@@ -42,6 +42,33 @@ You need, on your machine:
   **assign roles** (the Contributor + User Access Administrator pair, or Owner).
   The role assignment is what lets the cluster pull from the registry; without it
   `dude iac apply` fails at `azurerm_role_assignment.acr_pull`.
+
+## Node sizing and quota
+
+A new Azure subscription grants vCPU quota **per VM family**, and several of the
+newer families start at a limit of **zero** — you can see a size in the price
+list and still be unable to create it. The default node pool is
+`Standard_D2s_v3` for that reason: the Dsv3 and BS families are the ones a fresh
+subscription reliably gets.
+
+Check before the first apply — this fails several minutes in, not at plan time:
+
+```bash
+az vm list-usage --location northeurope -o table | grep -E "Total Regional|Dsv3|BS Family"
+```
+
+You need `node_max_count × (vCPUs per node)` available in both the family row and
+`Total Regional vCPUs` — 8 vCPUs for the defaults. If a row you want reads
+`Limit 0`, either pick a family that has quota or request an increase from
+*Subscription → Usage + quotas* in the portal.
+
+!!! warning "Some regions are closed to new subscriptions"
+    Azure caps capacity per region, and a new subscription is often refused
+    outright — West Europe is the common case, failing with
+    `RequestDisallowedByAzure: the selected region is currently not accepting new
+    customers`. The scaffold defaults to **North Europe**, which is reliably open.
+    If you change `location`, verify the region accepts your subscription before
+    planning a deploy around it.
 
 ## Deploy, in order
 
@@ -74,7 +101,7 @@ dude iac ship --env dev
 Then open the URL `dude iac output --env dev` prints as `app_url`:
 
 ```
-http://{{projectName}}-dev.westeurope.cloudapp.azure.com/
+http://{{projectName}}-dev.northeurope.cloudapp.azure.com/
 ```
 
 Check what's running:

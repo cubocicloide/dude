@@ -117,7 +117,7 @@ ingress:
   ## Azure for the public IP's DNS label — that is where the hostname below
   ## comes from.
   className: nginx
-  ## Public hostname, e.g. my-app-dev.westeurope.cloudapp.azure.com.
+  ## Public hostname, e.g. my-app-dev.northeurope.cloudapp.azure.com.
   ## Left empty here on purpose: `dude iac deploy` sets it from the Terraform
   ## `app_host` output, which only exists after `dude iac apply`. Empty = the
   ## ingress matches any Host header, so the raw IP still works.

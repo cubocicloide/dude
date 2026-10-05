@@ -11,9 +11,9 @@ variable "environment" {
 }
 
 variable "location" {
-  description = "Azure region to deploy into."
+  description = "Azure region to deploy into. North Europe is the default because several popular regions — West Europe among them — are capacity-closed to new subscriptions and reject storage/registry/cluster creation with RequestDisallowedByAzure. Check a region before switching."
   type        = string
-  default     = "westeurope"
+  default     = "northeurope"
 }
 
 variable "subscription_id" {
@@ -62,9 +62,9 @@ variable "kubernetes_version" {
 }
 
 variable "node_vm_size" {
-  description = "VM size for the default node pool."
+  description = "VM size for the default node pool. Dsv3 is the default because its quota is granted by default on a new subscription; newer/cheaper families (DASv5, Dpsv5) often start at a limit of 0 and have to be requested. Check with: az vm list-usage --location <region> -o table"
   type        = string
-  default     = "Standard_D2as_v5"
+  default     = "Standard_D2s_v3"
 }
 
 variable "node_min_count" {

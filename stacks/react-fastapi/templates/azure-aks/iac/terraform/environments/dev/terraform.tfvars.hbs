@@ -3,7 +3,13 @@
 # bump the sizing / durability knobs there.
 
 environment = "dev"
-location    = "westeurope"
+
+# Several popular regions — West Europe notably — are capacity-closed to NEW
+# subscriptions and reject resource creation with "RequestDisallowedByAzure: the
+# selected region is currently not accepting new customers". North Europe is the
+# default because it is reliably open. Before switching, create something cheap
+# there first, or check https://aka.ms/locationineligible.
+location = "northeurope"
 
 # Azure subscription this environment deploys into. Leave empty to use whichever
 # subscription `az account show` reports; pin it here once you know the id, so
@@ -36,8 +42,14 @@ db_subnet_cidr  = "10.0.16.0/24"
 
 # AKS — leave kubernetes_version empty to track whatever Azure defaults to in
 # this region (always a supported version); pin it for reproducible upgrades.
+#
+# Before changing node_vm_size, check the quota for the family you are moving to:
+#   az vm list-usage --location northeurope -o table
+# A brand-new subscription typically gets 10 vCPUs for Dsv3 and BS, and *zero*
+# for newer families like DASv5 — an unavailable family fails the apply several
+# minutes in, not at plan time.
 kubernetes_version = ""
-node_vm_size       = "Standard_D2as_v5"
+node_vm_size       = "Standard_D2s_v3"
 node_count         = 2
 node_min_count     = 2
 node_max_count     = 4
