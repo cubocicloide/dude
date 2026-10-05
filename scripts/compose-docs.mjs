@@ -224,6 +224,18 @@ async function collect() {
 // ── Render helpers ────────────────────────────────────────────────────────────
 
 /**
+ * A manifest's IaC targets, always as an array. `docs.iac` is either one object
+ * or a list of them (a stack may offer a choice of clouds) — mirrors
+ * `iacTargets()` in the CLI's stack contract, duplicated here because this
+ * script reads each stack's compiled manifest as plain data rather than
+ * importing the CLI.
+ */
+function iacTargets(docs) {
+  if (!docs?.iac) return []
+  return Array.isArray(docs.iac) ? docs.iac : [docs.iac]
+}
+
+/**
  * Escape a value for use inside a Markdown table cell.
  *
  * Backslashes must be escaped BEFORE pipes: escaping only the pipe leaves an
@@ -327,14 +339,27 @@ function renderStackPage(s) {
     out.push('')
   }
 
-  if (m?.iac) {
+  const targets = iacTargets(m)
+  if (targets.length === 1) {
     out.push(
       '## Deploying to the cloud',
       '',
-      `This stack ships an infrastructure-as-code target: **${m.iac.provider}**.`,
-      `Enable it at scaffold time with \`${m.iac.flag}\`, then use the \`dude iac\``,
+      `This stack ships an infrastructure-as-code target: **${targets[0].provider}**.`,
+      `Enable it at scaffold time with \`${targets[0].flag}\`, then use the \`dude iac\``,
       'command group inside the generated project. The full deploy guide is part of',
-      'the project\'s own documentation — run `dude docs` after scaffolding.',
+      "the project's own documentation — run `dude docs` after scaffolding.",
+      '',
+    )
+  } else if (targets.length > 1) {
+    out.push(
+      '## Deploying to the cloud',
+      '',
+      `This stack ships ${targets.length} infrastructure-as-code targets: ` +
+        `${targets.map((t) => `**${t.provider}**`).join(', ')}.`,
+      `Pick one at scaffold time with ${targets.map((t) => `\`${t.flag}\``).join(' or ')} —`,
+      'exactly one applies to a project. The `dude iac` commands then mean the same',
+      "thing whichever target you chose. The full deploy guide is part of the",
+      "project's own documentation — run `dude docs` after scaffolding.",
       '',
     )
   }
@@ -432,7 +457,10 @@ function renderIndex(stacks) {
     '| ----- | ------------ | ----------- | -----: | ------------- |',
   )
   for (const s of stacks) {
-    const iac = s.docs?.iac ? `\`${cell(s.docs.iac.provider)}\`` : '—'
+    const targets = iacTargets(s.docs)
+    const iac = targets.length
+      ? targets.map((t) => `\`${cell(t.provider)}\``).join('<br>')
+      : '—'
     out.push(
       row(
         raw(`[\`${cell(s.id)}\`](${cell(s.id)}.md)`),
@@ -514,7 +542,11 @@ function renderStackJson(s) {
         technologies: s.docs?.technologies ?? [],
         useCases: s.docs?.useCases ?? [],
         requiresDude: d.minDudeVersion,
-        iac: s.docs?.iac ?? null,
+        // `iac` keeps its original single-object shape so `dude.stack/1`
+        // consumers don't break; `iacTargets` is the additive, complete list
+        // for the stacks that now offer a choice of clouds.
+        iac: iacTargets(s.docs)[0] ?? null,
+        iacTargets: iacTargets(s.docs),
         init: {
           command: `dude init my-app --stack ${s.id}`,
           variables: (d.variables ?? []).map((v) => ({

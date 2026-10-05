@@ -67,28 +67,32 @@ export default defineStack({
       name: 'iac',
       type: 'select',
       prompt: 'Infrastructure-as-Code (Terraform + Helm)',
-      choices: ['none', 'aws-eks'],
+      choices: ['none', 'aws-eks', 'azure-aks'],
       default: 'none',
     },
   ],
 
   docs: {
     tagline:
-      'React (Vite) frontend with a FastAPI backend — Postgres, Celery and AWS EKS when you need them.',
+      'React (Vite) frontend with a FastAPI backend — Postgres, Celery, and Kubernetes IaC on AWS or Azure when you need them.',
     useCases: [
       'A CRUD/product web app that needs a typed REST API behind a modern SPA',
-      'A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS) once it scales',
+      'A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS or Azure AKS) once it scales',
+      'A project whose hosting cloud is the customer\u2019s decision, not the code\u2019s',
       'Background/async work (Celery + Celery Beat) without leaving the Python backend',
     ],
     technologies: ['React 19', 'Vite', 'FastAPI', 'SQLModel', 'Alembic', 'Celery'],
-    iac: { provider: 'aws-eks', flag: '--iac aws-eks' },
+    iac: [
+      { provider: 'aws-eks', flag: '--iac aws-eks' },
+      { provider: 'azure-aks', flag: '--iac azure-aks' },
+    ],
     pages: [
       { file: 'index.md', title: 'Home' },
       { file: 'dude.md', title: 'Working with dude' },
       { file: 'api.md', title: 'Command reference' },
       { file: 'cheatsheet.md', title: 'Cheatsheet' },
       { file: 'mkdocs.md', title: 'Writing docs' },
-      { file: 'deploy.md', title: 'Deploy (AWS EKS)', when: 'withIac' },
+      { file: 'deploy.md', title: 'Deploy to the cloud', when: 'withIac' },
     ],
   },
 
@@ -99,7 +103,15 @@ export default defineStack({
     const withCeleryBeat = Boolean(answers.celeryBeat)
     const withCelery = Boolean(answers.celery) || withCeleryBeat
     const withRedis = withCelery
-    const withIac = answers.iac === 'aws-eks'
+    // One `withIac` for everything the scaffold gates on "is this project
+    // deployed to a cloud at all" (the deploy docs page, the IaC section of
+    // CLAUDE.md), plus one boolean per target for the handful of places that
+    // genuinely differ. `iacLabel` carries the cloud's name into prose so the
+    // base templates don't have to branch just to print it.
+    const withAwsEks = answers.iac === 'aws-eks'
+    const withAzureAks = answers.iac === 'azure-aks'
+    const withIac = withAwsEks || withAzureAks
+    const iacLabel = withAwsEks ? 'AWS EKS' : withAzureAks ? 'Azure AKS' : ''
 
     const data: Record<string, unknown> = {
       ...answers,
@@ -108,6 +120,9 @@ export default defineStack({
       withCeleryBeat,
       withRedis,
       withIac,
+      withAwsEks,
+      withAzureAks,
+      iacLabel,
       dudeVersion,
       stackVersion,
     }
@@ -132,11 +147,19 @@ export default defineStack({
       await renderTemplateTree({ src: path.join(templates, 'celerybeat'), dest, data })
     }
 
-    // IaC overlay — Terraform (VPC/EKS/ECR/optional RDS) + Helm chart. The
-    // overlay always ships the full chart/modules; the rendered values and
+    // IaC overlay — Terraform + a Helm chart for the chosen cloud. Exactly one
+    // applies: both scaffold into `iac/`, and the provider a project gets is
+    // decided by the recorded `iac` answer, not by what is on disk.
+    //   aws-eks:   VPC / EKS / ECR / ALB controller / optional RDS
+    //   azure-aks: resource group / VNet / AKS / ACR / ingress-nginx /
+    //              optional PostgreSQL Flexible Server
+    // Each overlay always ships its full chart + modules; the rendered values and
     // module wiring reflect the other answers (withPostgres/withRedis/withCelery…).
-    if (withIac) {
+    if (withAwsEks) {
       await renderTemplateTree({ src: path.join(templates, 'aws-eks'), dest, data })
+    }
+    if (withAzureAks) {
+      await renderTemplateTree({ src: path.join(templates, 'azure-aks'), dest, data })
     }
 
     // Generate the typed API client from the openapi.yaml that was just
@@ -155,7 +178,8 @@ export default defineStack({
       const name = String(ctx.answers.projectName ?? 'your-project')
       const withPostgres = ctx.answers.database === 'postgres'
       const withCelery = Boolean(ctx.answers.celery) || Boolean(ctx.answers.celeryBeat)
-      const withIac = ctx.answers.iac === 'aws-eks'
+      const withAwsEks = ctx.answers.iac === 'aws-eks'
+      const withAzureAks = ctx.answers.iac === 'azure-aks'
 
       ctx.logger.info('Project scaffolded. Next steps:')
       ctx.logger.info('')
@@ -188,13 +212,23 @@ export default defineStack({
       if (withPostgres) {
         ctx.logger.info('    Users:    http://localhost:8000/api/users')
       }
-      if (withIac) {
+      if (withAwsEks) {
         ctx.logger.info('')
         ctx.logger.info('  Deploy to AWS EKS (Terraform + Helm) — see iac/README.md:')
         ctx.logger.info('       dude iac login --env dev')
         ctx.logger.info('       dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes')
         ctx.logger.info('       dude iac init --env dev && dude iac apply --env dev')
         ctx.logger.info('       dude iac kubeconfig --env dev && dude iac ship --env dev')
+      }
+      if (withAzureAks) {
+        ctx.logger.info('')
+        ctx.logger.info('  Deploy to Azure AKS (Terraform + Helm) — see iac/README.md:')
+        ctx.logger.info('       dude iac login --env dev')
+        ctx.logger.info('       dude iac bootstrap --state-prefix <your-org> --env dev --yes')
+        ctx.logger.info('       dude iac init --env dev && dude iac apply --env dev')
+        ctx.logger.info('       dude iac kubeconfig --env dev && dude iac ship --env dev')
+        ctx.logger.info('     The app is published on Azure\u2019s own hostname:')
+        ctx.logger.info(`       http://${name}-dev.westeurope.cloudapp.azure.com/`)
       }
     },
   },

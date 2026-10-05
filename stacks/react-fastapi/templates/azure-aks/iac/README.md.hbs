@@ -1,0 +1,438 @@
+# Infrastructure as Code — {{projectName}} on Azure
+
+Deploys {{projectName}} to **Azure Kubernetes Service** with **Terraform**
+(infrastructure) and **Helm** (the application). Everything is
+environment-scoped and driven by `dude iac …`, which works identically on your
+laptop and in CI/CD.
+
+**If you just want it deployed, follow [Part 1](#part-1-first-deploy-start-to-finish)
+top to bottom.** The rest of this file is reference.
+
+```
+iac/
+├── terraform/
+│   ├── versions.tf            # providers + azurerm backend (partial)
+│   ├── providers.tf           # azurerm / kubernetes / helm
+│   ├── variables.tf           # all inputs (sane defaults)
+│   ├── main.tf                # resource group + VNet + AKS + ingress-nginx{{#if withPostgres}} + PostgreSQL{{/if}}
+│   ├── outputs.tf             # cluster, registry URLs, app URL{{#if withPostgres}}, database{{/if}}
+│   ├── bootstrap/             # one-time shared infra: state storage account + container registry
+│   └── environments/
+│       └── dev/
+│           ├── backend.hcl        # remote-state location for this env
+│           └── terraform.tfvars   # this env's sizing/knobs
+├── runner/
+│   └── Dockerfile             # the toolchain `dude iac` runs in — yours to edit
+└── helm/
+    └── app/                   # the application chart (backend, frontend,{{#if withRedis}} redis,{{/if}}{{#if withCelery}} celery,{{/if}} ingress…)
+```
+
+---
+
+## Part 1 — first deploy, start to finish
+
+Nine steps, in order. Steps 0–3 are once per machine / once per project; 4–8 are
+the deploy.
+
+### Step 0 — install two things
+
+| Tool | Why | Install |
+| ---- | --- | ------- |
+| **Docker** | `dude iac` runs terraform/kubectl/helm/k9s inside a container, so you don't install them | [docs.docker.com](https://docs.docker.com/get-docker/) |
+| **Azure CLI** (`az`) | signing in needs a browser, which a container doesn't have | `brew install azure-cli` · [other platforms](https://learn.microsoft.com/cli/azure/install-azure-cli) |
+
+That is the whole list. You do **not** need terraform, kubectl, helm or k9s on
+your machine.
+
+### Step 1 — have the right access in Azure
+
+You need an Azure subscription where your account can:
+
+- **create resource groups** (role: *Contributor*), and
+- **assign roles** (role: *User Access Administrator*).
+
+*Owner* covers both. The role assignment matters because the cluster is granted
+`AcrPull` on the container registry — that is what lets pods pull images without
+a Kubernetes pull secret. If your account can't assign roles, `dude iac apply`
+fails on `azurerm_role_assignment.acr_pull`; ask whoever administers the
+subscription for *User Access Administrator*, or to pre-create the assignment.
+
+Check which subscriptions you can see:
+
+```bash
+az login
+az account list --output table
+```
+
+### Step 2 — sign in for this environment
+
+```bash
+dude iac login --env dev
+```
+
+This runs `az login` if you aren't signed in, then prints the subscription the
+`dev` environment will deploy into, and the id to pin it with. Pin it — an
+unpinned environment silently follows whatever `az account set` was run last:
+
+```hcl
+# iac/terraform/environments/dev/terraform.tfvars
+subscription_id = "00000000-0000-0000-0000-000000000000"
+```
+
+> On a machine with no browser, use `az login --use-device-code` first, then
+> re-run `dude iac login --env dev`.
+
+### Step 3 — create the shared resources (once per project)
+
+```bash
+dude iac bootstrap --state-prefix <yourorg> --location westeurope --env dev --yes
+```
+
+This creates, in a resource group `{{projectName}}-shared-rg`:
+
+- a **storage account** + `tfstate` blob container, holding the Terraform remote
+  state for *every* environment, and
+- an **Azure Container Registry**, holding the app images for *every* environment.
+
+then writes their names into `environments/dev/{backend.hcl,terraform.tfvars}` for
+you. No copy-paste.
+
+**About `--state-prefix`**: storage account and registry names are globally
+unique across all of Azure and allow only lowercase letters and digits — no
+hyphens, 24 characters max for the storage account. Use a short org slug
+(`acme`, `unicc`). If the name is taken you'll get a clear error; pick another
+prefix and re-run.
+
+You run this **once per project**, not once per environment.
+
+### Step 4 — initialise Terraform
+
+```bash
+dude iac init --env dev
+```
+
+Points Terraform at the remote state created in step 3.
+
+### Step 5 — provision the infrastructure
+
+```bash
+dude iac plan  --env dev     # review what will be created
+dude iac apply --env dev     # create it (add --yes to skip the prompt)
+```
+
+**This takes around 10 minutes.** The AKS cluster is most of it; the load
+balancer and its public IP add a couple of minutes at the end — `apply`
+deliberately waits for them, so that when it returns the hostname already
+resolves.
+
+What you get: a resource group, a virtual network, an AKS cluster with an
+autoscaling node pool, ingress-nginx behind a public IP with an Azure DNS
+label{{#if withPostgres}}, and a private PostgreSQL Flexible Server{{/if}}.
+
+### Step 6 — point kubectl at the cluster
+
+```bash
+dude iac kubeconfig --env dev
+```
+
+### Step 7 — ship the application
+
+```bash
+dude iac ship --env dev
+```
+
+Builds both production images, pushes them to the registry, and runs
+`helm upgrade --install`. The registry host, the image tag and the public
+hostname are wired in automatically.
+
+### Step 8 — open it
+
+```bash
+dude iac output --env dev        # look for app_url
+dude iac status --env dev        # helm release + pods
+```
+
+```
+http://{{projectName}}-dev.westeurope.cloudapp.azure.com/
+```
+
+The API is served under `/api`{{#if withPostgres}}; database migrations ran as a
+Helm pre-upgrade hook{{/if}}.
+
+**If the page doesn't load yet**, give the load balancer a minute and check the
+pods are up:
+
+```bash
+dude iac status --env dev
+dude iac shell --env dev      # then: kubectl describe ingress -n dev
+```
+
+---
+
+## The public hostname (and why there's no HTTPS)
+
+You do not need to own a domain. ingress-nginx asks Azure for a public IP **with
+a DNS label**, and Azure publishes it at:
+
+```
+<dns_label>.<location>.cloudapp.azure.com
+```
+
+`dns_label` defaults to `{{projectName}}-<env>` and lives in the environment's
+`terraform.tfvars`. It must be unique **within the region** — if `apply` reports
+the name is taken, change it there and re-apply. `dude iac deploy`/`ship` then
+reads the resulting hostname from the `app_host` Terraform output and sets it on
+the Ingress, which is why `ingress.host` is empty in the committed values file:
+it's a deploy-time fact, not a committed one.
+
+### HTTPS / TLS
+
+**That hostname is HTTP-only, and no setting changes it.**
+`cloudapp.azure.com` is not on the [Public Suffix List](https://publicsuffix.org/),
+so Let's Encrypt attributes any certificate for it to `azure.com` — a single rate
+limit shared by every Azure customer, permanently exhausted. There is no free
+trusted certificate for an Azure-assigned AKS hostname.
+
+Two real options:
+
+**a) Use a domain you own** (what this scaffold supports). Create a CNAME from
+your hostname to `<dns_label>.<location>.cloudapp.azure.com`, then:
+
+```hcl
+# iac/terraform/environments/dev/terraform.tfvars
+letsencrypt_email = "ops@example.com"
+```
+
+```bash
+dude iac apply --env dev      # installs cert-manager + a letsencrypt-prod ClusterIssuer
+```
+
+```yaml
+# iac/helm/app/values-dev.yaml
+ingress:
+  host: app.example.com
+  tls:
+    enabled: true
+    clusterIssuer: letsencrypt-prod
+```
+
+```bash
+dude iac deploy --env dev
+```
+
+The certificate is issued over HTTP-01 through the same ingress — nothing else
+to open, and it renews itself.
+
+**b) Front it with a service that brings its own certificate.** Azure Front Door
+Standard serves `*.azurefd.net` with a Microsoft-managed certificate and needs no
+domain. It is not provisioned here and has a monthly base cost.
+
+Until one of those is in place, the HTTP URL is fine for a demo or an internal
+review and not for anything handling real credentials.
+
+---
+
+## The IaC runner (Docker)
+
+`dude iac *` runs terraform / kubectl / helm / k9s inside a pinned container so
+you don't have to install or version-match any of them locally. The image is
+built on first use from `iac/runner/Dockerfile` — **which is yours to edit** (bump
+a tool version, add a CLI). The image is tagged by a hash of that file, so any
+change rebuilds automatically on the next command.
+
+- **Credentials** are never copied in: your `~/.azure` is mounted and the
+  environment's subscription is passed through, so your `az login` session keeps
+  working. That mount is read-**write** on purpose — the Azure CLI rewrites its
+  token cache when it refreshes an access token, and a read-only mount breaks
+  authentication as soon as the cached token expires. `~/.kube` is mounted
+  read-only as a fallback context.
+- **`dude iac login`** is the one command that stays on the host (it needs a
+  browser); it writes the token the container then reads.
+- **`dude iac build`/`push`** use the host Docker daemon (they build app images);
+  everything else runs in the container.
+- **Escape hatch**: set `DUDE_IAC_RUNNER=host` to run the tools natively from
+  your PATH instead. If Docker isn't running, `dude iac` falls back to native
+  tools automatically.
+- **`dude iac shell --env <env>`** drops you into the runner with all tools + k9s,
+  the env's subscription and cluster already wired — handy for ad-hoc inspection.
+
+## Subscriptions per environment
+
+Each `dude iac …` command is environment-scoped via `--env`, which is
+**required** — there is no default, so you never act on the wrong environment by
+accident. Run any command without it to list the environments discovered under
+`iac/terraform/environments/`. Each env resolves an **Azure subscription**, so
+different environments can live in different subscriptions. The precedence:
+
+1. an explicit `--subscription <id>` flag,
+2. `subscription_id` in the environment's `terraform.tfvars`,
+3. an already-exported `ARM_SUBSCRIPTION_ID` / `AZURE_SUBSCRIPTION_ID`,
+4. whatever `az account show` reports as your signed-in default.
+
+Pin it at level 2 for anything beyond a first experiment: it is the only level
+that is committed, reviewed, and the same for everyone on the team.
+
+## Build, push & deploy
+
+`dude` drives the whole release. The registry is read from Terraform outputs and
+the image tag defaults to the **git short SHA** (with a `-dirty-<hash>` suffix if
+you have uncommitted changes), so every deploy is traceable to an exact commit.
+Override with `--tag <tag>` (e.g. `--tag v1.2.3`).
+
+The fast inner loop:
+
+```bash
+dude iac ship   --env dev    # build → push → helm upgrade --install
+dude iac status --env dev    # release status + pods
+```
+
+Or run the stages individually (handy in CI, where each is a separate stage):
+
+```bash
+dude iac build  --env dev        # docker build BE+FE (linux/amd64) for the registry
+dude iac push   --env dev        # ACR login + docker push BE+FE
+dude iac deploy --env dev        # helm upgrade --install (auto-sets registry, tag, host)
+```
+
+> **Platform** — images are built for `linux/amd64` by default to match the AKS
+> x86 node pool. Building on Apple Silicon without this flag yields arm64 images
+> that crash on the cluster with `exec format error`. Override with `--platform`
+> if you move the node pool to Arm (`Standard_D2pds_v5` and friends).
+
+> **Overwriting a tag** — unlike ECR, a Basic-tier Azure registry lets a tag be
+> rewritten. `push`/`ship` warn when the tag already exists rather than refusing,
+> since re-shipping the same working tree is legitimate. To *promote* an existing
+> image instead of rebuilding it, use `dude iac deploy --env <env> --tag <tag>`.
+
+`deploy` injects `image.registry`, the image tags and `ingress.host` via `--set`,
+so you do not hand-edit them into `values-dev.yaml` — that file is still layered
+for the rest (resources, replicas{{#if withPostgres}}, secrets{{/if}}…).
+
+> **Config & secrets** — every app container loads its env via `envFrom` from a
+> ConfigMap (`.Values.config`) and a Secret (`.Values.secrets`). Each key is the
+> ENV VAR NAME exactly as `app/core/config.py` reads it, so adding a variable is
+> one line under `config:` / `secrets:` plus the field in `config.py`. Per-env
+> `values-<env>.yaml` files are **gitignored** (they may hold secrets like API
+> keys); the committed `values.yaml` is the documented reference.
+
+{{#if withPostgres}}`secrets.DATABASE_URL` must be present (the chart refuses to deploy otherwise),
+but you don't set it by hand: `dude iac ship`/`deploy` injects it via
+`--set-string` from the Terraform `database_url` output. The database has **no
+public endpoint** — it is reachable only from inside the VNet, which is why
+`psql` from your laptop won't connect. To reach it, port-forward through a pod or
+use `dude iac shell`.
+
+{{/if}}## Add a new environment
+
+```bash
+dude iac new-env --env prod          # copies dev by default; use --from <env> to pick the source
+```
+
+This scaffolds `iac/terraform/environments/prod/{backend.hcl,terraform.tfvars}`,
+setting `environment = "prod"`, a per-env state `key`, and a fresh `dns_label`
+(left at the source env's value, the new environment would collide with — or
+quietly take over — the old one's URL). The storage account, the state container
+**and the registry** are **shared** across environments, so you don't bootstrap
+again unless this is the first env on a brand-new backend. It also copies the
+source env's gitignored `iac/helm/app/values-<from>.yaml` to `values-prod.yaml`
+when present, so the new env starts from the same Helm overrides + secrets
+instead of the bare `values.yaml` defaults.
+
+Then edit `environments/prod/terraform.tfvars` (bigger nodes,{{#if withPostgres}} a
+General Purpose `db_sku_name`, `db_high_availability = true`,{{/if}} `sku_tier`,
+…) and `iac/helm/app/values-prod.yaml` (replicas, autoscaling, secrets, …), and
+run every command with `--env prod`:
+
+```bash
+dude iac init --env prod && dude iac apply --env prod && dude iac ship --env prod
+```
+
+## Local vs CI/CD
+
+The exact same commands run in CI — state is remote (Azure Blob Storage) and auth
+is the Azure CLI/SDK chain, so no kubeconfig file is committed. In a pipeline,
+authenticate with a service principal or workload identity federation by
+exporting `ARM_CLIENT_ID`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID` and either
+`ARM_CLIENT_SECRET` or OIDC; the Terraform provider picks them up with no flag
+changes. A pipeline typically runs: `dude iac init/plan/apply` → `dude iac build`
+→ `dude iac push` → `dude iac deploy` (or `dude iac ship` to collapse the last
+three). Pass an explicit `--tag $CI_COMMIT_SHA` so the pipeline controls
+provenance.
+
+## Tear down
+
+```bash
+dude iac destroy --env dev
+```
+
+`destroy` tears down **everything** for the environment, in order:
+
+1. uninstalls the Helm release and waits for the Ingress to go, so the ingress
+   controller releases the Azure load balancer and public IP cleanly;
+2. `terraform destroy` of the environment — which removes its whole resource
+   group, cluster{{#if withPostgres}}, database{{/if}} and network;
+3. re-checks that the resource group is actually gone (a delete still in flight,
+   or a resource lock, otherwise leaves it quietly billing);
+4. tears down the bootstrap — the shared state storage account **and** the shared
+   registry — but **only if no other environment still uses it** (see below).
+
+Flags for finer control:
+
+| Flag             | Effect                                                              |
+| ---------------- | ------------------------------------------------------------------- |
+| `--keep-backend` | Keep the shared bootstrap (state storage account **+ container registry**). It is kept automatically while another environment still uses it; pass this to force-keep it even when destroying the last environment. |
+| `--skip-helm`    | Skip the Helm uninstall (the release is already gone).              |
+| `--skip-tf`      | Skip the per-env `terraform destroy` — only run the Helm uninstall + backend teardown. |
+
+> The bootstrap holds the project-wide shared resources — the Terraform state
+> storage account **and** the container registry — used by every environment
+> (they differ only by their state `key`). To protect the other environments'
+> state *and registry*, `destroy` automatically **keeps** the bootstrap whenever
+> another environment is **still provisioned**, and only tears it down when
+> you're destroying the **last** one. Whether a sibling is "still provisioned" is
+> read from its remote Terraform state (empty after a destroy), not from its
+> folder on disk — so a leftover env folder you already destroyed won't keep the
+> backend alive. Pass `--keep-backend` to force-keep it even then.
+
+## Commands
+
+| Command | Wraps |
+|---------|-------|
+| `dude iac login`     | `az login` (when needed) + `az account show` for the env's subscription |
+| `dude iac new-env`   | scaffolds `environments/<name>/` from an existing env (`--env <name>`, `--from <src>`) |
+| `dude iac bootstrap` | `terraform init/apply` in `bootstrap/`, patches `backend.hcl` + `terraform.tfvars` |
+| `dude iac init`      | `terraform init` (azurerm backend per env) |
+| `dude iac plan`      | `terraform plan` |
+| `dude iac apply`     | `terraform apply` (`--yes` to auto-approve) |
+| `dude iac destroy`   | helm uninstall + `terraform destroy` + bootstrap teardown (`--yes`, `--keep-backend`, `--skip-helm`, `--skip-tf`) |
+| `dude iac output`    | `terraform output` (`--json`) |
+| `dude iac fmt`       | `terraform fmt -recursive` |
+| `dude iac validate`  | `terraform validate` |
+| `dude iac build`     | `docker build` BE+FE prod images (`linux/amd64`) |
+| `dude iac push`      | ACR token login + `docker push` BE+FE |
+| `dude iac kubeconfig`| `az aks get-credentials` from outputs |
+| `dude iac deploy`    | `helm upgrade --install` (auto-sets registry + tag + host{{#if withPostgres}} + DATABASE_URL{{/if}}) |
+| `dude iac ship`      | `build` + `push` + `deploy` |
+| `dude iac status`    | `helm status` + `kubectl get pods` |
+| `dude iac shell`     | interactive shell in the IaC runner container (terraform, kubectl, helm, k9s, az) |
+
+All commands take `--env <name>` (**required**; autodiscovered from
+`environments/*`) and `--subscription <id>` (overrides the env's resolved
+subscription). `build`/`push`/`deploy`/`ship` take `--tag <tag>` (default: git
+short SHA, `-dirty-<hash>` if uncommitted); `build`/`ship` also take `--platform`
+(default `linux/amd64`). `bootstrap` accepts `--state-prefix` (required) and
+`--location` (default `westeurope`).
+
+## Troubleshooting
+
+| Symptom | Cause / fix |
+| ------- | ----------- |
+| `apply` fails on `azurerm_role_assignment.acr_pull` with *AuthorizationFailed* | Your account can't assign roles. Ask for **User Access Administrator** (or Owner) on the subscription. |
+| `apply` fails: DNS label already in use | Another Azure resource in that region took it. Change `dns_label` in the env's `terraform.tfvars` and re-apply. |
+| `bootstrap` fails: storage account name taken | The name is global across Azure. Re-run with a different `--state-prefix`. |
+| App URL doesn't resolve | The load balancer and its DNS label take a couple of minutes after `apply`. Re-check `dude iac output --env <env>`. |
+| Pods stuck in `ImagePullBackOff` | The `AcrPull` role assignment hasn't propagated yet (up to a few minutes), or `apply` never created it. `dude iac shell --env <env>` then `kubectl describe pod <pod> -n <env>`. |
+| `init` fails with *AuthorizationPermissionMismatch* | You switched the backend to `use_azuread_auth`. That needs the data-plane role **Storage Blob Data Contributor** on the state storage account — subscription Owner alone is not enough. Grant it, or drop the setting (see `backend.hcl`). |
+| `Error acquiring the state lock` | A previous command died mid-run. `dude iac shell --env <env>`, then `terraform -chdir=iac/terraform force-unlock <id>`. |
+{{#if withPostgres}}| `psql` from your laptop can't connect | By design: the database has no public endpoint and lives inside the VNet. Reach it through a pod, or `dude iac shell`. |
+{{/if}}| `exec format error` in a pod | An arm64 image on an x86 node pool. Rebuild without overriding `--platform`. |

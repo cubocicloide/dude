@@ -1,0 +1,32 @@
+{{ .Chart.Name }} deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+1. Open the app:
+{{- if .Values.ingress.host }}
+
+   {{ if .Values.ingress.tls.enabled }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}/
+
+   (API is served under /api.)
+{{- else }}
+
+   No ingress host is set. `dude iac deploy` normally wires it from the Terraform
+   `app_host` output — run `dude iac output --env <env>` to check it is set, or
+   reach the ingress controller's IP directly:
+
+   kubectl get svc -n ingress-nginx ingress-nginx-controller \
+     -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+{{- end }}
+{{- if .Values.database.enabled }}
+
+2. Database: the pre-upgrade migration job runs `alembic upgrade head`.
+   The app reads DATABASE_URL from the Secret {{ include "app.fullname" . }}-secret;
+   `dude iac ship`/`deploy` wires it in automatically from the Terraform output.
+{{- end }}
+{{- if and .Values.celery.enabled .Values.celery.flower.enabled }}
+
+3. Flower (Celery monitor) is internal. Reach it with:
+
+   kubectl port-forward svc/{{ include "app.fullname" . }}-flower {{ .Values.celery.flower.port }}:{{ .Values.celery.flower.port }} -n {{ .Release.Namespace }}
+{{- end }}
+
+Pods:  kubectl get pods -n {{ .Release.Namespace }}
+Status: dude iac status --env <env>

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "app.fullname" . }}-config
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.config }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+  {{- if .Values.redis.enabled }}
+  CELERY_BROKER_URL: {{ include "app.redisUrl" . | quote }}
+  CELERY_RESULT_BACKEND: {{ include "app.redisUrl" . | quote }}
+  REDIS_URL: {{ include "app.redisUrl" . | quote }}
+  {{- end }}

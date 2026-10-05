@@ -1,0 +1,23 @@
+variable "project_name" {
+  description = "Project slug — used to name the shared resource group."
+  type        = string
+  default     = "{{projectName}}"
+}
+
+variable "location" {
+  description = "Azure region for the shared state storage account + container registry."
+  type        = string
+  default     = "westeurope"
+}
+
+variable "state_prefix" {
+  description = "Prefix making the storage account and registry names globally unique (e.g. your org slug). Lowercase letters/digits only."
+  type        = string
+  default     = "changeme"
+}
+
+variable "subscription_id" {
+  description = "Azure subscription to create the shared resources in. Empty = whatever ARM_SUBSCRIPTION_ID / your az default resolves to."
+  type        = string
+  default     = ""
+}
