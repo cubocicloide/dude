@@ -8,8 +8,9 @@
  */
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { projectName } from '../shared.js'
 import { azureEnv, capture, run } from './exec.js'
-import { tfOutputs } from './terraform.js'
+import { tfOutputs, tfvarsValue } from './terraform.js'
 
 /** ACR coordinates read from Terraform outputs. */
 export interface AcrRepos {
@@ -40,20 +41,54 @@ export const platformArg = {
 }
 
 /**
- * Read the ACR repository URLs + location from Terraform outputs. Returns `null`
- * when the outputs aren't available (infra not applied, no credentials, …).
+ * Build the registry coordinates from the environment's config rather than from
+ * Terraform outputs.
+ *
+ * The registry belongs to the *bootstrap*, not to an environment, so its name is
+ * known as soon as `dude iac bootstrap` has written `acr_name` into the env's
+ * tfvars — well before the environment itself has ever been applied. That
+ * matters because Container Apps validates that an image exists when it creates
+ * an app, so the images have to be built and pushed BEFORE the first apply, at a
+ * point when `terraform output` has nothing to say yet.
+ *
+ * The URLs are a convention (`<registry>/<project>-backend`), the same one the
+ * outputs produce, so the two agree.
  */
-export function readAcrRepos(projectRoot: string, subscription?: string): AcrRepos | null {
+function reposFromEnvConfig(projectRoot: string, env: string): AcrRepos | null {
+  const acrName = tfvarsValue(projectRoot, env, 'acr_name')
+  if (!acrName || acrName.startsWith('CHANGE-ME')) return null
+  const registryHost = `${acrName}.azurecr.io`
+  const project = projectName(projectRoot)
+  return {
+    backend: `${registryHost}/${project}-backend`,
+    frontend: `${registryHost}/${project}-frontend`,
+    registryHost,
+    registryName: acrName,
+    location: tfvarsValue(projectRoot, env, 'location'),
+  }
+}
+
+/**
+ * Read the ACR repository URLs + location from Terraform outputs, falling back
+ * to the environment's config when the environment has not been applied yet.
+ * Returns `null` when neither source can answer.
+ */
+export function readAcrRepos(
+  projectRoot: string,
+  subscription?: string,
+  env?: string,
+): AcrRepos | null {
   const o = tfOutputs(projectRoot, subscription)
-  if (!o) return null
   const str = (k: string): string => {
-    const v = o[k]?.value
+    const v = o?.[k]?.value
     return typeof v === 'string' ? v : ''
   }
   const backend = str('acr_backend_repository_url')
   const frontend = str('acr_frontend_repository_url')
   const registryHost = str('acr_login_server') || backend.split('/')[0] || ''
-  if (!backend || !frontend || !registryHost) return null
+  if (!backend || !frontend || !registryHost) {
+    return env ? reposFromEnvConfig(projectRoot, env) : null
+  }
   return {
     backend,
     frontend,
@@ -65,16 +100,50 @@ export function readAcrRepos(projectRoot: string, subscription?: string): AcrRep
   }
 }
 
-/** Resolve repos from Terraform outputs, printing the standard error on failure. */
-export function requireAcrRepos(projectRoot: string, subscription: string): AcrRepos {
-  const repos = readAcrRepos(projectRoot, subscription)
+/** Resolve repos, printing the standard error when neither source can answer. */
+export function requireAcrRepos(
+  projectRoot: string,
+  subscription: string,
+  env?: string,
+): AcrRepos {
+  const repos = readAcrRepos(projectRoot, subscription, env)
   if (!repos) {
     process.stderr.write(
-      'error: could not read Terraform outputs (acr_*_repository_url) — run `dude iac apply` first.\n',
+      '\n  ✗  Could not determine the container registry for this environment.\n' +
+        '     It is created by the bootstrap, which also records it in the env config:\n' +
+        `       dude iac bootstrap --state-prefix <prefix> --env ${env ?? '<env>'} --yes\n\n`,
     )
     process.exit(1)
   }
   return repos
+}
+
+/** True when `tag` is already published for both images. */
+export function imagesPublished(
+  projectRoot: string,
+  subscription: string | undefined,
+  tag: string,
+  repos: AcrRepos,
+): boolean {
+  return [repos.backend, repos.frontend].every(
+    (repo) =>
+      capture(
+        'az',
+        [
+          'acr',
+          'repository',
+          'show',
+          '--name',
+          repos.registryName,
+          '--image',
+          `${repoName(repo)}:${tag}`,
+          '--output',
+          'none',
+        ],
+        projectRoot,
+        subscription,
+      ).status === 0,
+  )
 }
 
 /**

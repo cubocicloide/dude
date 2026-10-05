@@ -328,6 +328,12 @@ resource "azurerm_container_app" "backend" {
     target_port      = 8000
     transport        = "auto"
 
+    # Plain HTTP on the internal ingress: this traffic never leaves the
+    # environment's own network, and requiring TLS here would mean the frontend
+    # proxying to https:// and validating a certificate for a hostname it only
+    # learns at deploy time — cost with no attacker to defend against.
+    allow_insecure_connections = true
+
     traffic_weight {
       latest_revision = true
       percentage      = 100
@@ -369,9 +375,13 @@ resource "azurerm_container_app" "frontend" {
       cpu    = var.frontend_cpu
       memory = var.frontend_memory
 
+      # The backend's full internal FQDN, not its short name: Container Apps
+      # routes by Host header, and nginx derives the Host it sends from this
+      # value. A short name resolves but produces a Host the platform's internal
+      # edge cannot map back to an app, which it answers with its own 404.
       env {
         name  = "BACKEND_URL"
-        value = "http://${local.backend_app}"
+        value = "http://${azurerm_container_app.backend.ingress[0].fqdn}"
       }
     }
   }
@@ -425,13 +435,16 @@ resource "azurerm_container_app" "worker" {
     min_replicas = var.worker_replicas
     max_replicas = var.worker_replicas
 
+    # `uv run`, and not a bare `celery`: the production image installs its
+    # dependencies into a uv-managed virtualenv that is not on PATH, which is
+    # why its own CMD is `uv run uvicorn …` too.
     container {
       name    = "worker"
       image   = local.backend_image
       cpu     = var.worker_cpu
       memory  = var.worker_memory
-      command = ["celery"]
-      args    = ["-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+      command = ["uv"]
+      args    = ["run", "celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info"]
 
       dynamic "env" {
         for_each = local.common_env
@@ -491,8 +504,8 @@ resource "azurerm_container_app" "beat" {
       image   = local.backend_image
       cpu     = 0.25
       memory  = "0.5Gi"
-      command = ["celery"]
-      args    = ["-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
+      command = ["uv"]
+      args    = ["run", "celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info"]
 
       dynamic "env" {
         for_each = local.common_env
@@ -557,8 +570,8 @@ resource "azurerm_container_app_job" "migrate" {
       image   = local.backend_image
       cpu     = 0.5
       memory  = "1Gi"
-      command = ["alembic"]
-      args    = ["upgrade", "head"]
+      command = ["uv"]
+      args    = ["run", "alembic", "upgrade", "head"]
 
       dynamic "env" {
         for_each = local.common_env

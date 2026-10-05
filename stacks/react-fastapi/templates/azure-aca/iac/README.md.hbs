@@ -96,35 +96,35 @@ lowercase letters and digits. Run this **once per project**, not per environment
 dude iac init --env dev
 ```
 
-### Step 5 — provision the infrastructure
+### Step 5 — build, push and provision, in one step
 
 ```bash
-dude iac plan  --env dev
-dude iac apply --env dev --yes
+dude iac ship --env dev
 ```
+
+**Not `apply` first.** Container Apps validates that an image exists when it
+creates an app — unlike Kubernetes, which accepts the app and leaves it in
+ImagePullBackOff — so applying before anything is published fails outright.
+`ship` builds both images, pushes them, records the tag and *then* applies, which
+is the order that works on a first deploy. `dude iac apply` checks this for you
+and says so rather than letting Azure produce an error that never mentions the
+real problem.
+
+Use `dude iac plan --env dev` to review the infrastructure first if you like; it
+does not need the images.
 
 Expect a few minutes.{{#if withPostgres}} The PostgreSQL Flexible Server is most
 of it.{{/if}} What you get: a resource group, a VNet, a Log Analytics workspace,
 a Container Apps environment, and one container app per service — frontend,
 backend{{#if withCelery}}, Celery worker{{/if}}{{#if withCeleryBeat}}, Celery
 beat{{/if}}{{#if withRedis}}, Redis{{/if}}{{#if withPostgres}} — plus a private
-PostgreSQL Flexible Server and a migration job{{/if}}.
+PostgreSQL Flexible Server, a migration job, and the migrations themselves run
+and waited for{{/if}}.
 
-> The first apply deploys the apps with the `latest` tag, which does not exist in
-> the registry yet, so they will not start. That is expected: step 6 builds the
-> real images and rolls the apps onto them.
+After the first deploy, the two halves separate: `dude iac apply` for
+infrastructure changes, `dude iac ship` (or `deploy`) to release new code.
 
-### Step 6 — ship the application
-
-```bash
-dude iac ship --env dev
-```
-
-Builds both production images, pushes them to the registry, records the tag in
-`terraform.tfvars`, applies{{#if withPostgres}}, then runs the database
-migrations and waits for them{{/if}}.
-
-### Step 7 — open it
+### Step 6 — open it
 
 ```bash
 dude iac output --env dev        # look for app_url
@@ -278,7 +278,8 @@ All commands take `--env <name>` (**required**) and `--subscription <id>`.
 | `apply` fails: subnet too small | The Container Apps subnet must be at least a `/23`. Widen `aca_subnet_cidr`. |
 | `bootstrap` fails: storage account name taken | The name is global across Azure. Re-run with a different `--state-prefix`. |
 | `init` fails: *ListBlobs … 404* | A brand-new storage account's blob endpoint takes a few minutes. `bootstrap` waits for it; if you hit this anyway, re-run `init` a minute later. |
-| Apps stuck, logs show image pull errors | The first apply deploys `latest`, which does not exist yet — run `dude iac ship`. If it persists, the `AcrPull` assignment may not have propagated (a few minutes). |
+| `apply` fails: *InvalidParameterValueInContainerTemplate … MANIFEST_UNKNOWN* | The configured `image_tag` is not in the registry. Container Apps refuses to create an app it cannot pull. Run `dude iac ship --env <env>`, which builds and pushes first. |
+| Apps stuck, logs show image pull errors | The `AcrPull` role assignment may not have propagated yet (a few minutes). |
 | `502` from the public URL | The backend is not up. `dude iac logs --env <env> --service backend`. |
 {{#if withPostgres}}| `psql` from your laptop can't connect | By design: the database has no public endpoint and lives inside the VNet. |
 {{/if}}| `exec format error` in an app | An arm64 image on x86 compute. Rebuild without overriding `--platform`. |

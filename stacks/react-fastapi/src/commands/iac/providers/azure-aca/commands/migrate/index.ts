@@ -106,7 +106,10 @@ export function runMigrations(
     if (status === 'Failed' || status === 'Degraded') {
       process.stderr.write(
         `\n  ✗  Migrations failed (${status}). Read the output with:\n` +
-          `       az containerapp job logs show --name ${job} --job-execution-name ${execution} --resource-group ${group}\n\n`,
+          `       az containerapp job logs show --name ${job} --resource-group ${group} \\\n` +
+          `         --container migrate --execution ${execution}\n` +
+          `     A finished replica is reaped quickly; if that reports no replicas, read the\n` +
+          `     job's output from Log Analytics instead (ContainerAppConsoleLogs_CL).\n\n`,
       )
       return 1
     }

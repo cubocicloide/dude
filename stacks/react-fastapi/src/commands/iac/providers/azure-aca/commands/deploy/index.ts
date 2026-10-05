@@ -28,7 +28,7 @@ export const iacDeployCommand: StackCommandDef = {
     const subscription = resolveSubscription(projectRoot, args, env)
     const tag = resolveTag(projectRoot, args)
     if (!tag) process.exit(1)
-    const repos = requireAcrRepos(projectRoot, subscription)
+    const repos = requireAcrRepos(projectRoot, subscription, env)
 
     const code = doDeploy(projectRoot, subscription, env, tag, repos)
     if (code !== 0) process.exit(code)

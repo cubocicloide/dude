@@ -58,20 +58,21 @@ dude iac bootstrap --state-prefix <yourorg> --env dev --yes
 # 3. Initialise Terraform against the remote backend
 dude iac init --env dev
 
-# 4. Provision the infrastructure
-dude iac apply --env dev --yes
-
-# 5. Build, push, deploy{{#if withPostgres}} and migrate{{/if}} in one step
+# 4. Build, push, provision{{#if withPostgres}} and migrate{{/if}} — in one step
 dude iac ship --env dev
 
-# 6. Find the URL
+# 5. Find the URL
 dude iac output --env dev        # app_url
 dude iac status --env dev        # every app, its state and revision
 ```
 
-> **The first `apply` deploys the `latest` tag**, which does not exist in the
-> registry yet, so the apps will not start. That is expected — step 5 builds the
-> real images and rolls the apps onto them.
+> **`ship` before `apply`, on a first deploy.** Container Apps validates that an
+> image exists when it creates an app — unlike a Kubernetes Deployment, which is
+> accepted and then sits in ImagePullBackOff. Applying before anything has been
+> published therefore fails outright, so `ship` builds and pushes first and then
+> applies. `dude iac apply` checks for this and says so, rather than letting
+> Azure return an error that never mentions the real cause. Afterwards the two
+> separate: `apply` for infrastructure, `ship`/`deploy` for code.
 
 ## Watching it run
 

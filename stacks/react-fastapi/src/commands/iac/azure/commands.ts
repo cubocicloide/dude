@@ -159,7 +159,7 @@ export function defineAzureBuild(t: AzureTarget): StackCommandDef {
       const subscription = resolveSubscription(projectRoot, args, env)
       const tag = resolveTag(projectRoot, args)
       if (!tag) process.exit(1)
-      const repos = requireAcrRepos(projectRoot, subscription)
+      const repos = requireAcrRepos(projectRoot, subscription, env)
       const platform = String(args.platform ?? 'linux/amd64')
       process.exit(
         doBuild(projectRoot, subscription, tag, repos, projectName(projectRoot), platform),
@@ -179,7 +179,7 @@ export function defineAzurePush(t: AzureTarget): StackCommandDef {
       const subscription = resolveSubscription(projectRoot, args, env)
       const tag = resolveTag(projectRoot, args)
       if (!tag) process.exit(1)
-      const repos = requireAcrRepos(projectRoot, subscription)
+      const repos = requireAcrRepos(projectRoot, subscription, env)
       warnTagExists(projectRoot, subscription, tag, repos)
       process.exit(doPush(projectRoot, subscription, tag, repos))
     },
