@@ -1,5 +1,12 @@
 # @cubocicloide/stack-tauri
 
+## 2.2.3
+
+### Patch Changes
+
+- Updated dependencies [735a77a]
+  - @cubocicloide/dude@0.18.0
+
 ## 2.2.2
 
 ### Patch Changes
