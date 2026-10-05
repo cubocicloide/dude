@@ -1,27 +1,5 @@
-/** `dude iac output` — print Terraform outputs for an environment. */
-import type { StackCommandDef } from '@cubocicloide/dude'
-import {
-  envArg,
-  hasIac,
-  requireEnv,
-  requireIac,
-  resolveSubscription,
-  tf,
-} from '../../lib/terraform.js'
+/** `dude iac output` — shared across the Azure targets; see `iac/azure/commands.ts`. */
+import { defineAzureOutput } from '../../../../azure/commands.js'
+import { azureAksTarget } from '../../lib/target.js'
 
-export const iacOutputCommand: StackCommandDef = {
-  available: hasIac,
-  description:
-    'Print Terraform outputs for an environment (cluster name, ACR URLs, app URL, database endpoint…).',
-  args: {
-    ...envArg,
-    json: { type: 'boolean', description: 'Emit machine-readable JSON.' },
-  },
-  async run({ projectRoot, args }) {
-    if (!requireIac(projectRoot)) process.exit(1)
-    const env = requireEnv(projectRoot, args)
-    const subscription = resolveSubscription(projectRoot, args, env)
-    const extra = args.json ? ['-json'] : []
-    process.exit(tf(projectRoot, ['output', ...extra], subscription))
-  },
-}
+export const iacOutputCommand = defineAzureOutput(azureAksTarget)

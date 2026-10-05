@@ -1,0 +1,69 @@
+# dev environment — small, cost-conscious defaults.
+# Copy this folder to add a new environment (`dude iac new-env --env prod`) and
+# bump the sizing / durability knobs there.
+
+environment = "dev"
+
+# Several popular regions — West Europe notably — are capacity-closed to NEW
+# subscriptions and reject resource creation with "RequestDisallowedByAzure: the
+# selected region is currently not accepting new customers". North Europe is the
+# default because it is reliably open. Before switching, create something cheap
+# there first, or check https://aka.ms/locationineligible.
+location = "northeurope"
+
+# Azure subscription this environment deploys into. Leave empty to use whichever
+# subscription `az account show` reports; pin it here once you know the id, so
+# two environments can never land in the same place by accident.
+# `dude iac login --env dev` prints the id to paste in.
+subscription_id = ""
+
+# Shared container registry — filled in by `dude iac bootstrap`.
+acr_name           = "CHANGE-ME"
+acr_resource_group = "{{projectName}}-shared-rg"
+
+# The image tag every container app runs. `dude iac deploy`/`ship` rewrites this
+# line, so it is the committed record of what is deployed — commit it after a
+# release and the next `terraform apply` will not roll production backwards.
+image_tag = "latest"
+
+# Network. The Container Apps subnet must be at least a /23; the platform
+# refuses anything smaller.
+vnet_cidr       = "10.0.0.0/16"
+aca_subnet_cidr = "10.0.0.0/23"
+{{#if withPostgres}}
+db_subnet_cidr  = "10.0.4.0/24"
+{{/if}}
+
+# Application sizing. Allowed cpu/memory pairs are fixed by the platform:
+# 0.25/0.5Gi, 0.5/1Gi, 0.75/1.5Gi, 1/2Gi, 1.25/2.5Gi, …
+# Setting a min_replicas of 0 makes a service free while idle, at the cost of a
+# cold start on the next request — fine for the backend in dev, awkward for the
+# frontend because it is the first thing a visitor hits.
+frontend_cpu          = 0.25
+frontend_memory       = "0.5Gi"
+frontend_min_replicas = 1
+frontend_max_replicas = 3
+
+backend_cpu          = 0.5
+backend_memory       = "1Gi"
+backend_min_replicas = 1
+backend_max_replicas = 3
+{{#if withCelery}}
+
+worker_cpu      = 0.5
+worker_memory   = "1Gi"
+worker_replicas = 1
+{{/if}}
+
+debug              = "true"
+log_retention_days = 30
+{{#if withPostgres}}
+
+# Azure Database for PostgreSQL (Flexible Server)
+# Burstable (B_) is the cheap dev tier; move to GP_Standard_* for production —
+# zone-redundant HA is not available on Burstable.
+db_sku_name              = "B_Standard_B1ms"
+db_storage_mb            = 32768
+db_backup_retention_days = 7
+db_high_availability     = false
+{{/if}}

@@ -1,0 +1,580 @@
+locals {
+  name = "${var.project_name}-${var.environment}"
+
+  backend_app  = "${local.name}-backend"
+  frontend_app = "${local.name}-frontend"
+{{#if withCelery}}
+  worker_app   = "${local.name}-worker"
+{{/if}}
+{{#if withCeleryBeat}}
+  beat_app     = "${local.name}-beat"
+{{/if}}
+{{#if withRedis}}
+  redis_app    = "${local.name}-redis"
+  # Apps in one Container Apps environment resolve each other by app name, so
+  # the broker URL needs no FQDN and no output plumbing.
+  redis_url = "redis://${local.redis_app}:6379/0"
+{{/if}}
+
+  backend_image  = "${data.azurerm_container_registry.shared.login_server}/${var.project_name}-backend:${var.image_tag}"
+  frontend_image = "${data.azurerm_container_registry.shared.login_server}/${var.project_name}-frontend:${var.image_tag}"
+
+  # Non-sensitive configuration, applied to every app that runs application code.
+  # Each key is the ENV VAR NAME exactly as backend/app/core/config.py reads it,
+  # so adding a setting is a line here plus the field in config.py.
+  common_env = merge(
+    {
+      APP_TITLE = var.project_name
+      DEBUG     = var.debug
+    },
+{{#if withRedis}}
+    {
+      CELERY_BROKER_URL     = local.redis_url
+      CELERY_RESULT_BACKEND = local.redis_url
+      REDIS_URL             = local.redis_url
+    },
+{{else}}
+    {},
+{{/if}}
+  )
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "azurerm_resource_group" "this" {
+  name     = "${local.name}-rg"
+  location = var.location
+  tags     = local.tags
+}
+
+# ── Network ───────────────────────────────────────────────────────────────────
+# The environment is VNet-injected so the application can reach a PostgreSQL
+# server that has no public endpoint. Its public ingress is unaffected: the
+# platform still publishes an internet-facing HTTPS endpoint for apps marked
+# external.
+resource "azurerm_virtual_network" "this" {
+  name                = "${local.name}-vnet"
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+  address_space       = [var.vnet_cidr]
+  tags                = local.tags
+}
+
+resource "azurerm_subnet" "aca" {
+  name                 = "${local.name}-aca-snet"
+  resource_group_name  = azurerm_resource_group.this.name
+  virtual_network_name = azurerm_virtual_network.this.name
+  address_prefixes     = [var.aca_subnet_cidr]
+
+  delegation {
+    name = "containerapps"
+    service_delegation {
+      name    = "Microsoft.App/environments"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
+}
+{{#if withPostgres}}
+
+# Flexible Server with VNet integration requires a subnet delegated exclusively
+# to it — the database gets a private address inside the VNet and is never
+# exposed to the internet.
+resource "azurerm_subnet" "db" {
+  name                 = "${local.name}-db-snet"
+  resource_group_name  = azurerm_resource_group.this.name
+  virtual_network_name = azurerm_virtual_network.this.name
+  address_prefixes     = [var.db_subnet_cidr]
+
+  service_endpoints = ["Microsoft.Storage"]
+
+  delegation {
+    name = "postgres"
+    service_delegation {
+      name = "Microsoft.DBforPostgreSQL/flexibleServers"
+      actions = [
+        "Microsoft.Network/virtualNetworks/subnets/join/action",
+      ]
+    }
+  }
+}
+{{/if}}
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+# A Container Apps environment requires a Log Analytics workspace; it is also
+# what `dude iac logs` reads.
+resource "azurerm_log_analytics_workspace" "this" {
+  name                = "${local.name}-logs"
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+  sku                 = "PerGB2018"
+  retention_in_days   = var.log_retention_days
+  tags                = local.tags
+}
+
+# ── Container Apps environment ────────────────────────────────────────────────
+resource "azurerm_container_app_environment" "this" {
+  name                       = "${local.name}-env"
+  resource_group_name        = azurerm_resource_group.this.name
+  location                   = azurerm_resource_group.this.location
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.this.id
+  infrastructure_subnet_id   = azurerm_subnet.aca.id
+
+  # false = the environment still gets a public ingress endpoint (with its
+  # Microsoft-managed certificate) while living inside the VNet. Setting it true
+  # would make every app reachable only from inside the network.
+  internal_load_balancer_enabled = false
+
+  tags = local.tags
+}
+
+# ── Registry access ───────────────────────────────────────────────────────────
+# The registry is shared across environments and owned by the bootstrap config
+# (one image, promoted dev → staging → prod by tag), so it is read here, never
+# created. A user-assigned identity with AcrPull is what lets the apps pull
+# without an admin username/password stored on each one.
+data "azurerm_container_registry" "shared" {
+  name                = var.acr_name
+  resource_group_name = var.acr_resource_group
+}
+
+resource "azurerm_user_assigned_identity" "apps" {
+  name                = "${local.name}-identity"
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+  tags                = local.tags
+}
+
+resource "azurerm_role_assignment" "acr_pull" {
+  scope                            = data.azurerm_container_registry.shared.id
+  role_definition_name             = "AcrPull"
+  principal_id                     = azurerm_user_assigned_identity.apps.principal_id
+  skip_service_principal_aad_check = true
+}
+{{#if withPostgres}}
+
+# ── Azure Database for PostgreSQL (Flexible Server) ───────────────────────────
+# The admin password is generated here and surfaced through the `database_url`
+# output (sensitive) — there is no Azure Key Vault in this path. `special = false`
+# keeps it URL-safe (no characters that need percent-encoding).
+resource "random_password" "db" {
+  length  = 32
+  special = false
+}
+
+# The server has no public endpoint: it is reachable only from inside the VNet,
+# which is where the Container Apps environment runs.
+resource "azurerm_private_dns_zone" "postgres" {
+  name                = "${local.name}.postgres.database.azure.com"
+  resource_group_name = azurerm_resource_group.this.name
+  tags                = local.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
+  name                  = "${local.name}-pg-link"
+  resource_group_name   = azurerm_resource_group.this.name
+  private_dns_zone_name = azurerm_private_dns_zone.postgres.name
+  virtual_network_id    = azurerm_virtual_network.this.id
+  registration_enabled  = false
+  tags                  = local.tags
+}
+
+resource "azurerm_postgresql_flexible_server" "this" {
+  name                = "${local.name}-pg"
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+
+  version    = var.db_version
+  sku_name   = var.db_sku_name
+  storage_mb = var.db_storage_mb
+
+  administrator_login    = var.db_username
+  administrator_password = random_password.db.result
+
+  backup_retention_days = var.db_backup_retention_days
+
+  delegated_subnet_id           = azurerm_subnet.db.id
+  private_dns_zone_id           = azurerm_private_dns_zone.postgres.id
+  public_network_access_enabled = false
+
+  dynamic "high_availability" {
+    for_each = var.db_high_availability ? [1] : []
+    content {
+      mode = "ZoneRedundant"
+    }
+  }
+
+  # `zone` is assigned by Azure when it isn't pinned, and it then shows up as a
+  # diff on every subsequent plan.
+  lifecycle {
+    ignore_changes = [zone]
+  }
+
+  tags = local.tags
+
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres]
+}
+
+resource "azurerm_postgresql_flexible_server_database" "app" {
+  name      = var.db_name
+  server_id = azurerm_postgresql_flexible_server.this.id
+  collation = "en_US.utf8"
+  charset   = "utf8"
+}
+
+locals {
+  database_url = "postgresql://${var.db_username}:${random_password.db.result}@${azurerm_postgresql_flexible_server.this.fqdn}:5432/${var.db_name}?sslmode=require"
+}
+{{/if}}
+{{#if withRedis}}
+
+# ── Redis (Celery broker + result backend) ────────────────────────────────────
+# An in-environment container app rather than Azure Cache for Redis: the managed
+# service starts around an order of magnitude more expensive per month, and this
+# broker holds no data worth surviving a restart. Internal ingress with TCP
+# transport, so only the apps in this environment can reach it.
+resource "azurerm_container_app" "redis" {
+  name                         = local.redis_app
+  resource_group_name          = azurerm_resource_group.this.name
+  container_app_environment_id = azurerm_container_app_environment.this.id
+  revision_mode                = "Single"
+  tags                         = local.tags
+
+  template {
+    min_replicas = 1
+    max_replicas = 1
+
+    container {
+      name   = "redis"
+      image  = var.redis_image
+      cpu    = 0.25
+      memory = "0.5Gi"
+    }
+  }
+
+  ingress {
+    external_enabled = false
+    target_port      = 6379
+    exposed_port     = 6379
+    transport        = "tcp"
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+}
+{{/if}}
+
+# ── Backend ───────────────────────────────────────────────────────────────────
+# Internal ingress: the backend is reachable from the frontend app (which proxies
+# /api to it) but never directly from the internet.
+resource "azurerm_container_app" "backend" {
+  name                         = local.backend_app
+  resource_group_name          = azurerm_resource_group.this.name
+  container_app_environment_id = azurerm_container_app_environment.this.id
+  revision_mode                = "Single"
+  tags                         = local.tags
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.apps.id]
+  }
+
+  registry {
+    server   = data.azurerm_container_registry.shared.login_server
+    identity = azurerm_user_assigned_identity.apps.id
+  }
+{{#if withPostgres}}
+
+  secret {
+    name  = "database-url"
+    value = local.database_url
+  }
+{{/if}}
+
+  template {
+    min_replicas = var.backend_min_replicas
+    max_replicas = var.backend_max_replicas
+
+    container {
+      name   = "backend"
+      image  = local.backend_image
+      cpu    = var.backend_cpu
+      memory = var.backend_memory
+
+      dynamic "env" {
+        for_each = local.common_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+{{#if withPostgres}}
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+{{/if}}
+    }
+  }
+
+  ingress {
+    external_enabled = false
+    target_port      = 8000
+    transport        = "auto"
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
+  depends_on = [azurerm_role_assignment.acr_pull]
+}
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+# The one externally reachable app. Container Apps gives it an HTTPS endpoint on
+# the environment's domain with a Microsoft-managed certificate — no domain and
+# no certificate authority involved. It proxies /api to the backend over the
+# environment's internal network (see frontend/nginx.conf.template).
+resource "azurerm_container_app" "frontend" {
+  name                         = local.frontend_app
+  resource_group_name          = azurerm_resource_group.this.name
+  container_app_environment_id = azurerm_container_app_environment.this.id
+  revision_mode                = "Single"
+  tags                         = local.tags
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.apps.id]
+  }
+
+  registry {
+    server   = data.azurerm_container_registry.shared.login_server
+    identity = azurerm_user_assigned_identity.apps.id
+  }
+
+  template {
+    min_replicas = var.frontend_min_replicas
+    max_replicas = var.frontend_max_replicas
+
+    container {
+      name   = "frontend"
+      image  = local.frontend_image
+      cpu    = var.frontend_cpu
+      memory = var.frontend_memory
+
+      env {
+        name  = "BACKEND_URL"
+        value = "http://${local.backend_app}"
+      }
+    }
+  }
+
+  ingress {
+    external_enabled           = true
+    target_port                = 8080
+    transport                  = "auto"
+    allow_insecure_connections = false
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
+  depends_on = [azurerm_role_assignment.acr_pull, azurerm_container_app.backend]
+}
+{{#if withCelery}}
+
+# ── Celery worker ─────────────────────────────────────────────────────────────
+# No ingress: nothing connects to a worker, it pulls from the broker. Replicas
+# are fixed rather than autoscaled — scaling on queue depth needs a KEDA rule
+# tuned to the workload, which is a decision this scaffold should not make for
+# you.
+resource "azurerm_container_app" "worker" {
+  name                         = local.worker_app
+  resource_group_name          = azurerm_resource_group.this.name
+  container_app_environment_id = azurerm_container_app_environment.this.id
+  revision_mode                = "Single"
+  tags                         = local.tags
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.apps.id]
+  }
+
+  registry {
+    server   = data.azurerm_container_registry.shared.login_server
+    identity = azurerm_user_assigned_identity.apps.id
+  }
+{{#if withPostgres}}
+
+  secret {
+    name  = "database-url"
+    value = local.database_url
+  }
+{{/if}}
+
+  template {
+    min_replicas = var.worker_replicas
+    max_replicas = var.worker_replicas
+
+    container {
+      name    = "worker"
+      image   = local.backend_image
+      cpu     = var.worker_cpu
+      memory  = var.worker_memory
+      command = ["celery"]
+      args    = ["-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+
+      dynamic "env" {
+        for_each = local.common_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+{{#if withPostgres}}
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+{{/if}}
+    }
+  }
+
+  depends_on = [azurerm_role_assignment.acr_pull]
+}
+{{/if}}
+{{#if withCeleryBeat}}
+
+# ── Celery Beat ───────────────────────────────────────────────────────────────
+# Exactly one replica, always: beat is a scheduler, and a second instance would
+# emit every periodic task twice.
+resource "azurerm_container_app" "beat" {
+  name                         = local.beat_app
+  resource_group_name          = azurerm_resource_group.this.name
+  container_app_environment_id = azurerm_container_app_environment.this.id
+  revision_mode                = "Single"
+  tags                         = local.tags
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.apps.id]
+  }
+
+  registry {
+    server   = data.azurerm_container_registry.shared.login_server
+    identity = azurerm_user_assigned_identity.apps.id
+  }
+{{#if withPostgres}}
+
+  secret {
+    name  = "database-url"
+    value = local.database_url
+  }
+{{/if}}
+
+  template {
+    min_replicas = 1
+    max_replicas = 1
+
+    container {
+      name    = "beat"
+      image   = local.backend_image
+      cpu     = 0.25
+      memory  = "0.5Gi"
+      command = ["celery"]
+      args    = ["-A", "app.core.celery_app.celery_app", "beat", "--loglevel=info"]
+
+      dynamic "env" {
+        for_each = local.common_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+{{#if withPostgres}}
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+{{/if}}
+    }
+  }
+
+  depends_on = [azurerm_role_assignment.acr_pull]
+}
+{{/if}}
+{{#if withPostgres}}
+
+# ── Migration job ─────────────────────────────────────────────────────────────
+# A manually-triggered Container Apps job rather than a startup step in the
+# backend: with more than one replica, a migration on start-up races itself, and
+# a failure would be discovered in application logs instead of failing the
+# deploy. `dude iac deploy`/`ship` starts this and waits for it.
+resource "azurerm_container_app_job" "migrate" {
+  name                         = "${local.name}-migrate"
+  resource_group_name          = azurerm_resource_group.this.name
+  location                     = azurerm_resource_group.this.location
+  container_app_environment_id = azurerm_container_app_environment.this.id
+  tags                         = local.tags
+
+  replica_timeout_in_seconds = 600
+  replica_retry_limit        = 0
+
+  manual_trigger_config {
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.apps.id]
+  }
+
+  registry {
+    server   = data.azurerm_container_registry.shared.login_server
+    identity = azurerm_user_assigned_identity.apps.id
+  }
+
+  secret {
+    name  = "database-url"
+    value = local.database_url
+  }
+
+  template {
+    container {
+      name    = "migrate"
+      image   = local.backend_image
+      cpu     = 0.5
+      memory  = "1Gi"
+      command = ["alembic"]
+      args    = ["upgrade", "head"]
+
+      dynamic "env" {
+        for_each = local.common_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+    }
+  }
+
+  depends_on = [azurerm_role_assignment.acr_pull]
+}
+{{/if}}

@@ -1,12 +1,5 @@
-/** `dude iac validate` — validate the Terraform configuration. */
-import type { StackCommandDef } from '@cubocicloide/dude'
-import { hasIac, requireIac, tf } from '../../lib/terraform.js'
+/** `dude iac validate` — shared across the Azure targets; see `iac/azure/commands.ts`. */
+import { defineAzureValidate } from '../../../../azure/commands.js'
+import { azureAksTarget } from '../../lib/target.js'
 
-export const iacValidateCommand: StackCommandDef = {
-  available: hasIac,
-  description: 'Validate the Terraform configuration.',
-  async run({ projectRoot }) {
-    if (!requireIac(projectRoot)) process.exit(1)
-    process.exit(tf(projectRoot, ['validate']))
-  },
-}
+export const iacValidateCommand = defineAzureValidate(azureAksTarget)

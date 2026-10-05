@@ -51,7 +51,7 @@ export const iacShipCommand: StackCommandDef = {
     code = doDeploy(projectRoot, subscription, env, ns, tag, repos)
     if (code === 0) {
       process.stdout.write(`\n  ✓  Shipped ${project}:${tag} to "${env}".\n`)
-      if (repos.host) process.stdout.write(`     http://${repos.host}/\n`)
+      if (repos.appUrl) process.stdout.write(`     ${repos.appUrl}\n`)
       process.stdout.write('\n')
     }
     process.exit(code)

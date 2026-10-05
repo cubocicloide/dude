@@ -66,8 +66,8 @@ export default defineStack({
     {
       name: 'iac',
       type: 'select',
-      prompt: 'Infrastructure-as-Code (Terraform + Helm)',
-      choices: ['none', 'aws-eks', 'azure-aks'],
+      prompt: 'Infrastructure-as-Code (Terraform; Helm on the Kubernetes targets)',
+      choices: ['none', 'aws-eks', 'azure-aks', 'azure-aca'],
       default: 'none',
     },
   ],
@@ -85,6 +85,7 @@ export default defineStack({
     iac: [
       { provider: 'aws-eks', flag: '--iac aws-eks' },
       { provider: 'azure-aks', flag: '--iac azure-aks' },
+      { provider: 'azure-aca', flag: '--iac azure-aca' },
     ],
     pages: [
       { file: 'index.md', title: 'Home' },
@@ -110,8 +111,19 @@ export default defineStack({
     // base templates don't have to branch just to print it.
     const withAwsEks = answers.iac === 'aws-eks'
     const withAzureAks = answers.iac === 'azure-aks'
-    const withIac = withAwsEks || withAzureAks
-    const iacLabel = withAwsEks ? 'AWS EKS' : withAzureAks ? 'Azure AKS' : ''
+    const withAzureAca = answers.iac === 'azure-aca'
+    const withIac = withAwsEks || withAzureAks || withAzureAca
+    // `withKubernetes` is what the templates should branch on wherever the
+    // distinction is "is there a cluster", not "which cloud" — the Container
+    // Apps target is the first one where those two questions differ.
+    const withKubernetes = withAwsEks || withAzureAks
+    const iacLabel = withAwsEks
+      ? 'AWS EKS'
+      : withAzureAks
+        ? 'Azure AKS'
+        : withAzureAca
+          ? 'Azure Container Apps'
+          : ''
 
     const data: Record<string, unknown> = {
       ...answers,
@@ -122,6 +134,8 @@ export default defineStack({
       withIac,
       withAwsEks,
       withAzureAks,
+      withAzureAca,
+      withKubernetes,
       iacLabel,
       dudeVersion,
       stackVersion,
@@ -161,6 +175,9 @@ export default defineStack({
     if (withAzureAks) {
       await renderTemplateTree({ src: path.join(templates, 'azure-aks'), dest, data })
     }
+    if (withAzureAca) {
+      await renderTemplateTree({ src: path.join(templates, 'azure-aca'), dest, data })
+    }
 
     // Generate the typed API client from the openapi.yaml that was just
     // rendered into the destination. This makes `dude api sync` a no-op
@@ -180,6 +197,7 @@ export default defineStack({
       const withCelery = Boolean(ctx.answers.celery) || Boolean(ctx.answers.celeryBeat)
       const withAwsEks = ctx.answers.iac === 'aws-eks'
       const withAzureAks = ctx.answers.iac === 'azure-aks'
+      const withAzureAca = ctx.answers.iac === 'azure-aca'
 
       ctx.logger.info('Project scaffolded. Next steps:')
       ctx.logger.info('')
@@ -228,7 +246,17 @@ export default defineStack({
         ctx.logger.info('       dude iac init --env dev && dude iac apply --env dev')
         ctx.logger.info('       dude iac kubeconfig --env dev && dude iac ship --env dev')
         ctx.logger.info('     The app is published on Azure\u2019s own hostname:')
-        ctx.logger.info(`       http://${name}-dev.westeurope.cloudapp.azure.com/`)
+        ctx.logger.info(`       http://${name}-dev.northeurope.cloudapp.azure.com/`)
+      }
+      if (withAzureAca) {
+        ctx.logger.info('')
+        ctx.logger.info('  Deploy to Azure Container Apps (Terraform) \u2014 see iac/README.md:')
+        ctx.logger.info('       dude iac login --env dev')
+        ctx.logger.info('       dude iac bootstrap --state-prefix <your-org> --env dev --yes')
+        ctx.logger.info('       dude iac init --env dev && dude iac apply --env dev')
+        ctx.logger.info('       dude iac ship --env dev')
+        ctx.logger.info('     The app is served over HTTPS on an Azure-managed hostname')
+        ctx.logger.info('     (no domain or certificate needed) \u2014 dude iac output prints it.')
       }
     },
   },

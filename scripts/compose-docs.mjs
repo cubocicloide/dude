@@ -223,6 +223,12 @@ async function collect() {
 
 // ── Render helpers ────────────────────────────────────────────────────────────
 
+/** `a`, `b` or `c` — an Oxford-free list, for prose rather than a table cell. */
+function orList(items) {
+  if (items.length <= 1) return items[0] ?? ''
+  return `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`
+}
+
 /**
  * A manifest's IaC targets, always as an array. `docs.iac` is either one object
  * or a list of them (a stack may offer a choice of clouds) — mirrors
@@ -356,7 +362,7 @@ function renderStackPage(s) {
       '',
       `This stack ships ${targets.length} infrastructure-as-code targets: ` +
         `${targets.map((t) => `**${t.provider}**`).join(', ')}.`,
-      `Pick one at scaffold time with ${targets.map((t) => `\`${t.flag}\``).join(' or ')} —`,
+      `Pick one at scaffold time with ${orList(targets.map((t) => `\`${t.flag}\``))} —`,
       'exactly one applies to a project. The `dude iac` commands then mean the same',
       "thing whichever target you chose. The full deploy guide is part of the",
       "project's own documentation — run `dude docs` after scaffolding.",

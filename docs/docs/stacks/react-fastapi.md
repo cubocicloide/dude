@@ -27,7 +27,7 @@ answer it non-interactively. Flag names ignore case and dashes, so
 | Database | `--database <none\|postgres>` | `none` |
 | Add Celery worker? | `--celery` | `false` |
 | Add Celery Beat scheduler? (requires Celery — auto-enabled) | `--celery-beat` | `false` |
-| Infrastructure-as-Code (Terraform + Helm) | `--iac <none\|aws-eks\|azure-aks>` | `none` |
+| Infrastructure-as-Code (Terraform; Helm on the Kubernetes targets) | `--iac <none\|aws-eks\|azure-aks\|azure-aca>` | `none` |
 
 ## What it is for
 
@@ -38,8 +38,8 @@ answer it non-interactively. Flag names ignore case and dashes, so
 
 ## Deploying to the cloud
 
-This stack ships 2 infrastructure-as-code targets: **aws-eks**, **azure-aks**.
-Pick one at scaffold time with `--iac aws-eks` or `--iac azure-aks` —
+This stack ships 3 infrastructure-as-code targets: **aws-eks**, **azure-aks**, **azure-aca**.
+Pick one at scaffold time with `--iac aws-eks`, `--iac azure-aks` or `--iac azure-aca` —
 exactly one applies to a project. The `dude iac` commands then mean the same
 thing whichever target you chose. The full deploy guide is part of the
 project's own documentation — run `dude docs` after scaffolding.

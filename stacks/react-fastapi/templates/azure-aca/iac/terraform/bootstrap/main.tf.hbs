@@ -1,0 +1,123 @@
+# Bootstrap — creates the project-wide shared resources: the Azure Storage
+# account + blob container that hold Terraform remote state for every
+# environment, and the container registry the app images are pushed to. These
+# are SHARED across all environments (one image, promoted dev → staging → prod by
+# tag), so they have a single owner here rather than being recreated by each
+# per-env config — which would otherwise collide and let one env's `destroy`
+# delete another env's registry. Run ONCE per project, with LOCAL state (this
+# config has no remote backend on purpose).
+#
+# There is no lock table to create: the azurerm backend locks state with a blob
+# lease, which the storage account below provides for free.
+#
+#   dude iac bootstrap --state-prefix <your-org> --location northeurope --env dev --yes
+
+terraform {
+  required_version = ">= 1.6.0"
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.14"
+    }
+  }
+}
+
+provider "azurerm" {
+  features {
+    resource_group {
+      # The state container and the registry both live in this group, and
+      # `dude iac destroy` only reaches here once no environment still uses
+      # them — so refusing to delete a non-empty group would just block the
+      # teardown it has already decided is safe.
+      prevent_deletion_if_contains_resources = false
+    }
+  }
+
+  # Left to ARM_SUBSCRIPTION_ID, which `dude iac` sets from the environment's
+  # `subscription_id` (or your `az` default). Pinning it here instead would mean
+  # every project hard-codes one subscription into a committed file.
+  subscription_id = var.subscription_id != "" ? var.subscription_id : null
+}
+
+# Storage account and registry names are globally unique across Azure and accept
+# only lowercase letters and digits — no hyphens, 24 chars max for the storage
+# account. Hence the strip-and-truncate rather than a plain interpolation.
+locals {
+  slug            = lower(replace("${var.state_prefix}${var.project_name}", "/[^a-zA-Z0-9]/", ""))
+  storage_account = substr("${local.slug}tfstate", 0, 24)
+  registry_name   = substr("${local.slug}acr", 0, 50)
+  resource_group  = "${var.project_name}-shared-rg"
+}
+
+resource "azurerm_resource_group" "shared" {
+  name     = local.resource_group
+  location = var.location
+
+  tags = {
+    Project   = var.project_name
+    ManagedBy = "terraform"
+    Scope     = "shared"
+  }
+}
+
+resource "azurerm_storage_account" "state" {
+  name                     = local.storage_account
+  resource_group_name      = azurerm_resource_group.shared.name
+  location                 = azurerm_resource_group.shared.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+
+  # Terraform state records every attribute of every resource — including the
+  # generated database password — so it is never reachable anonymously and never
+  # over plaintext HTTP.
+  https_traffic_only_enabled      = true
+  min_tls_version                 = "TLS1_2"
+  allow_nested_items_to_be_public = false
+  shared_access_key_enabled       = true
+
+  blob_properties {
+    # Versioning is what makes a corrupted or truncated state recoverable; 30
+    # days of retention is enough to notice and roll back.
+    versioning_enabled = true
+    delete_retention_policy {
+      days = 30
+    }
+  }
+
+  tags = {
+    Project   = var.project_name
+    ManagedBy = "terraform"
+    Scope     = "shared"
+  }
+}
+
+resource "azurerm_storage_container" "state" {
+  name                  = "tfstate"
+  storage_account_id    = azurerm_storage_account.state.id
+  container_access_type = "private"
+}
+
+# Shared container registry — one per project, used by every environment. Per-env
+# Terraform reads it by name via a data source; it is created/destroyed only
+# here, with the rest of the shared bootstrap.
+resource "azurerm_container_registry" "shared" {
+  name                = local.registry_name
+  resource_group_name = azurerm_resource_group.shared.name
+  location            = azurerm_resource_group.shared.location
+
+  # Basic is enough for a registry that one project pushes to: the features Standard
+  # and Premium add (geo-replication, larger included storage, tag immutability,
+  # private endpoints) cost real money and none of them is on this path.
+  sku = "Basic"
+
+  # Image pulls authenticate as the cluster's managed identity (an AcrPull role
+  # assignment in the per-env config), so the registry never needs the shared
+  # admin username/password that would otherwise end up in a Kubernetes secret.
+  admin_enabled = false
+
+  tags = {
+    Project   = var.project_name
+    ManagedBy = "terraform"
+    Scope     = "shared"
+  }
+}

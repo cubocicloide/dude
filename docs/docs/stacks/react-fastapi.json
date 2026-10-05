@@ -31,6 +31,10 @@
     {
       "provider": "azure-aks",
       "flag": "--iac azure-aks"
+    },
+    {
+      "provider": "azure-aca",
+      "flag": "--iac azure-aca"
     }
   ],
   "init": {
@@ -75,12 +79,13 @@
         "name": "iac",
         "flag": "--iac",
         "type": "select",
-        "prompt": "Infrastructure-as-Code (Terraform + Helm)",
+        "prompt": "Infrastructure-as-Code (Terraform; Helm on the Kubernetes targets)",
         "default": "none",
         "choices": [
           "none",
           "aws-eks",
-          "azure-aks"
+          "azure-aks",
+          "azure-aca"
         ]
       }
     ],

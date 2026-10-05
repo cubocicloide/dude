@@ -25,10 +25,11 @@
 import type { StackCommandDef } from '@cubocicloide/dude'
 import type { IacProvider } from './types.js'
 import { awsEksProvider } from './providers/aws-eks/index.js'
+import { azureAcaProvider } from './providers/azure-aca/index.js'
 import { azureAksProvider } from './providers/azure-aks/index.js'
 
 /** All known IaC providers. Register new targets here. */
-export const iacProviders: IacProvider[] = [awsEksProvider, azureAksProvider]
+export const iacProviders: IacProvider[] = [awsEksProvider, azureAksProvider, azureAcaProvider]
 
 /** The provider configured for the project at `projectRoot`, if any. */
 export function activeIacProvider(projectRoot: string = process.cwd()): IacProvider | undefined {

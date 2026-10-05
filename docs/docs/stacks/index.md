@@ -51,7 +51,7 @@ A Tauri 2 desktop app — React + Ant Design frontend, Rust backend, with iOS/An
 | [`fastmcp`](fastmcp.md) | `aws-ecs` | `MCP` | 17 | `>= 0.1.0` |
 | [`frappe`](frappe.md) | `aws-ecs` | `APP`, `DT`, `PY` | 11 | `>= 0.1.0` |
 | [`react-django`](react-django.md) | `aws-ecs` | `BE`, `E2E`, `FE` | 33 | `>= 0.1.0` |
-| [`react-fastapi`](react-fastapi.md) | `aws-eks`<br>`azure-aks` | `BE`, `E2E`, `FE` | 30 | `>= 0.1.0` |
+| [`react-fastapi`](react-fastapi.md) | `aws-eks`<br>`azure-aks`<br>`azure-aca` | `BE`, `E2E`, `FE` | 30 | `>= 0.1.0` |
 | [`tauri`](tauri.md) | — | `BE`, `FE` | 23 | `>= 0.1.0` |
 
 ## Choosing a stack

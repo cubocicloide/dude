@@ -1,0 +1,284 @@
+# Infrastructure as Code — {{projectName}} on Azure Container Apps
+
+Deploys {{projectName}} to **Azure Container Apps** with **Terraform**.
+Everything is environment-scoped and driven by `dude iac …`, which works
+identically on your laptop and in CI/CD.
+
+**If you just want it deployed, follow [Part 1](#part-1-first-deploy-start-to-finish)
+top to bottom.** The rest of this file is reference.
+
+There is no Kubernetes here: no cluster, no kubectl, no Helm chart. Terraform
+describes the container apps directly, and the platform runs them.
+
+```
+iac/
+├── terraform/
+│   ├── versions.tf            # providers + azurerm backend (partial)
+│   ├── providers.tf           # azurerm
+│   ├── variables.tf           # all inputs (sane defaults)
+│   ├── main.tf                # resource group + VNet + Container Apps env + apps{{#if withPostgres}} + PostgreSQL{{/if}}
+│   ├── outputs.tf             # app URL, registry URLs{{#if withPostgres}}, database{{/if}}
+│   ├── bootstrap/             # one-time shared infra: state storage account + container registry
+│   └── environments/
+│       └── dev/
+│           ├── backend.hcl        # remote-state location for this env
+│           └── terraform.tfvars   # this env's sizing/knobs + the deployed image tag
+└── runner/
+    └── Dockerfile             # the toolchain `dude iac` runs in — yours to edit
+```
+
+---
+
+## Part 1 — first deploy, start to finish
+
+### Step 0 — install two things
+
+| Tool | Why | Install |
+| ---- | --- | ------- |
+| **Docker** | builds the application images; also runs terraform for you | [docs.docker.com](https://docs.docker.com/get-docker/) |
+| **Azure CLI** (`az`) | signing in needs a browser, which a container doesn't have | `brew install azure-cli` · [other platforms](https://learn.microsoft.com/cli/azure/install-azure-cli) |
+
+You do **not** need terraform on your machine.
+
+### Step 1 — have the right access in Azure
+
+An Azure subscription where your account can **create resource groups**
+(*Contributor*) and **assign roles** (*User Access Administrator*). *Owner*
+covers both. The role assignment matters because the container apps are granted
+`AcrPull` on the registry — that is what lets them pull images without storing a
+registry password on each app.
+
+On a brand-new subscription, register the resource providers this scaffold uses
+(free, once per subscription, a couple of minutes to propagate):
+
+```bash
+for p in App OperationalInsights Network Storage ContainerRegistry \
+         DBforPostgreSQL ManagedIdentity Authorization; do
+  az provider register --namespace Microsoft.$p
+done
+```
+
+> Container Apps needs **no VM quota**, which is what makes this target work on
+> restricted subscriptions where a Kubernetes cluster cannot be created at all.
+
+### Step 2 — sign in for this environment
+
+```bash
+dude iac login --env dev
+```
+
+Runs `az login` if needed, then prints the subscription `dev` will deploy into
+and the id to pin it with. Pin it — an unpinned environment silently follows
+whatever `az account set` was run last:
+
+```hcl
+# iac/terraform/environments/dev/terraform.tfvars
+subscription_id = "00000000-0000-0000-0000-000000000000"
+```
+
+### Step 3 — create the shared resources (once per project)
+
+```bash
+dude iac bootstrap --state-prefix <yourorg> --location northeurope --env dev --yes
+```
+
+Creates, in `{{projectName}}-shared-rg`: a **storage account** + `tfstate`
+container holding the Terraform state for every environment, and an **Azure
+Container Registry** holding the images for every environment. Then it writes
+their names into `environments/dev/{backend.hcl,terraform.tfvars}` for you.
+
+`--state-prefix` makes those names globally unique across Azure; they allow only
+lowercase letters and digits. Run this **once per project**, not per environment.
+
+### Step 4 — initialise Terraform
+
+```bash
+dude iac init --env dev
+```
+
+### Step 5 — provision the infrastructure
+
+```bash
+dude iac plan  --env dev
+dude iac apply --env dev --yes
+```
+
+Expect a few minutes.{{#if withPostgres}} The PostgreSQL Flexible Server is most
+of it.{{/if}} What you get: a resource group, a VNet, a Log Analytics workspace,
+a Container Apps environment, and one container app per service — frontend,
+backend{{#if withCelery}}, Celery worker{{/if}}{{#if withCeleryBeat}}, Celery
+beat{{/if}}{{#if withRedis}}, Redis{{/if}}{{#if withPostgres}} — plus a private
+PostgreSQL Flexible Server and a migration job{{/if}}.
+
+> The first apply deploys the apps with the `latest` tag, which does not exist in
+> the registry yet, so they will not start. That is expected: step 6 builds the
+> real images and rolls the apps onto them.
+
+### Step 6 — ship the application
+
+```bash
+dude iac ship --env dev
+```
+
+Builds both production images, pushes them to the registry, records the tag in
+`terraform.tfvars`, applies{{#if withPostgres}}, then runs the database
+migrations and waits for them{{/if}}.
+
+### Step 7 — open it
+
+```bash
+dude iac output --env dev        # look for app_url
+dude iac status --env dev        # every app, its state and revision
+```
+
+```
+https://{{projectName}}-dev-frontend.<random>.northeurope.azurecontainerapps.io/
+```
+
+**HTTPS, with a certificate Microsoft issues and renews** — no domain to buy, no
+DNS to delegate, no certificate authority to configure. The API is served under
+`/api`, proxied by the frontend to the backend over the environment's internal
+network.
+
+If something is not up:
+
+```bash
+dude iac logs --env dev --service backend --follow
+```
+
+---
+
+## How the pieces fit
+
+| Component | Exposure | Notes |
+| --------- | -------- | ----- |
+| `frontend` | **public HTTPS** | nginx: serves the SPA and proxies `/api` to the backend |
+| `backend` | internal only | reachable from inside the environment, never from the internet |
+{{#if withCelery}}| `worker` | none | pulls from the broker; nothing connects to it |
+{{/if}}{{#if withCeleryBeat}}| `beat` | none | exactly one replica — a second would fire every periodic task twice |
+{{/if}}{{#if withRedis}}| `redis` | internal TCP | Celery broker + result backend |
+{{/if}}{{#if withPostgres}}| PostgreSQL | private (VNet) | no public endpoint; `psql` from your laptop will not connect |
+| migration job | n/a | manually triggered, runs `alembic upgrade head` |
+{{/if}}
+
+Apps in one Container Apps environment resolve each other **by app name**, which
+is why the frontend proxies to `http://{{projectName}}-<env>-backend` with no
+FQDN or service-discovery wiring.
+
+### Why the frontend proxies instead of the SPA calling the API directly
+
+There is no shared ingress doing path-based routing here — each app gets its own
+hostname. Exposing the backend publicly too would mean a second URL baked into
+the frontend bundle at build time, plus CORS. Proxying keeps one origin, so the
+browser sees a single site and the backend stays off the internet.
+
+## Image tags, and why they are committed
+
+`dude iac deploy`/`ship` writes `image_tag` into the environment's
+`terraform.tfvars` and applies. That makes the deployed version a **reviewed,
+committed fact** rather than something imperative that the next `terraform
+apply` would silently roll back.
+
+| Working tree | Tag |
+|--------------|-----|
+| clean | `<git-short-sha>` |
+| uncommitted changes | `<git-short-sha>-dirty-<hash-of-the-diff>` |
+
+Commit the `image_tag` change after a release. Pushing a tag that already exists
+**overwrites** it — a Basic-tier registry does not enforce tag immutability — so
+`push`/`ship` warn before doing it.
+
+## Cost, and scaling to zero
+
+Container Apps bills per vCPU-second and GiB-second of *running* replicas. Set a
+service's `min_replicas` to `0` and it costs nothing while idle, at the price of
+a cold start on the next request. The defaults keep the frontend and backend at
+1 — a visitor should not wait for a container to boot — while everything else is
+sized down. In a dev environment you may well want `backend_min_replicas = 0`.
+
+{{#if withPostgres}}The database is the opposite: a Flexible Server bills while it
+exists, whether or not anything connects. Stop it from the portal, or destroy the
+environment, when you are not using it.
+
+{{/if}}## Add a new environment
+
+```bash
+dude iac new-env --env prod          # copies dev by default; --from <env> to pick another
+```
+
+Scaffolds `environments/prod/{backend.hcl,terraform.tfvars}` with
+`environment = "prod"`, a per-env state `key`, and `image_tag` reset to `latest`
+(a new environment must not come up serving whatever the source env last
+deployed). The storage account, state container **and registry** are shared, so
+you do not bootstrap again.
+
+```bash
+dude iac init --env prod && dude iac apply --env prod --yes && dude iac ship --env prod
+```
+
+## Local vs CI/CD
+
+The same commands run in CI — state is remote and auth is the Azure CLI/SDK
+chain. Authenticate a pipeline with a service principal or workload identity
+federation by exporting `ARM_CLIENT_ID`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID`
+and either `ARM_CLIENT_SECRET` or OIDC. Pass an explicit `--tag $CI_COMMIT_SHA`
+so the pipeline controls provenance.
+
+## Tear down
+
+```bash
+dude iac destroy --env dev
+```
+
+Destroys the environment's whole resource group, re-checks that it is really
+gone (a delete still in flight, or a resource lock, otherwise leaves it quietly
+billing), then tears down the shared bootstrap — but **only if no other
+environment still uses it**, judged from each sibling's remote Terraform state
+rather than its folder on disk.
+
+| Flag             | Effect                                                              |
+| ---------------- | ------------------------------------------------------------------- |
+| `--keep-backend` | Keep the shared state storage account **+ registry**.               |
+| `--skip-tf`      | Skip the per-env destroy — only run the bootstrap teardown.         |
+
+## Commands
+
+| Command | Wraps |
+|---------|-------|
+| `dude iac login`     | `az login` (when needed) + `az account show` for the env's subscription |
+| `dude iac new-env`   | scaffolds `environments/<name>/` from an existing env |
+| `dude iac bootstrap` | `terraform init/apply` in `bootstrap/`, patches `backend.hcl` + `terraform.tfvars` |
+| `dude iac init`      | `terraform init` (azurerm backend per env) |
+| `dude iac plan`      | `terraform plan` |
+| `dude iac apply`     | `terraform apply` (`--yes` to auto-approve) |
+| `dude iac destroy`   | `terraform destroy` + bootstrap teardown (`--yes`, `--keep-backend`, `--skip-tf`) |
+| `dude iac output`    | `terraform output` (`--json`) |
+| `dude iac fmt`       | `terraform fmt -recursive` |
+| `dude iac validate`  | `terraform validate` |
+| `dude iac build`     | `docker build` BE+FE prod images (`linux/amd64`) |
+| `dude iac push`      | registry token login + `docker push` BE+FE |
+| `dude iac deploy`    | record `image_tag` + `terraform apply`{{#if withPostgres}} + run migrations{{/if}} |
+| `dude iac ship`      | `build` + `push` + `deploy` |
+| `dude iac status`    | every container app: state, revision, public URL |
+| `dude iac logs`      | `az containerapp logs show` (`--service`, `--tail`, `--follow`) |
+{{#if withPostgres}}| `dude iac migrate`   | starts the migration job and waits for it |
+{{/if}}| `dude iac shell`     | interactive shell in the IaC runner container (terraform, az) |
+
+All commands take `--env <name>` (**required**) and `--subscription <id>`.
+`build`/`push`/`deploy`/`ship` take `--tag`; `build`/`ship` also `--platform`
+(default `linux/amd64`). `bootstrap` accepts `--state-prefix` (required) and
+`--location` (default `northeurope`).
+
+## Troubleshooting
+
+| Symptom | Cause / fix |
+| ------- | ----------- |
+| `apply` fails on `azurerm_role_assignment.acr_pull` with *AuthorizationFailed* | Your account can't assign roles. Ask for **User Access Administrator** (or Owner). |
+| `apply` fails: *RequestDisallowedByAzure … region is currently not accepting new customers* | That region is capacity-closed to your subscription. Use another: `--location` **and** `location` in the env tfvars. |
+| `apply` fails: subnet too small | The Container Apps subnet must be at least a `/23`. Widen `aca_subnet_cidr`. |
+| `bootstrap` fails: storage account name taken | The name is global across Azure. Re-run with a different `--state-prefix`. |
+| `init` fails: *ListBlobs … 404* | A brand-new storage account's blob endpoint takes a few minutes. `bootstrap` waits for it; if you hit this anyway, re-run `init` a minute later. |
+| Apps stuck, logs show image pull errors | The first apply deploys `latest`, which does not exist yet — run `dude iac ship`. If it persists, the `AcrPull` assignment may not have propagated (a few minutes). |
+| `502` from the public URL | The backend is not up. `dude iac logs --env <env> --service backend`. |
+{{#if withPostgres}}| `psql` from your laptop can't connect | By design: the database has no public endpoint and lives inside the VNet. |
+{{/if}}| `exec format error` in an app | An arm64 image on x86 compute. Rebuild without overriding `--platform`. |
