@@ -54,3 +54,9 @@ duplicated: `iac/azure/` holds the Docker runner, the registry plumbing, the
 Terraform helpers and the command factories, and each provider contributes only
 what depends on how it runs an application. The AKS target's behaviour is
 unchanged.
+
+`minDudeVersion` stays at `0.1.0` on purpose. An older CLI does reject the
+list-valued `docs.iac`, but it rejects it inside `loadStack`, which throws —
+and the `minDudeVersion` gate only runs once loading has succeeded, so it could
+never fire for the users it would describe. They already get a good error:
+`cli.ts` catches the load failure and points at `dude upgrade --cli`.

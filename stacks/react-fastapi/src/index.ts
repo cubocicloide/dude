@@ -33,6 +33,15 @@ import { upCommand } from './commands/up/index.js'
 export default defineStack({
   name: 'react-fastapi',
   version: '0.1.0',
+  // Deliberately NOT raised for the multi-target `docs.iac` below, even though
+  // declaring it as a LIST is behaviour the CLI only gained in 0.18.0.
+  //
+  // An older CLI rejects that manifest inside `loadStack`, which throws — and the
+  // `minDudeVersion` gate runs only once loading has succeeded, so it could never
+  // fire for the very users it would be describing. They are already served well:
+  // `cli.ts` catches the load failure and points at `dude upgrade --cli`. Raising
+  // the floor would buy those users nothing while breaking every in-repo test
+  // that drives the workspace CLI, whose version only becomes 0.18.0 at release.
   minDudeVersion: '0.1.0',
   description: 'React (Vite + TypeScript) frontend with a FastAPI backend.',
 
