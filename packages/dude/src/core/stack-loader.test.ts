@@ -11,6 +11,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadStack, pickChannelVersion } from './stack-loader.js'
+import { iacTargets } from './stack-contract.js'
 
 const tmpDirs: string[] = []
 
@@ -253,7 +254,71 @@ describe('loadStack — docs manifest validation', () => {
     )
 
     const loaded = await loadStack(dir, dir)
-    expect(loaded.definition.docs?.iac?.provider).toBe('gcp-cloud-run')
+    expect(iacTargets(loaded.definition.docs).map((t) => t.provider)).toEqual(['gcp-cloud-run'])
+  })
+
+  // A stack may offer a choice of clouds (react-fastapi ships aws-eks and
+  // azure-aks), so `iac` accepts a list as well as a single target. Consumers go
+  // through `iacTargets`, which is what makes the two forms interchangeable.
+  it('accepts a list of IaC targets and normalises it', async () => {
+    const dir = makeTmpDir()
+    mkdirSync(join(dir, 'dist'), { recursive: true })
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: '@test/docs-multi-iac', version: '1.0.0', main: './dist/index.js' }),
+    )
+    writeFileSync(
+      join(dir, 'dist', 'index.js'),
+      `export default {
+        name: 'docs-multi-iac',
+        description: 'Test stack',
+        docs: {
+          tagline: 'A test stack',
+          useCases: ['Testing things'],
+          technologies: ['TypeScript'],
+          iac: [
+            { provider: 'aws-eks', flag: '--iac aws-eks' },
+            { provider: 'azure-aks', flag: '--iac azure-aks' },
+          ],
+          pages: [{ file: 'index.md', title: 'Home' }],
+        },
+      };\n`,
+    )
+
+    const loaded = await loadStack(dir, dir)
+    expect(iacTargets(loaded.definition.docs).map((t) => t.provider)).toEqual([
+      'aws-eks',
+      'azure-aks',
+    ])
+  })
+
+  it('rejects an empty list of IaC targets', async () => {
+    const dir = makeTmpDir()
+    mkdirSync(join(dir, 'dist'), { recursive: true })
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: '@test/docs-empty-iac', version: '1.0.0', main: './dist/index.js' }),
+    )
+    writeFileSync(
+      join(dir, 'dist', 'index.js'),
+      `export default {
+        name: 'docs-empty-iac',
+        description: 'Test stack',
+        docs: {
+          tagline: 'A test stack',
+          useCases: ['Testing things'],
+          technologies: ['TypeScript'],
+          iac: [],
+          pages: [{ file: 'index.md', title: 'Home' }],
+        },
+      };\n`,
+    )
+
+    await expect(loadStack(dir, dir)).rejects.toThrow(/invalid `docs` manifest/)
+  })
+
+  it('reports no targets for a stack without an IaC manifest', () => {
+    expect(iacTargets(undefined)).toEqual([])
   })
 })
 

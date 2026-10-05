@@ -84,6 +84,29 @@ const stackDocsIacSchema = z.object({
 })
 
 /**
+ * A stack's IaC targets: one object, or an array when the stack offers a choice
+ * of clouds (react-fastapi ships `aws-eks` and `azure-aks`).
+ *
+ * The single-object form is kept — and listed first, so it wins on an ambiguous
+ * parse — because every stack but one declares exactly one target, and rewriting
+ * five manifests to one-element arrays would be churn with no reader benefit.
+ * Consumers normalise with {@link iacTargets} rather than branching themselves.
+ */
+const stackDocsIacTargetsSchema = z.union([
+  stackDocsIacSchema,
+  z.array(stackDocsIacSchema).min(1),
+])
+
+/**
+ * The IaC targets of a docs manifest, always as an array (empty when the stack
+ * declares none). The one place that knows the field is polymorphic.
+ */
+export function iacTargets(docs: StackDocs | undefined): StackDocsIac[] {
+  if (!docs?.iac) return []
+  return Array.isArray(docs.iac) ? docs.iac : [docs.iac]
+}
+
+/**
  * Optional documentation manifest a stack may declare so that downstream
  * tooling (the root site composer, `dude cheatsheet`, machine-readable
  * surfaces — see issue #113) can generate from typed facts instead of
@@ -100,12 +123,13 @@ export const stackDocsSchema = z.object({
   useCases: z.array(z.string().min(1)).min(1),
   /** Headline technologies, e.g. `['React 19', 'FastAPI', 'SQLModel']`. */
   technologies: z.array(z.string().min(1)).min(1),
-  /** Cloud IaC target, when the stack has one. */
-  iac: stackDocsIacSchema.optional(),
+  /** Cloud IaC target(s), when the stack has any. */
+  iac: stackDocsIacTargetsSchema.optional(),
   /** The page set this stack's scaffold ships, incl. conditional pages. */
   pages: z.array(stackDocsPageSchema).min(1),
 })
 
+export type StackDocsIac = z.infer<typeof stackDocsIacSchema>
 export type StackDocs = z.infer<typeof stackDocsSchema>
 
 // ---------- Runtime context ----------

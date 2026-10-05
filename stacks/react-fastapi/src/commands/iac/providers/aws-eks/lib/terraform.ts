@@ -1,7 +1,7 @@
 /** Terraform / project plumbing for the AWS EKS provider. */
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'pathe'
-import { hclScalar, projectName } from '../../../shared.js'
+import { hclScalar, iacTarget, projectName } from '../../../shared.js'
 import { capture, run, type CaptureResult } from './exec.js'
 import type { KubeTarget } from './runner.js'
 
@@ -10,9 +10,21 @@ export const TF_BOOTSTRAP_DIR = path.join(TF_DIR, 'bootstrap')
 export const TF_ENVIRONMENTS_DIR = path.join(TF_DIR, 'environments')
 export const HELM_CHART = path.join('iac', 'helm', 'app')
 
-/** True when the project was scaffolded with the AWS EKS target (`iac/terraform` present). */
+export const PROVIDER_ID = 'aws-eks'
+
+/**
+ * True when the project was scaffolded with the AWS EKS target.
+ *
+ * The `iac/terraform` check is not enough on its own any more: the Azure target
+ * scaffolds into the same path, so a presence check would claim an Azure project
+ * and hand it the AWS commands. `iacTarget()` reads the recorded scaffold answer
+ * (and still maps a pre-Azure scaffold to `aws-eks`, which is all `--iac` could
+ * have meant back then).
+ */
 export function hasIac(projectRoot: string): boolean {
-  return existsSync(path.join(projectRoot, 'iac', 'terraform'))
+  return (
+    iacTarget(projectRoot) === PROVIDER_ID && existsSync(path.join(projectRoot, 'iac', 'terraform'))
+  )
 }
 
 export function requireIac(projectRoot: string): boolean {

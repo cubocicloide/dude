@@ -5,7 +5,7 @@
 
 # `react-fastapi`
 
-React (Vite) frontend with a FastAPI backend — Postgres, Celery and AWS EKS when you need them.
+React (Vite) frontend with a FastAPI backend — Postgres, Celery, and Kubernetes IaC on AWS or Azure when you need them.
 
 **Built with:** `React 19` · `Vite` · `FastAPI` · `SQLModel` · `Alembic` · `Celery`
 
@@ -27,20 +27,22 @@ answer it non-interactively. Flag names ignore case and dashes, so
 | Database | `--database <none\|postgres>` | `none` |
 | Add Celery worker? | `--celery` | `false` |
 | Add Celery Beat scheduler? (requires Celery — auto-enabled) | `--celery-beat` | `false` |
-| Infrastructure-as-Code (Terraform + Helm) | `--iac <none\|aws-eks>` | `none` |
+| Infrastructure-as-Code (Terraform; Helm on the Kubernetes targets) | `--iac <none\|aws-eks\|azure-aks\|azure-aca>` | `none` |
 
 ## What it is for
 
 - A CRUD/product web app that needs a typed REST API behind a modern SPA
-- A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS) once it scales
+- A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS or Azure AKS) once it scales
+- A project whose hosting cloud is the customer’s decision, not the code’s
 - Background/async work (Celery + Celery Beat) without leaving the Python backend
 
 ## Deploying to the cloud
 
-This stack ships an infrastructure-as-code target: **aws-eks**.
-Enable it at scaffold time with `--iac aws-eks`, then use the `dude iac`
-command group inside the generated project. The full deploy guide is part of
-the project's own documentation — run `dude docs` after scaffolding.
+This stack ships 3 infrastructure-as-code targets: **aws-eks**, **azure-aks**, **azure-aca**.
+Pick one at scaffold time with `--iac aws-eks`, `--iac azure-aks` or `--iac azure-aca` —
+exactly one applies to a project. The `dude iac` commands then mean the same
+thing whichever target you chose. The full deploy guide is part of the
+project's own documentation — run `dude docs` after scaffolding.
 
 ## Conventions it enforces
 
@@ -67,7 +69,7 @@ Every scaffolded project gets its own documentation site, served with
 | `api.md` | Command reference | always |
 | `cheatsheet.md` | Cheatsheet | always |
 | `mkdocs.md` | Writing docs | always |
-| `deploy.md` | Deploy (AWS EKS) | when `withIac` |
+| `deploy.md` | Deploy to the cloud | when `withIac` |
 
 ## Versions
 

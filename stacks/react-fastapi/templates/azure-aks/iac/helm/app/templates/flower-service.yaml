@@ -1,0 +1,19 @@
+{{- if and .Values.celery.enabled .Values.celery.flower.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "app.fullname" . }}-flower
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flower
+spec:
+  # Internal only — reach it with: kubectl port-forward svc/<name>-flower 5555:5555
+  type: ClusterIP
+  selector:
+    {{- include "app.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: flower
+  ports:
+    - port: {{ .Values.celery.flower.port }}
+      targetPort: {{ .Values.celery.flower.port }}
+      protocol: TCP
+{{- end }}

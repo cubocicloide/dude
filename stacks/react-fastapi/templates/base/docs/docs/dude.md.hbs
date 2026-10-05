@@ -296,7 +296,7 @@ cloud credentials profile.
 | Command | Description |
 |---------|-------------|
 | `dude iac login --env <e>` | Configure/verify cloud credentials for an environment |
-| `dude iac bootstrap --env <e> --state-bucket-prefix <p> --yes` | One-time: create the shared remote-state backend (+ container registries) |
+| `dude iac bootstrap --env <e> --yes` | One-time: create the shared remote-state backend (+ container registry). Takes a cloud-specific prefix flag — see the **Deploy** page |
 | `dude iac new-env --env <name> [--from <env>]` | Scaffold a new environment by copying an existing one (default source: `dev`) |
 | `dude iac init --env <e>` | Initialise the infra toolchain for the environment |
 | `dude iac plan --env <e>` | Preview the infrastructure changes |

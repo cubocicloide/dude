@@ -17,6 +17,7 @@
   ],
   "requiresDude": "0.1.0",
   "iac": null,
+  "iacTargets": [],
   "init": {
     "command": "dude init my-app --stack tauri",
     "variables": [

@@ -21,6 +21,12 @@
     "provider": "aws-ecs",
     "flag": "--iac aws-ecs"
   },
+  "iacTargets": [
+    {
+      "provider": "aws-ecs",
+      "flag": "--iac aws-ecs"
+    }
+  ],
   "init": {
     "command": "dude init my-app --stack react-django",
     "variables": [

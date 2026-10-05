@@ -35,7 +35,7 @@ React (Vite) frontend with a Django REST Framework backend — optional S3 stora
 
 ### [`react-fastapi`](react-fastapi.md)
 
-React (Vite) frontend with a FastAPI backend — Postgres, Celery and AWS EKS when you need them.
+React (Vite) frontend with a FastAPI backend — Postgres, Celery, and Kubernetes IaC on AWS or Azure when you need them.
 
 ### [`tauri`](tauri.md)
 
@@ -51,7 +51,7 @@ A Tauri 2 desktop app — React + Ant Design frontend, Rust backend, with iOS/An
 | [`fastmcp`](fastmcp.md) | `aws-ecs` | `MCP` | 17 | `>= 0.1.0` |
 | [`frappe`](frappe.md) | `aws-ecs` | `APP`, `DT`, `PY` | 11 | `>= 0.1.0` |
 | [`react-django`](react-django.md) | `aws-ecs` | `BE`, `E2E`, `FE` | 33 | `>= 0.1.0` |
-| [`react-fastapi`](react-fastapi.md) | `aws-eks` | `BE`, `E2E`, `FE` | 30 | `>= 0.1.0` |
+| [`react-fastapi`](react-fastapi.md) | `aws-eks`<br>`azure-aks`<br>`azure-aca` | `BE`, `E2E`, `FE` | 30 | `>= 0.1.0` |
 | [`tauri`](tauri.md) | — | `BE`, `FE` | 23 | `>= 0.1.0` |
 
 ## Choosing a stack
@@ -71,7 +71,8 @@ A Tauri 2 desktop app — React + Ant Design frontend, Rust backend, with iOS/An
 | An API that needs auto-generated OpenAPI docs (drf-spectacular) behind a React frontend | [`react-django`](react-django.md) |
 | S3-compatible file storage (MinIO locally) with a straightforward path to AWS ECS Fargate | [`react-django`](react-django.md) |
 | A CRUD/product web app that needs a typed REST API behind a modern SPA | [`react-fastapi`](react-fastapi.md) |
-| A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS) once it scales | [`react-fastapi`](react-fastapi.md) |
+| A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS or Azure AKS) once it scales | [`react-fastapi`](react-fastapi.md) |
+| A project whose hosting cloud is the customer’s decision, not the code’s | [`react-fastapi`](react-fastapi.md) |
 | Background/async work (Celery + Celery Beat) without leaving the Python backend | [`react-fastapi`](react-fastapi.md) |
 | A cross-platform desktop app (macOS/Windows/Linux) with a native feel and small binaries | [`tauri`](tauri.md) |
 | The same codebase extended to iOS and Android | [`tauri`](tauri.md) |
