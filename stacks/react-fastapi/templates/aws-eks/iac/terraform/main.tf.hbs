@@ -288,6 +288,7 @@ module "rds" {
   major_engine_version = var.db_major_engine_version
   instance_class       = var.db_instance_class
 
+  storage_type          = var.db_storage_type
   allocated_storage     = var.db_allocated_storage
   max_allocated_storage = var.db_max_allocated_storage
 
