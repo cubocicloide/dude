@@ -131,6 +131,12 @@ variable "db_instance_class" {
   default     = "db.t4g.micro"
 }
 
+variable "db_storage_type" {
+  description = "RDS storage type. gp3 is the current-generation general-purpose SSD — cheaper than gp2 and with far better AZ capacity availability for small instance classes."
+  type        = string
+  default     = "gp3"
+}
+
 variable "db_allocated_storage" {
   description = "Initial allocated storage (GiB)."
   type        = number
