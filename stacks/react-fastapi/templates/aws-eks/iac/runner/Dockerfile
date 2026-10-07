@@ -26,27 +26,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # terraform
-RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused \
+RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --retry-all-errors \
       "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_${TARGETARCH}.zip" -o /tmp/tf.zip \
   && unzip -q /tmp/tf.zip -d /usr/local/bin && rm /tmp/tf.zip
 
 # kubectl
-RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused \
+RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --retry-all-errors \
       "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" -o /usr/local/bin/kubectl \
   && chmod +x /usr/local/bin/kubectl
 
 # helm
-RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused \
+RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --retry-all-errors \
       "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" | tar xz -C /tmp \
   && mv /tmp/linux-${TARGETARCH}/helm /usr/local/bin/helm && rm -rf /tmp/linux-${TARGETARCH}
 
 # k9s
-RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused \
+RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --retry-all-errors \
       "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_Linux_${TARGETARCH}.tar.gz" | tar xz -C /usr/local/bin k9s
 
 # aws cli v2 (arch naming differs: amd64 -> x86_64, arm64 -> aarch64)
 RUN case "${TARGETARCH}" in amd64) A=x86_64;; arm64) A=aarch64;; *) A=${TARGETARCH};; esac \
-  && curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused \
+  && curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --retry-all-errors \
       "https://awscli.amazonaws.com/awscli-exe-linux-${A}.zip" -o /tmp/aws.zip \
   && unzip -q /tmp/aws.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws*
 
