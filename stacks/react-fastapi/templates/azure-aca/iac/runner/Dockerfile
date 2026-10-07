@@ -29,14 +29,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # terraform
-RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused \
+RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --retry-all-errors \
       "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_${TARGETARCH}.zip" -o /tmp/tf.zip \
   && unzip -q /tmp/tf.zip -d /usr/local/bin && rm /tmp/tf.zip
 
 # azure cli — installed from Microsoft's apt repository rather than pip, because
 # the deb ships arm64 builds and keeps its own Python out of the way.
 RUN install -m 0755 -d /etc/apt/keyrings \
-  && curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused https://packages.microsoft.com/keys/microsoft.asc \
+  && curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --retry-all-errors https://packages.microsoft.com/keys/microsoft.asc \
       | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg \
   && chmod a+r /etc/apt/keyrings/microsoft.gpg \
   && echo "deb [arch=${TARGETARCH} signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" \

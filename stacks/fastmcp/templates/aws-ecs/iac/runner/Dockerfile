@@ -22,13 +22,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # terraform
-RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused \
+RUN curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --retry-all-errors \
       "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_${TARGETARCH}.zip" -o /tmp/tf.zip \
   && unzip -q /tmp/tf.zip -d /usr/local/bin && rm /tmp/tf.zip
 
 # aws cli v2 (arch naming differs: amd64 -> x86_64, arm64 -> aarch64)
 RUN case "${TARGETARCH}" in amd64) A=x86_64;; arm64) A=aarch64;; *) A=${TARGETARCH};; esac \
-  && curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused \
+  && curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --retry-all-errors \
       "https://awscli.amazonaws.com/awscli-exe-linux-${A}.zip" -o /tmp/aws.zip \
   && unzip -q /tmp/aws.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws*
 
