@@ -68,3 +68,48 @@ jobs:
 
       - name: Test
         run: pnpm run test
+
+  expo-firebase-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install and build the monorepo
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Pack the local CLI and stack
+        run: |
+          mkdir -p "$RUNNER_TEMP/dude-packs"
+          pnpm --dir packages/dude pack --pack-destination "$RUNNER_TEMP/dude-packs"
+          pnpm --dir stacks/expo-firebase pack --pack-destination "$RUNNER_TEMP/dude-packs"
+
+      - name: Scaffold and install a generated project
+        run: |
+          node packages/dude/bin/dude.mjs init --stack ./stacks/expo-firebase --yes "$RUNNER_TEMP/expo-firebase-smoke"
+          node scripts/prepare-expo-smoke.mjs "$RUNNER_TEMP/expo-firebase-smoke" "$RUNNER_TEMP/dude-packs"
+          pnpm exec prettier --check "$RUNNER_TEMP/expo-firebase-smoke/pnpm-workspace.yaml"
+          pnpm --dir "$RUNNER_TEMP/expo-firebase-smoke" install --no-frozen-lockfile
+
+      - name: Validate the generated project
+        working-directory: ${{ runner.temp }}/expo-firebase-smoke
+        run: |
+          node "$GITHUB_WORKSPACE/packages/dude/bin/dude.mjs" doctor
+          node "$GITHUB_WORKSPACE/packages/dude/bin/dude.mjs" review
+          node "$GITHUB_WORKSPACE/packages/dude/bin/dude.mjs" test
+          pnpm run export:web

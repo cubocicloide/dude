@@ -8,6 +8,10 @@
       "package": "@cubocicloide/stack-fastmcp",
       "minimumSupported": "0.1.0"
     },
+    "expo-firebase": {
+      "package": "@cubocicloide/stack-expo-firebase",
+      "minimumSupported": "0.1.0"
+    },
     "tauri": {
       "package": "@cubocicloide/stack-tauri",
       "minimumSupported": "0.1.0"

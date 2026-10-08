@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedInAs(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function validNote() {
+      return request.resource.data.keys().hasOnly([
+          'title', 'body', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string
+        && request.resource.data.body.size() <= 10000
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/notes/{noteId} {
+      allow read: if signedInAs(userId);
+      allow create: if signedInAs(userId) && validNote();
+      allow update: if signedInAs(userId)
+        && validNote()
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if signedInAs(userId);
+    }
+  }
+}

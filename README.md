@@ -58,6 +58,7 @@ Pick one at `dude init` with `--stack <id>`:
 | `react-fastapi` | React 19 + FastAPI web app; optional Postgres, Celery, AWS EKS IaC       |
 | `react-django`  | React + Django REST Framework; optional S3 storage, Celery, AWS ECS IaC  |
 | `fastmcp`       | FastMCP (Python) server — modular MCP sub-servers; optional AWS ECS IaC  |
+| `expo-firebase` | Expo + React Native app for Android/iOS/web; Firebase Auth + Firestore    |
 | `tauri`         | Tauri 2 app — desktop + iOS/Android (React + antd + Rust)                |
 | `frappe`        | Frappe Helpdesk ticketing system + custom app; optional AWS ECS IaC      |
 | `airflow`       | Apache Airflow deployment with example DAGs; optional SSO + ECS IaC      |

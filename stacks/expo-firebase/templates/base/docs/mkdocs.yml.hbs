@@ -1,0 +1,30 @@
+site_name: '{{projectName}}'
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.top
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Firebase setup: firebase.md
+  - Local emulators: emulators.md
+  - Testing: testing.md
+  - EAS builds: builds.md
+  - Working with dude: dude.md
+  - Command reference: api.md
+  - Cheatsheet: cheatsheet.md
+  - Writing docs: mkdocs.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences

@@ -1,0 +1,42 @@
+import type { ExpoConfig, ConfigContext } from 'expo/config'
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  name: '{{projectName}}',
+  slug: '{{slug}}',
+  scheme: '{{scheme}}',
+  version: '0.1.0',
+  orientation: 'portrait',
+  userInterfaceStyle: 'automatic',
+  icon: './assets/icon.png',
+  plugins: [
+    'expo-router',
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/splash.png',
+        imageWidth: 240,
+        backgroundColor: '#080f4e',
+      },
+    ],
+  ],
+  experiments: {
+    typedRoutes: true,
+  },
+  web: {
+    bundler: 'metro',
+    output: 'static',
+    favicon: './assets/icon.png',
+  },
+  ios: {
+    supportsTablet: true,
+    bundleIdentifier: '{{bundleIdentifier}}',
+  },
+  android: {
+    package: '{{bundleIdentifier}}',
+    adaptiveIcon: {
+      foregroundImage: './assets/icon.png',
+      backgroundColor: '#080f4e',
+    },
+  },
+})

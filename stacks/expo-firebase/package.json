@@ -1,0 +1,41 @@
+{
+  "name": "@cubocicloide/stack-expo-firebase",
+  "version": "0.1.0",
+  "description": "Expo + Firebase universal app stack plugin for the dude CLI.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "templates",
+    "dude.stack.json",
+    "README.md"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "echo \"(lint placeholder)\"",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@cubocicloide/dude": "workspace:*",
+    "pathe": "^1.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

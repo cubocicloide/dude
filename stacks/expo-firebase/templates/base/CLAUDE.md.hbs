@@ -1,0 +1,50 @@
+# CLAUDE.md — {{projectName}}
+
+This is a universal Expo SDK 57 application scaffolded by dude's
+`expo-firebase` stack. It runs on Android, iOS, and web and uses the Firebase
+JavaScript SDK for email/password Authentication and Cloud Firestore.
+
+## Start here
+
+```bash
+dude cheatsheet --format json
+dude doctor
+```
+
+## Layout
+
+- `app/` contains thin Expo Router routes and auth guards.
+- `src/features/` contains product behavior and screens.
+- `src/components/` and `src/hooks/` contain reusable UI and hooks.
+- `src/config/env.ts` is the only reader of `EXPO_PUBLIC_*` variables.
+- `src/lib/firebase/` owns Firebase initialization and emulator wiring.
+- `firestore.rules` and `tests/firestore.rules.test.mjs` are one security contract.
+
+## Local development
+
+Run `dude firebase emulators` in one terminal and `dude dev --go` in another.
+The default `demo-` project cannot reach live Firebase resources. For a physical
+device, follow `docs/docs/emulators.md` before exposing emulator ports to a
+trusted LAN.
+
+## Conventions
+
+- Routes import feature screens; they do not call Firebase.
+- Firestore access lives in `src/features/<feature>/repository.ts`.
+- Auth access lives behind the auth feature service/provider.
+- Shared code must remain platform-safe; browser-only code uses `.web.ts(x)`.
+- Never weaken Firestore rules to make a client error disappear.
+- Firebase public config identifies a project; rules authorize its data.
+- Use pnpm. Do not edit `dude.json`, `.expo/`, `dist/`, or generated docs pages.
+
+## Verification
+
+```bash
+dude lint
+dude test
+dude review
+```
+
+This stack intentionally has no security command group or native Firebase SDK.
+Analytics, Crashlytics, Messaging, Functions, Storage, App Check, EAS Update,
+and store submission are not part of this starter.

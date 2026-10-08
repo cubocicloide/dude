@@ -14,6 +14,7 @@ paths:
 | `stacks/react-fastapi/`   | `@cubocicloide/stack-react-fastapi` | Stack plugin|
 | `stacks/react-django/`    | `@cubocicloide/stack-react-django`  | Stack plugin|
 | `stacks/fastmcp/`         | `@cubocicloide/stack-fastmcp`       | Stack plugin|
+| `stacks/expo-firebase/`   | `@cubocicloide/stack-expo-firebase` | Stack plugin|
 | `stacks/tauri/`           | `@cubocicloide/stack-tauri`         | Stack plugin|
 | `stacks/frappe/`          | `@cubocicloide/stack-frappe`        | Stack plugin|
 

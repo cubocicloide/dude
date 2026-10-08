@@ -21,6 +21,10 @@ dude init my-app --stack react-fastapi
 
 An Apache Airflow project — organized DAGs & plugins, native or Entra ID SSO, optional AWS ECS Fargate IaC.
 
+### [`expo-firebase`](expo-firebase.md)
+
+A universal Expo app for Android, iOS and web with Firebase Auth and Firestore.
+
 ### [`fastmcp`](fastmcp.md)
 
 A FastMCP (Python) server — modular MCP feature sub-servers, with optional AWS ECS Fargate IaC.
@@ -48,6 +52,7 @@ A Tauri 2 desktop app — React + Ant Design frontend, Rust backend, with iOS/An
 | Stack | Cloud target | Lint groups | Checks | Requires dude |
 | ----- | ------------ | ----------- | -----: | ------------- |
 | [`airflow`](airflow.md) | `aws-ecs` | `AF` | 10 | `>= 0.1.0` |
+| [`expo-firebase`](expo-firebase.md) | — | `FB`, `RN` | 10 | `>= 0.17.2` |
 | [`fastmcp`](fastmcp.md) | `aws-ecs` | `MCP` | 17 | `>= 0.1.0` |
 | [`frappe`](frappe.md) | `aws-ecs` | `APP`, `DT`, `PY` | 11 | `>= 0.1.0` |
 | [`react-django`](react-django.md) | `aws-ecs` | `BE`, `E2E`, `FE` | 33 | `>= 0.1.0` |
@@ -61,6 +66,9 @@ A Tauri 2 desktop app — React + Ant Design frontend, Rust backend, with iOS/An
 | A team orchestrating scheduled data pipelines (DAGs) with a clear, lint-enforced structure | [`airflow`](airflow.md) |
 | Enterprise sign-on via Microsoft Entra ID OAuth (or Airflow's native auth) for the web UI | [`airflow`](airflow.md) |
 | Bursty, heavy tasks that need their own container via the hybrid AWS ECS executor, without a full Kubernetes cluster | [`airflow`](airflow.md) |
+| A universal Android, iOS and web product built from one React Native codebase | [`expo-firebase`](expo-firebase.md) |
+| An Expo Go-friendly app with Firebase email/password authentication and Firestore | [`expo-firebase`](expo-firebase.md) |
+| A mobile team that wants local Firebase emulators and EAS build profiles from day one | [`expo-firebase`](expo-firebase.md) |
 | An MCP server exposing tools/resources to LLM clients over a typed Python API | [`fastmcp`](fastmcp.md) |
 | A modular monolith of MCP feature sub-servers that can grow independently | [`fastmcp`](fastmcp.md) |
 | A lightweight service that ships to AWS ECS Fargate without a Kubernetes footprint | [`fastmcp`](fastmcp.md) |
