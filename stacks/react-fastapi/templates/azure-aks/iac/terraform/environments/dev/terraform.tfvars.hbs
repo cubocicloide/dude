@@ -1,0 +1,65 @@
+# dev environment — small, cost-conscious defaults.
+# Copy this folder to add a new environment (`dude iac new-env --env prod`) and
+# bump the sizing / durability knobs there.
+
+environment = "dev"
+
+# Several popular regions — West Europe notably — are capacity-closed to NEW
+# subscriptions and reject resource creation with "RequestDisallowedByAzure: the
+# selected region is currently not accepting new customers". North Europe is the
+# default because it is reliably open. Before switching, create something cheap
+# there first, or check https://aka.ms/locationineligible.
+location = "northeurope"
+
+# Azure subscription this environment deploys into. Leave empty to use whichever
+# subscription `az account show` reports; pin it here once you know the id, so
+# two environments can never land in the same place by accident.
+# `dude iac login --env dev` prints the id to paste in.
+subscription_id = ""
+
+# Shared container registry — filled in by `dude iac bootstrap`.
+acr_name           = "CHANGE-ME"
+acr_resource_group = "{{projectName}}-shared-rg"
+
+# Public hostname: Azure serves the app at
+#   <dns_label>.<location>.cloudapp.azure.com
+# The label is free, needs no domain, but must be unique within the region.
+# Change it if `dude iac apply` reports the name is already taken.
+dns_label = "{{projectName}}-dev"
+
+# HTTPS (optional) — leave EMPTY unless a domain you own points at the ingress.
+# Azure's own *.cloudapp.azure.com hostname cannot get a Let's Encrypt
+# certificate (see iac/README.md, "HTTPS / TLS"), so setting this without a real
+# domain only installs cert-manager and fails to issue.
+letsencrypt_email = ""
+
+# Network
+vnet_cidr       = "10.0.0.0/16"
+aks_subnet_cidr = "10.0.0.0/20"
+{{#if withPostgres}}
+db_subnet_cidr  = "10.0.16.0/24"
+{{/if}}
+
+# AKS — leave kubernetes_version empty to track whatever Azure defaults to in
+# this region (always a supported version); pin it for reproducible upgrades.
+#
+# Before changing node_vm_size, check the quota for the family you are moving to:
+#   az vm list-usage --location northeurope -o table
+# A brand-new subscription typically gets 10 vCPUs for Dsv3 and BS, and *zero*
+# for newer families like DASv5 — an unavailable family fails the apply several
+# minutes in, not at plan time.
+kubernetes_version = ""
+node_vm_size       = "Standard_D2s_v3"
+node_count         = 2
+node_min_count     = 2
+node_max_count     = 4
+{{#if withPostgres}}
+
+# Azure Database for PostgreSQL (Flexible Server)
+# Burstable (B_) is the cheap dev tier; move to GP_Standard_* for production —
+# zone-redundant HA is not available on Burstable.
+db_sku_name              = "B_Standard_B1ms"
+db_storage_mb            = 32768
+db_backup_retention_days = 7
+db_high_availability     = false
+{{/if}}

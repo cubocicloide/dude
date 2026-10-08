@@ -12,6 +12,11 @@
  *   3. add it to `iacProviders` below,
  *   4. add the `<id>` choice to the stack's `iac` scaffold variable + overlay.
  *
+ * A provider's `detect` must key off the recorded `iac` scaffold answer, not
+ * off a path: every provider scaffolds into the same `iac/terraform` directory,
+ * so a presence check would match them all and the first one registered would
+ * win for every project. `iacTarget()` in `./shared.js` is that lookup.
+ *
  * The stack module is imported with `process.cwd()` set to the user's project
  * root, so the active provider can be resolved eagerly here. Each command also
  * guards with its own `available`/`requireIac`, so nothing runs for a project
@@ -20,9 +25,11 @@
 import type { StackCommandDef } from '@cubocicloide/dude'
 import type { IacProvider } from './types.js'
 import { awsEksProvider } from './providers/aws-eks/index.js'
+import { azureAcaProvider } from './providers/azure-aca/index.js'
+import { azureAksProvider } from './providers/azure-aks/index.js'
 
 /** All known IaC providers. Register new targets here. */
-export const iacProviders: IacProvider[] = [awsEksProvider]
+export const iacProviders: IacProvider[] = [awsEksProvider, azureAksProvider, azureAcaProvider]
 
 /** The provider configured for the project at `projectRoot`, if any. */
 export function activeIacProvider(projectRoot: string = process.cwd()): IacProvider | undefined {

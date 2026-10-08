@@ -4,7 +4,7 @@
  * `providers/<id>/lib/`.
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'pathe'
 
 function shouldUseShell(): boolean {
@@ -28,10 +28,25 @@ export function childEnv(profile?: string): NodeJS.ProcessEnv {
 
 /** Run a command, inheriting stdio. Returns the exit status (or 1 on spawn error). */
 export function run(cmd: string, args: string[], cwd: string, profile?: string): number {
+  return runWith(cmd, args, cwd, childEnv(profile))
+}
+
+/**
+ * `run`, with the child environment supplied outright instead of derived from an
+ * AWS profile. Providers on other clouds scope their tools with different
+ * variables (`ARM_SUBSCRIPTION_ID` on Azure, …), and this is the seam that lets
+ * them do so without each one re-implementing the spawn plumbing.
+ */
+export function runWith(
+  cmd: string,
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): number {
   const r = spawnSync(cmd, args, {
     cwd,
     stdio: 'inherit',
-    env: childEnv(profile),
+    env,
     shell: shouldUseShell(),
   })
   if (r.error) {
@@ -48,10 +63,20 @@ export function run(cmd: string, args: string[], cwd: string, profile?: string):
 
 /** Run a command and capture stdout (used for terraform output → kubeconfig). */
 export function capture(cmd: string, args: string[], cwd: string, profile?: string): CaptureResult {
+  return captureWith(cmd, args, cwd, childEnv(profile))
+}
+
+/** `capture`, with the child environment supplied outright. See {@link runWith}. */
+export function captureWith(
+  cmd: string,
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): CaptureResult {
   const r = spawnSync(cmd, args, {
     cwd,
     encoding: 'utf8',
-    env: childEnv(profile),
+    env,
     shell: shouldUseShell(),
   })
   return { status: r.status ?? 1, stdout: r.stdout ?? '' }
@@ -80,6 +105,23 @@ export function readAnswers(projectRoot: string): Record<string, unknown> {
   } catch {
     return {}
   }
+}
+
+/**
+ * The IaC target a project was scaffolded with (`'aws-eks'`, `'azure-aks'`, …),
+ * or `''` when it has none. This — not "is there an `iac/` directory" — is what
+ * decides which provider is active, because every provider scaffolds into the
+ * same `iac/terraform` path and a presence check would therefore match them all,
+ * handing an Azure project the AWS commands.
+ *
+ * The fallback keeps projects scaffolded before the stack had a second target
+ * working: back then `--iac` could only mean AWS EKS, and some of those
+ * `dude.json` files predate the answer being recorded at all.
+ */
+export function iacTarget(projectRoot: string): string {
+  const answer = readAnswers(projectRoot).iac
+  if (typeof answer === 'string' && answer && answer !== 'none') return answer
+  return existsSync(path.join(projectRoot, 'iac', 'terraform')) ? 'aws-eks' : ''
 }
 
 /** Read `projectName` from dude.json — used as the Helm release name. */

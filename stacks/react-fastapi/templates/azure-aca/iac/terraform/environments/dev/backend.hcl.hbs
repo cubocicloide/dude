@@ -1,0 +1,25 @@
+# Remote state for the `dev` environment.
+# These resources are created once by `iac/terraform/bootstrap` — run
+# `dude iac bootstrap` and it fills in the two CHANGE-ME values below for you.
+# The same backend works locally and from CI/CD.
+#
+# Each environment uses a distinct `key`, so adding `staging`/`prod` is just a
+# new folder with its own backend.hcl + terraform.tfvars.
+#
+# There is no lock table: the azurerm backend takes a lease on the state blob,
+# which is the lock.
+
+resource_group_name  = "CHANGE-ME-{{projectName}}-shared-rg"
+storage_account_name = "CHANGE-ME"
+container_name       = "tfstate"
+key                  = "{{projectName}}/dev/terraform.tfstate"
+
+# Terraform reaches the state blob with the storage account's access key, which
+# it looks up through ARM using the subscription `dude iac` exports for the
+# environment. That works for anyone with Contributor on the subscription.
+#
+# Setting `use_azuread_auth = true` instead authenticates as the signed-in user,
+# which is tighter — but is NOT a drop-in: being Owner of the subscription grants
+# control-plane rights only, so every person and pipeline would also need the
+# data-plane role "Storage Blob Data Contributor" on the storage account, or
+# `terraform init` fails with AuthorizationPermissionMismatch.

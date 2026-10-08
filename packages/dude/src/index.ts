@@ -5,7 +5,7 @@
  * files import `defineConfig`.
  */
 
-export { defineStack, defineCommand, stackDocsSchema } from './core/stack-contract.js'
+export { defineStack, defineCommand, stackDocsSchema, iacTargets } from './core/stack-contract.js'
 export type {
   StackDefinition,
   StackContext,
@@ -16,6 +16,7 @@ export type {
   StackCommandArg,
   StackCommandContext,
   StackDocs,
+  StackDocsIac,
 } from './core/stack-contract.js'
 
 export { defineConfig } from './core/config.js'

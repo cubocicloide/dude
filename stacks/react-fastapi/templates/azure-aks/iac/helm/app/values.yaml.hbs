@@ -1,0 +1,147 @@
+## Default values for the {{projectName}} chart.
+## Per-environment overrides live in values-<env>.yaml.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  ## ACR login server, e.g. myorgappacr.azurecr.io
+  ## Get it from `dude iac output` (acr_login_server) — `dude iac deploy` sets it
+  ## for you, so this only matters for a hand-rolled `helm upgrade`.
+  registry: ""
+  pullPolicy: IfNotPresent
+  backend:
+    repository: {{projectName}}-backend
+    tag: latest
+  frontend:
+    repository: {{projectName}}-frontend
+    tag: latest
+
+backend:
+  replicas: 2
+  port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+frontend:
+  replicas: 2
+  ## nginx serving the production build (see frontend/Dockerfile.prod). 8080
+  ## because that image runs unprivileged and cannot bind a port below 1024.
+  port: 8080
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+## Non-sensitive configuration → rendered verbatim into a ConfigMap and loaded
+## into every app container via envFrom. Each key is the ENV VAR NAME exactly as
+## the backend reads it in app/core/config.py. To add one: add a line here (and
+## the matching field in config.py) — no chart edit needed.
+config:
+  APP_TITLE: {{projectName}}
+  DEBUG: "false"
+
+## Sensitive configuration → rendered into a Secret (same key = ENV VAR NAME rule).
+## Two ways to supply values, neither uses AWS Secrets Manager:
+##   • Generated/derived by Terraform (e.g. DATABASE_URL): `dude iac ship`/`deploy`
+##     injects it automatically via --set-string from the `database_url` output —
+##     don't put it in any file. (No Azure Key Vault is involved.)
+##   • External/static (e.g. STRIPE_API_KEY): add it under `secrets:` in the
+##     per-environment values-<env>.yaml, which is GITIGNORED (see iac/.gitignore)
+##     precisely so secrets never get committed.
+## Keep this empty ({}) here in the committed defaults.
+secrets: {}
+
+## PostgreSQL is provided by Azure Database for PostgreSQL Flexible Server
+## (provisioned by Terraform), not by the chart. `enabled` only controls whether
+## the app wires DATABASE_URL and runs the migration job.
+database:
+  enabled: {{withPostgres}}
+  ## Run `alembic upgrade head` as a pre-install/pre-upgrade hook job.
+  runMigrations: {{withPostgres}}
+
+## Redis runs in-cluster (broker/result backend for Celery).
+redis:
+  enabled: {{withRedis}}
+  image: redis:7-alpine
+  port: 6379
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+celery:
+  enabled: {{withCelery}}
+  worker:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  flower:
+    enabled: {{withCelery}}
+    port: 5555
+
+celeryBeat:
+  enabled: {{withCeleryBeat}}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+ingress:
+  enabled: true
+  ## ingress-nginx is installed into the cluster by Terraform, which also asks
+  ## Azure for the public IP's DNS label — that is where the hostname below
+  ## comes from.
+  className: nginx
+  ## Public hostname, e.g. my-app-dev.northeurope.cloudapp.azure.com.
+  ## Left empty here on purpose: `dude iac deploy` sets it from the Terraform
+  ## `app_host` output, which only exists after `dude iac apply`. Empty = the
+  ## ingress matches any Host header, so the raw IP still works.
+  host: ""
+  annotations:
+    ## Uploads/large request bodies: nginx defaults to 1m, which is low for an
+    ## API that accepts files.
+    nginx.ingress.kubernetes.io/proxy-body-size: 16m
+  ## HTTPS is OFF by default because Azure's own *.cloudapp.azure.com hostname
+  ## cannot get a browser-trusted certificate: it is not a public suffix, so
+  ## Let's Encrypt counts every Azure customer against one shared rate limit for
+  ## azure.com and effectively always refuses. Point a domain you own at this
+  ## ingress, then set letsencrypt_email in the environment's terraform.tfvars
+  ## and flip these on — see iac/README.md, "HTTPS / TLS".
+  tls:
+    enabled: false
+    ## cert-manager ClusterIssuer name; Terraform creates `letsencrypt-prod`
+    ## when letsencrypt_email is set.
+    clusterIssuer: ""
+    ## Secret cert-manager writes the certificate into. Defaults to
+    ## <release>-tls when empty.
+    secretName: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}

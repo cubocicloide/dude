@@ -1,0 +1,307 @@
+locals {
+  name = "${var.project_name}-${var.environment}"
+
+  # Azure publishes the app at <dns_label>.<location>.cloudapp.azure.com. The
+  # label is free and needs no domain registration, but it must be unique within
+  # the region — override `dns_label` in terraform.tfvars if `apply` reports the
+  # name is taken.
+  dns_label = var.dns_label != "" ? var.dns_label : local.name
+  app_host  = "${local.dns_label}.${var.location}.cloudapp.azure.com"
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "azurerm_resource_group" "this" {
+  name     = "${local.name}-rg"
+  location = var.location
+  tags     = local.tags
+}
+
+# ── Network ───────────────────────────────────────────────────────────────────
+resource "azurerm_virtual_network" "this" {
+  name                = "${local.name}-vnet"
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+  address_space       = [var.vnet_cidr]
+  tags                = local.tags
+}
+
+resource "azurerm_subnet" "aks" {
+  name                 = "${local.name}-aks-snet"
+  resource_group_name  = azurerm_resource_group.this.name
+  virtual_network_name = azurerm_virtual_network.this.name
+  address_prefixes     = [var.aks_subnet_cidr]
+}
+{{#if withPostgres}}
+
+# Flexible Server with VNet integration requires a subnet delegated exclusively
+# to it — the database gets a private address inside the VNet and is never
+# exposed to the internet.
+resource "azurerm_subnet" "db" {
+  name                 = "${local.name}-db-snet"
+  resource_group_name  = azurerm_resource_group.this.name
+  virtual_network_name = azurerm_virtual_network.this.name
+  address_prefixes     = [var.db_subnet_cidr]
+
+  service_endpoints = ["Microsoft.Storage"]
+
+  delegation {
+    name = "postgres"
+    service_delegation {
+      name = "Microsoft.DBforPostgreSQL/flexibleServers"
+      actions = [
+        "Microsoft.Network/virtualNetworks/subnets/join/action",
+      ]
+    }
+  }
+}
+{{/if}}
+
+# ── AKS cluster ───────────────────────────────────────────────────────────────
+resource "azurerm_kubernetes_cluster" "this" {
+  name                = local.name
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+  dns_prefix          = local.name
+
+  # Empty string would be rejected, so null (= "let Azure pick") is the way to
+  # express "no opinion"; pin `kubernetes_version` in tfvars for a reproducible
+  # control-plane version.
+  kubernetes_version = var.kubernetes_version != "" ? var.kubernetes_version : null
+
+  # Free tier: a best-effort control-plane SLA, which is what a dev/PoC cluster
+  # wants. Set this to "Standard" in a production environment's tfvars.
+  sku_tier = "Free"
+
+  default_node_pool {
+    name                 = "system"
+    vm_size              = var.node_vm_size
+    node_count           = var.node_count
+    auto_scaling_enabled = true
+    min_count            = var.node_min_count
+    max_count            = var.node_max_count
+    vnet_subnet_id       = azurerm_subnet.aks.id
+    orchestrator_version = var.kubernetes_version != "" ? var.kubernetes_version : null
+
+    upgrade_settings {
+      max_surge = "10%"
+    }
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  # Overlay mode keeps pod IPs out of the VNet address space, so the subnet only
+  # has to be large enough for nodes — the usual way an Azure CNI cluster runs out
+  # of addresses and stops scheduling.
+  network_profile {
+    network_plugin      = "azure"
+    network_plugin_mode = "overlay"
+    network_policy      = "calico"
+    load_balancer_sku   = "standard"
+    outbound_type       = "loadBalancer"
+  }
+
+  # `node_count` is the INITIAL size only: the autoscaler owns it afterwards, and
+  # without this every plan would try to reset a scaled-out cluster.
+  lifecycle {
+    ignore_changes = [default_node_pool[0].node_count]
+  }
+
+  tags = local.tags
+}
+
+# ── Container registry access ─────────────────────────────────────────────────
+# The registry is shared across environments and owned by the bootstrap config
+# (one image, promoted dev → staging → prod by tag), so it is read here, never
+# created. Granting AcrPull to the cluster's kubelet identity is what lets pods
+# pull without an imagePullSecret.
+data "azurerm_container_registry" "shared" {
+  name                = var.acr_name
+  resource_group_name = var.acr_resource_group
+}
+
+resource "azurerm_role_assignment" "acr_pull" {
+  scope                            = data.azurerm_container_registry.shared.id
+  role_definition_name             = "AcrPull"
+  principal_id                     = azurerm_kubernetes_cluster.this.kubelet_identity[0].object_id
+  skip_service_principal_aad_check = true
+}
+
+# ── Ingress controller + the public hostname ──────────────────────────────────
+# ingress-nginx's Service asks the Azure cloud-controller for a public IP and —
+# via the annotation below — for a DNS label on it. That is what makes the app
+# reachable at a real hostname without owning a domain or touching DNS: Azure
+# serves <dns_label>.<location>.cloudapp.azure.com for free.
+#
+# The IP itself is deliberately NOT a Terraform resource. A pre-created IP has to
+# live in a resource group the cluster identity can write to, which costs an
+# extra role assignment and an annotation that has to agree with it; letting the
+# controller create the IP in the node resource group avoids all of that, and the
+# IP is released automatically when the cluster goes away.
+resource "helm_release" "ingress_nginx" {
+  name             = "ingress-nginx"
+  repository       = "https://kubernetes.github.io/ingress-nginx"
+  chart            = "ingress-nginx"
+  namespace        = "ingress-nginx"
+  create_namespace = true
+  version          = var.ingress_nginx_chart_version
+
+  # The load balancer, its public IP and the DNS label take a minute or two to
+  # settle; without waiting, `apply` finishes before the hostname resolves and
+  # the first deploy looks broken.
+  wait    = true
+  timeout = 900
+
+  set {
+    name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/azure-dns-label-name"
+    value = local.dns_label
+  }
+  set {
+    name  = "controller.service.externalTrafficPolicy"
+    value = "Local"
+  }
+  set {
+    name  = "controller.replicaCount"
+    value = "2"
+  }
+
+  depends_on = [azurerm_kubernetes_cluster.this]
+}
+
+# ── TLS (optional — enabled when var.letsencrypt_email is set) ────────────────
+# cert-manager + a Let's Encrypt ClusterIssuer, for when a domain you own points
+# at the ingress. It is off by default because Azure's own *.cloudapp.azure.com
+# hostname cannot get a trusted certificate: that suffix is not on the Public
+# Suffix List, so Let's Encrypt attributes every certificate to `azure.com` and
+# the shared rate limit refuses yours. See iac/README.md, "HTTPS / TLS".
+resource "helm_release" "cert_manager" {
+  count            = var.letsencrypt_email == "" ? 0 : 1
+  name             = "cert-manager"
+  repository       = "https://charts.jetstack.io"
+  chart            = "cert-manager"
+  namespace        = "cert-manager"
+  create_namespace = true
+  version          = var.cert_manager_chart_version
+
+  set {
+    name  = "crds.enabled"
+    value = "true"
+  }
+
+  depends_on = [azurerm_kubernetes_cluster.this]
+}
+
+resource "kubernetes_manifest" "letsencrypt_issuer" {
+  count = var.letsencrypt_email == "" ? 0 : 1
+
+  manifest = {
+    apiVersion = "cert-manager.io/v1"
+    kind       = "ClusterIssuer"
+    metadata = {
+      name = "letsencrypt-prod"
+    }
+    spec = {
+      acme = {
+        server = "https://acme-v02.api.letsencrypt.org/directory"
+        email  = var.letsencrypt_email
+        privateKeySecretRef = {
+          name = "letsencrypt-prod-account-key"
+        }
+        solvers = [
+          {
+            http01 = {
+              ingress = {
+                ingressClassName = "nginx"
+              }
+            }
+          },
+        ]
+      }
+    }
+  }
+
+  depends_on = [helm_release.cert_manager, helm_release.ingress_nginx]
+}
+{{#if withPostgres}}
+
+# ── Azure Database for PostgreSQL (Flexible Server) ───────────────────────────
+# The admin password is generated here and surfaced through the `database_url`
+# output (sensitive) — there is no Azure Key Vault in this path. `special = false`
+# keeps it URL- and `helm --set`-safe (no characters that need escaping).
+resource "random_password" "db" {
+  length  = 32
+  special = false
+}
+
+# The server has no public endpoint: it is reachable only from inside the VNet,
+# which is resolved through this private zone linked to it.
+resource "azurerm_private_dns_zone" "postgres" {
+  name                = "${local.name}.postgres.database.azure.com"
+  resource_group_name = azurerm_resource_group.this.name
+  tags                = local.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
+  name                  = "${local.name}-pg-link"
+  resource_group_name   = azurerm_resource_group.this.name
+  private_dns_zone_name = azurerm_private_dns_zone.postgres.name
+  virtual_network_id    = azurerm_virtual_network.this.id
+  registration_enabled  = false
+  tags                  = local.tags
+}
+
+resource "azurerm_postgresql_flexible_server" "this" {
+  name                = "${local.name}-pg"
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+
+  version    = var.db_version
+  sku_name   = var.db_sku_name
+  storage_mb = var.db_storage_mb
+
+  administrator_login    = var.db_username
+  administrator_password = random_password.db.result
+
+  backup_retention_days = var.db_backup_retention_days
+
+  delegated_subnet_id           = azurerm_subnet.db.id
+  private_dns_zone_id           = azurerm_private_dns_zone.postgres.id
+  public_network_access_enabled = false
+
+  dynamic "high_availability" {
+    for_each = var.db_high_availability ? [1] : []
+    content {
+      mode = "ZoneRedundant"
+    }
+  }
+
+  # `zone` is assigned by Azure when it isn't pinned, and it then shows up as a
+  # diff on every subsequent plan.
+  lifecycle {
+    ignore_changes = [zone]
+  }
+
+  tags = local.tags
+
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres]
+}
+
+resource "azurerm_postgresql_flexible_server_database" "app" {
+  name      = var.db_name
+  server_id = azurerm_postgresql_flexible_server.this.id
+  collation = "en_US.utf8"
+  charset   = "utf8"
+
+  # Dropping the database would take the application's data with it; Terraform
+  # removing the *server* is the deliberate, `dude iac destroy` path.
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+{{/if}}

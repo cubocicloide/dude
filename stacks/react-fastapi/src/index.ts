@@ -33,6 +33,15 @@ import { upCommand } from './commands/up/index.js'
 export default defineStack({
   name: 'react-fastapi',
   version: '0.1.0',
+  // Deliberately NOT raised for the multi-target `docs.iac` below, even though
+  // declaring it as a LIST is behaviour the CLI only gained in 0.18.0.
+  //
+  // An older CLI rejects that manifest inside `loadStack`, which throws — and the
+  // `minDudeVersion` gate runs only once loading has succeeded, so it could never
+  // fire for the very users it would be describing. They are already served well:
+  // `cli.ts` catches the load failure and points at `dude upgrade --cli`. Raising
+  // the floor would buy those users nothing while breaking every in-repo test
+  // that drives the workspace CLI, whose version only becomes 0.18.0 at release.
   minDudeVersion: '0.1.0',
   description: 'React (Vite + TypeScript) frontend with a FastAPI backend.',
 
@@ -66,29 +75,34 @@ export default defineStack({
     {
       name: 'iac',
       type: 'select',
-      prompt: 'Infrastructure-as-Code (Terraform + Helm)',
-      choices: ['none', 'aws-eks'],
+      prompt: 'Infrastructure-as-Code (Terraform; Helm on the Kubernetes targets)',
+      choices: ['none', 'aws-eks', 'azure-aks', 'azure-aca'],
       default: 'none',
     },
   ],
 
   docs: {
     tagline:
-      'React (Vite) frontend with a FastAPI backend — Postgres, Celery and AWS EKS when you need them.',
+      'React (Vite) frontend with a FastAPI backend — Postgres, Celery, and Kubernetes IaC on AWS or Azure when you need them.',
     useCases: [
       'A CRUD/product web app that needs a typed REST API behind a modern SPA',
-      'A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS) once it scales',
+      'A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS or Azure AKS) once it scales',
+      'A project whose hosting cloud is the customer\u2019s decision, not the code\u2019s',
       'Background/async work (Celery + Celery Beat) without leaving the Python backend',
     ],
     technologies: ['React 19', 'Vite', 'FastAPI', 'SQLModel', 'Alembic', 'Celery'],
-    iac: { provider: 'aws-eks', flag: '--iac aws-eks' },
+    iac: [
+      { provider: 'aws-eks', flag: '--iac aws-eks' },
+      { provider: 'azure-aks', flag: '--iac azure-aks' },
+      { provider: 'azure-aca', flag: '--iac azure-aca' },
+    ],
     pages: [
       { file: 'index.md', title: 'Home' },
       { file: 'dude.md', title: 'Working with dude' },
       { file: 'api.md', title: 'Command reference' },
       { file: 'cheatsheet.md', title: 'Cheatsheet' },
       { file: 'mkdocs.md', title: 'Writing docs' },
-      { file: 'deploy.md', title: 'Deploy (AWS EKS)', when: 'withIac' },
+      { file: 'deploy.md', title: 'Deploy to the cloud', when: 'withIac' },
     ],
   },
 
@@ -99,7 +113,26 @@ export default defineStack({
     const withCeleryBeat = Boolean(answers.celeryBeat)
     const withCelery = Boolean(answers.celery) || withCeleryBeat
     const withRedis = withCelery
-    const withIac = answers.iac === 'aws-eks'
+    // One `withIac` for everything the scaffold gates on "is this project
+    // deployed to a cloud at all" (the deploy docs page, the IaC section of
+    // CLAUDE.md), plus one boolean per target for the handful of places that
+    // genuinely differ. `iacLabel` carries the cloud's name into prose so the
+    // base templates don't have to branch just to print it.
+    const withAwsEks = answers.iac === 'aws-eks'
+    const withAzureAks = answers.iac === 'azure-aks'
+    const withAzureAca = answers.iac === 'azure-aca'
+    const withIac = withAwsEks || withAzureAks || withAzureAca
+    // `withKubernetes` is what the templates should branch on wherever the
+    // distinction is "is there a cluster", not "which cloud" — the Container
+    // Apps target is the first one where those two questions differ.
+    const withKubernetes = withAwsEks || withAzureAks
+    const iacLabel = withAwsEks
+      ? 'AWS EKS'
+      : withAzureAks
+        ? 'Azure AKS'
+        : withAzureAca
+          ? 'Azure Container Apps'
+          : ''
 
     const data: Record<string, unknown> = {
       ...answers,
@@ -108,6 +141,11 @@ export default defineStack({
       withCeleryBeat,
       withRedis,
       withIac,
+      withAwsEks,
+      withAzureAks,
+      withAzureAca,
+      withKubernetes,
+      iacLabel,
       dudeVersion,
       stackVersion,
     }
@@ -132,11 +170,22 @@ export default defineStack({
       await renderTemplateTree({ src: path.join(templates, 'celerybeat'), dest, data })
     }
 
-    // IaC overlay — Terraform (VPC/EKS/ECR/optional RDS) + Helm chart. The
-    // overlay always ships the full chart/modules; the rendered values and
+    // IaC overlay — Terraform + a Helm chart for the chosen cloud. Exactly one
+    // applies: both scaffold into `iac/`, and the provider a project gets is
+    // decided by the recorded `iac` answer, not by what is on disk.
+    //   aws-eks:   VPC / EKS / ECR / ALB controller / optional RDS
+    //   azure-aks: resource group / VNet / AKS / ACR / ingress-nginx /
+    //              optional PostgreSQL Flexible Server
+    // Each overlay always ships its full chart + modules; the rendered values and
     // module wiring reflect the other answers (withPostgres/withRedis/withCelery…).
-    if (withIac) {
+    if (withAwsEks) {
       await renderTemplateTree({ src: path.join(templates, 'aws-eks'), dest, data })
+    }
+    if (withAzureAks) {
+      await renderTemplateTree({ src: path.join(templates, 'azure-aks'), dest, data })
+    }
+    if (withAzureAca) {
+      await renderTemplateTree({ src: path.join(templates, 'azure-aca'), dest, data })
     }
 
     // Generate the typed API client from the openapi.yaml that was just
@@ -155,7 +204,9 @@ export default defineStack({
       const name = String(ctx.answers.projectName ?? 'your-project')
       const withPostgres = ctx.answers.database === 'postgres'
       const withCelery = Boolean(ctx.answers.celery) || Boolean(ctx.answers.celeryBeat)
-      const withIac = ctx.answers.iac === 'aws-eks'
+      const withAwsEks = ctx.answers.iac === 'aws-eks'
+      const withAzureAks = ctx.answers.iac === 'azure-aks'
+      const withAzureAca = ctx.answers.iac === 'azure-aca'
 
       ctx.logger.info('Project scaffolded. Next steps:')
       ctx.logger.info('')
@@ -188,13 +239,33 @@ export default defineStack({
       if (withPostgres) {
         ctx.logger.info('    Users:    http://localhost:8000/api/users')
       }
-      if (withIac) {
+      if (withAwsEks) {
         ctx.logger.info('')
         ctx.logger.info('  Deploy to AWS EKS (Terraform + Helm) — see iac/README.md:')
         ctx.logger.info('       dude iac login --env dev')
         ctx.logger.info('       dude iac bootstrap --state-bucket-prefix <your-org> --env dev --yes')
         ctx.logger.info('       dude iac init --env dev && dude iac apply --env dev')
         ctx.logger.info('       dude iac kubeconfig --env dev && dude iac ship --env dev')
+      }
+      if (withAzureAks) {
+        ctx.logger.info('')
+        ctx.logger.info('  Deploy to Azure AKS (Terraform + Helm) — see iac/README.md:')
+        ctx.logger.info('       dude iac login --env dev')
+        ctx.logger.info('       dude iac bootstrap --state-prefix <your-org> --env dev --yes')
+        ctx.logger.info('       dude iac init --env dev && dude iac apply --env dev')
+        ctx.logger.info('       dude iac kubeconfig --env dev && dude iac ship --env dev')
+        ctx.logger.info('     The app is published on Azure\u2019s own hostname:')
+        ctx.logger.info(`       http://${name}-dev.northeurope.cloudapp.azure.com/`)
+      }
+      if (withAzureAca) {
+        ctx.logger.info('')
+        ctx.logger.info('  Deploy to Azure Container Apps (Terraform) \u2014 see iac/README.md:')
+        ctx.logger.info('       dude iac login --env dev')
+        ctx.logger.info('       dude iac bootstrap --state-prefix <your-org> --env dev --yes')
+        ctx.logger.info('       dude iac init --env dev && dude iac apply --env dev')
+        ctx.logger.info('       dude iac ship --env dev')
+        ctx.logger.info('     The app is served over HTTPS on an Azure-managed hostname')
+        ctx.logger.info('     (no domain or certificate needed) \u2014 dude iac output prints it.')
       }
     },
   },

@@ -1,0 +1,72 @@
+output "location" {
+  description = "Azure region the environment runs in."
+  value       = var.location
+}
+
+output "resource_group_name" {
+  description = "Resource group holding this environment."
+  value       = azurerm_resource_group.this.name
+}
+
+output "environment_name" {
+  description = "Container Apps environment name."
+  value       = azurerm_container_app_environment.this.name
+}
+
+output "acr_login_server" {
+  description = "Shared container registry host (owned by the bootstrap config)."
+  value       = data.azurerm_container_registry.shared.login_server
+}
+
+output "acr_backend_repository_url" {
+  description = "Registry repository for the backend image."
+  value       = "${data.azurerm_container_registry.shared.login_server}/${var.project_name}-backend"
+}
+
+output "acr_frontend_repository_url" {
+  description = "Registry repository for the frontend image."
+  value       = "${data.azurerm_container_registry.shared.login_server}/${var.project_name}-frontend"
+}
+
+output "image_tag" {
+  description = "Image tag currently deployed. `dude iac deploy`/`ship` rewrites it in terraform.tfvars."
+  value       = var.image_tag
+}
+
+output "app_host" {
+  description = "Public hostname Azure serves the app on."
+  value       = azurerm_container_app.frontend.ingress[0].fqdn
+}
+
+output "app_url" {
+  description = "Public URL of the application. HTTPS with a Microsoft-managed certificate — no domain required."
+  value       = "https://${azurerm_container_app.frontend.ingress[0].fqdn}/"
+}
+
+output "backend_app_name" {
+  description = "Container app running the API (internal ingress only)."
+  value       = azurerm_container_app.backend.name
+}
+{{#if withPostgres}}
+
+output "migrate_job_name" {
+  description = "Container Apps job that runs `alembic upgrade head`. `dude iac migrate` starts it."
+  value       = azurerm_container_app_job.migrate.name
+}
+
+output "postgres_fqdn" {
+  description = "Private FQDN of the PostgreSQL Flexible Server (reachable from inside the VNet only)."
+  value       = azurerm_postgresql_flexible_server.this.fqdn
+}
+
+output "database_name" {
+  description = "Initial database name."
+  value       = var.db_name
+}
+
+output "database_url" {
+  description = "Full PostgreSQL connection string. Terraform wires it into every app as a secret; this output is for debugging."
+  value       = local.database_url
+  sensitive   = true
+}
+{{/if}}

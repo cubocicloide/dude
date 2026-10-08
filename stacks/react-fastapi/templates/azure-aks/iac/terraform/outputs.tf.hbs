@@ -1,0 +1,57 @@
+output "location" {
+  description = "Azure region the environment runs in."
+  value       = var.location
+}
+
+output "resource_group_name" {
+  description = "Resource group holding this environment (use with `az aks get-credentials`)."
+  value       = azurerm_resource_group.this.name
+}
+
+output "cluster_name" {
+  description = "AKS cluster name (use with `az aks get-credentials`)."
+  value       = azurerm_kubernetes_cluster.this.name
+}
+
+output "acr_login_server" {
+  description = "Shared container registry host (owned by the bootstrap config)."
+  value       = data.azurerm_container_registry.shared.login_server
+}
+
+output "acr_backend_repository_url" {
+  description = "Registry repository for the backend image."
+  value       = "${data.azurerm_container_registry.shared.login_server}/${var.project_name}-backend"
+}
+
+output "acr_frontend_repository_url" {
+  description = "Registry repository for the frontend image."
+  value       = "${data.azurerm_container_registry.shared.login_server}/${var.project_name}-frontend"
+}
+
+output "app_host" {
+  description = "Public hostname Azure serves the app on. `dude iac deploy` wires this into the Ingress automatically."
+  value       = local.app_host
+}
+
+output "app_url" {
+  description = "Public URL of the application."
+  value       = "${var.letsencrypt_email == "" ? "http" : "https"}://${local.app_host}/"
+}
+{{#if withPostgres}}
+
+output "postgres_fqdn" {
+  description = "Private FQDN of the PostgreSQL Flexible Server (reachable from inside the VNet only)."
+  value       = azurerm_postgresql_flexible_server.this.fqdn
+}
+
+output "database_name" {
+  description = "Initial database name."
+  value       = var.db_name
+}
+
+output "database_url" {
+  description = "Full PostgreSQL connection string for the app. `dude iac ship`/`deploy` wires this into the Helm release automatically."
+  value       = "postgresql://${var.db_username}:${random_password.db.result}@${azurerm_postgresql_flexible_server.this.fqdn}:5432/${var.db_name}?sslmode=require"
+  sensitive   = true
+}
+{{/if}}

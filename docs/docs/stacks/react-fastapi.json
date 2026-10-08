@@ -3,7 +3,7 @@
   "id": "react-fastapi",
   "package": "@cubocicloide/stack-react-fastapi",
   "description": "React (Vite + TypeScript) frontend with a FastAPI backend.",
-  "tagline": "React (Vite) frontend with a FastAPI backend — Postgres, Celery and AWS EKS when you need them.",
+  "tagline": "React (Vite) frontend with a FastAPI backend — Postgres, Celery, and Kubernetes IaC on AWS or Azure when you need them.",
   "technologies": [
     "React 19",
     "Vite",
@@ -14,7 +14,8 @@
   ],
   "useCases": [
     "A CRUD/product web app that needs a typed REST API behind a modern SPA",
-    "A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS) once it scales",
+    "A Python + TypeScript team that wants Kubernetes-grade IaC (AWS EKS or Azure AKS) once it scales",
+    "A project whose hosting cloud is the customer’s decision, not the code’s",
     "Background/async work (Celery + Celery Beat) without leaving the Python backend"
   ],
   "requiresDude": "0.1.0",
@@ -22,6 +23,20 @@
     "provider": "aws-eks",
     "flag": "--iac aws-eks"
   },
+  "iacTargets": [
+    {
+      "provider": "aws-eks",
+      "flag": "--iac aws-eks"
+    },
+    {
+      "provider": "azure-aks",
+      "flag": "--iac azure-aks"
+    },
+    {
+      "provider": "azure-aca",
+      "flag": "--iac azure-aca"
+    }
+  ],
   "init": {
     "command": "dude init my-app --stack react-fastapi",
     "variables": [
@@ -64,11 +79,13 @@
         "name": "iac",
         "flag": "--iac",
         "type": "select",
-        "prompt": "Infrastructure-as-Code (Terraform + Helm)",
+        "prompt": "Infrastructure-as-Code (Terraform; Helm on the Kubernetes targets)",
         "default": "none",
         "choices": [
           "none",
-          "aws-eks"
+          "aws-eks",
+          "azure-aks",
+          "azure-aca"
         ]
       }
     ],
@@ -115,7 +132,7 @@
     },
     {
       "file": "deploy.md",
-      "title": "Deploy (AWS EKS)",
+      "title": "Deploy to the cloud",
       "when": "withIac"
     }
   ],
