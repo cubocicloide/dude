@@ -12,13 +12,17 @@ const stack = archives.find((file) => /^cubocicloide-stack-expo-firebase-.*\.tgz
 if (!dude || !stack) throw new Error('expected packed dude and expo-firebase archives')
 
 const packageFile = resolve(projectDirectory, 'package.json')
+const workspaceFile = resolve(projectDirectory, 'pnpm-workspace.yaml')
 const pkg = JSON.parse(await readFile(packageFile, 'utf8'))
 const fileSpec = (file) => `file:${join(resolve(packDirectory), file).replaceAll('\\', '/')}`
 
 pkg.devDependencies['@cubocicloide/dude'] = fileSpec(dude)
 pkg.devDependencies['@cubocicloide/stack-expo-firebase'] = fileSpec(stack)
-pkg.pnpm ??= {}
-pkg.pnpm.overrides ??= {}
-pkg.pnpm.overrides['@cubocicloide/dude'] = fileSpec(dude)
 
 await writeFile(packageFile, `${JSON.stringify(pkg, null, 2)}\n`)
+
+const workspace = await readFile(workspaceFile, 'utf8')
+await writeFile(
+  workspaceFile,
+  `${workspace.trimEnd()}\n\noverrides:\n  '@cubocicloide/dude': ${JSON.stringify(fileSpec(dude))}\n`,
+)

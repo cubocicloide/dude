@@ -27,6 +27,7 @@ describe('expo-firebase scaffold', () => {
       'eas.json',
       '.env.example',
       '.prettierrc.json',
+      'pnpm-workspace.yaml',
       'assets/icon.png',
       'assets/splash.png',
     ]) {
@@ -41,6 +42,8 @@ describe('expo-firebase scaffold', () => {
     expect(pkg.dependencies['react-native']).toMatch(/^0\.86\./)
     expect(pkg.dependencies.firebase).toMatch(/^\^12\./)
     expect(pkg.engines.node).toBe('>=22.13')
+    expect('pnpm' in pkg).toBe(false)
+    expect(project.readFile('pnpm-workspace.yaml')).toContain('allowBuilds:')
   })
 
   it('passes structural lint before dependencies are installed', () => {

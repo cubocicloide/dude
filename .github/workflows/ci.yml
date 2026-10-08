@@ -103,7 +103,7 @@ jobs:
         run: |
           node packages/dude/bin/dude.mjs init --stack ./stacks/expo-firebase --yes "$RUNNER_TEMP/expo-firebase-smoke"
           node scripts/prepare-expo-smoke.mjs "$RUNNER_TEMP/expo-firebase-smoke" "$RUNNER_TEMP/dude-packs"
-          pnpm --dir "$RUNNER_TEMP/expo-firebase-smoke" install --ignore-workspace --no-frozen-lockfile
+          pnpm --dir "$RUNNER_TEMP/expo-firebase-smoke" install --no-frozen-lockfile
 
       - name: Validate the generated project
         working-directory: ${{ runner.temp }}/expo-firebase-smoke
