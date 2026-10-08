@@ -26,6 +26,7 @@ describe('expo-firebase scaffold', () => {
       'firestore.rules',
       'eas.json',
       '.env.example',
+      '.prettierrc.json',
       'assets/icon.png',
       'assets/splash.png',
     ]) {
@@ -61,10 +62,7 @@ describe('expo-firebase scaffold', () => {
     }
 
     const firebase = catalog.groups.find((group) => group.name === 'firebase')
-    expect(firebase?.subcommands.map((command) => command.name)).toEqual([
-      'emulators',
-      'deploy',
-    ])
+    expect(firebase?.subcommands.map((command) => command.name)).toEqual(['emulators', 'deploy'])
   })
 
   it('reports representative React Native and Firebase mutations', () => {
