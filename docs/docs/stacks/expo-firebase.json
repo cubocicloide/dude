@@ -17,6 +17,7 @@
   ],
   "requiresDude": "0.17.2",
   "iac": null,
+  "iacTargets": [],
   "init": {
     "command": "dude init my-app --stack expo-firebase",
     "variables": [
